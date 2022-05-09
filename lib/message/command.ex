@@ -1,8 +1,8 @@
-defmodule XColony.Response.Command do
+defmodule XColony.Message.Command do
   import XColony.Helpers
-  match_codes( [
-    size: 16,
-    codes: %{
+
+  defmodule Code do
+    match_codes(%{
       0x0001 => :declare_publisher, #Client, Yes
       0x0002 => :publish, #Client, No
       0x0003 => :publish_confirm, #Server, No
@@ -28,15 +28,8 @@ defmodule XColony.Response.Command do
       0x0017 => :heartbeat, #Client & Server, No
       0x0018 => :route, #Client, Yes
       0x0019 => :partitions, #Client, Yes
-    }
-  ])
-
-
-
-  def handler(s, size, data) do
-    IO.inspect(s)
-    IO.inspect(size)
-    IO.inspect(data)
+    })
   end
+
 
 end

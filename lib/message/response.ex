@@ -1,9 +1,8 @@
-defmodule XColony.Response do
+defmodule XColony.Message.Response do
   import XColony.Helpers
 
-  match_codes ([
-    size: 16,
-    codes: %{
+  defmodule Code do
+    match_codes( %{
       0x01 => :ok,
       0x02 => :stream_does_not_exist,
       0x03 => :subscription_id_already_exists,
@@ -23,18 +22,30 @@ defmodule XColony.Response do
       0x11 => :precondition_failed,
       0x12 => :publisher_does_not_exist,
       0x13 => :no_offset,
-    }
+    })
+  end
+
+  defstruct([
+    :command,
+    :version,
+    :correlation_id,
+    :response,
+    :rest
   ])
 
-  defstruct [:size, :key, :version, :correlation_id, :response_code]
 
+  def decode(<<size::unsigned-integer-size(32), 0b1::1, key::bits-size(15), data::binary>>)  when byte_size(data) == size - 2 do
+    <<version::unsigned-integer-size(16),correlation_id::unsigned-integer-size(32),response_code::unsigned-integer-size(16), rest::binary>> = data
+    <<key::unsigned-integer-size(16)>> = <<0b0::1, key::bits>>
 
-
-  def handler(code, size, _) do
-    %XColony.Response{
-      size: size,
-      response_code: code
+    %XColony.Message.Response{
+      version: version,
+      correlation_id: correlation_id,
+      command: XColony.Message.Command.Code.decode(key),
+      response: Code.decode(response_code),
+      rest: rest
     }
   end
+
 
 end
