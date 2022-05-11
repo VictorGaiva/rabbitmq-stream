@@ -26,10 +26,6 @@ defmodule XColony.Message.Command do
       0x0015 => :open, #Client, Yes
       0x0016 => :close, #Client & Server, Yes
       0x0017 => :heartbeat, #Client & Server, No
-      0x0018 => :route, #Client, Yes
-      0x0019 => :partitions, #Client, Yes
     })
   end
-
-
 end

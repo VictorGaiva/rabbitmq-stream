@@ -1,12 +1,22 @@
 defmodule XColony.Message.Response do
   import XColony.Helpers
   alias XColony.Message.{Response,Command}
+  alias XColony.Connection
 
   alias Command.Code.{
     SaslHandshake,
     PeerProperties,
     SaslAuthenticate,
-    Tune
+    Tune,
+    Open
+  }
+
+  alias XColony.Message.Data.{
+    TuneData,
+    SaslHandshakeData,
+    SaslAuthenticateData,
+    PeerPropertiesData,
+    OpenData
   }
 
   defmodule Code do
@@ -34,54 +44,23 @@ defmodule XColony.Message.Response do
   end
 
   defstruct([
-    :command,
     :version,
+    :command,
     :correlation_id,
-    :response,
-    :data
+    :data,
+    :response_code,
   ])
 
-  defmodule TuneData do
-    defstruct [
-      :frame_max,
-      :heartbeat
-    ]
-  end
-
-  defmodule PeerPropertiesData do
-    defstruct [
-      :peer_properties,
-    ]
-  end
-
-  defmodule SaslHandshakeData do
-    defstruct [
-      :mechanisms,
-    ]
-  end
 
   defp fetch_string(<<size::integer-size(16), text::binary-size(size), rest::binary>>) do
     {rest, to_string(text)}
   end
 
 
-  def decode!(<<size::unsigned-integer-size(32), 0b1::1, key::bits-size(15), data::binary>>)  when byte_size(data) == size - 2 do
-    <<version::unsigned-integer-size(16),correlation_id::unsigned-integer-size(32), response_code::unsigned-integer-size(16), rest::binary>> = data
-    <<key::unsigned-integer-size(16)>> = <<0b0::1, key::bits>>
-
-    %Response{
-      version: version,
-      correlation_id: correlation_id,
-      command: Command.Code.decode(key),
-      response: Code.decode(response_code)
-    }
-    |> decode!(rest)
-  end
-
   def decode!(%Response{command: %PeerProperties{}} = response, rest) do
     <<size::integer-size(32), buffer::binary>> = rest
 
-    {_, peer_properties} = Enum.reduce(0..(size-1), {buffer, []}, fn _, {buffer, acc} ->
+    {"", peer_properties} = Enum.reduce(0..(size-1), {buffer, []}, fn _, {buffer, acc} ->
       {buffer, key} = fetch_string(buffer)
       {buffer, value} = fetch_string(buffer)
 
@@ -99,7 +78,7 @@ defmodule XColony.Message.Response do
   def decode!(%Response{command: %SaslHandshake{}} = response, rest) do
     <<size::integer-size(32), buffer::binary>> = rest
 
-    {_, mechanisms} = Enum.reduce(0..(size-1), {buffer, []}, fn _, {buffer, acc} ->
+    {"", mechanisms} = Enum.reduce(0..(size-1), {buffer, []}, fn _, {buffer, acc} ->
       {buffer, value} = fetch_string(buffer)
       {buffer, [value | acc]}
     end)
@@ -111,8 +90,20 @@ defmodule XColony.Message.Response do
     %{response | data: data}
   end
 
-  def decode!(%Response{command: %SaslAuthenticate{}} = response, _rest) do
-    response
+  def decode!(%Response{command: %SaslAuthenticate{}} = response, "") do
+    data = %SaslAuthenticateData{sasl_opaque_data: []}
+
+    %{response | data: data}
+  end
+
+  def decode!(%Response{command: %SaslAuthenticate{}} = response, rest) do
+    <<_::integer-size(32), data::binary>> = rest
+
+    data = %SaslAuthenticateData{
+      sasl_opaque_data: data
+    }
+
+    %{response | data: data}
   end
 
   def decode!(%Response{command: %Tune{}} = response, rest) do
@@ -127,5 +118,60 @@ defmodule XColony.Message.Response do
     }
 
     %{response | data: data}
+  end
+
+  def decode!(%Response{command: %Open{}} = response, "") do
+    data = %OpenData{connection_properties: []}
+
+    %{response | data: data}
+  end
+
+  def decode!(%Response{command: %Open{}} = response, rest) do
+    <<size::integer-size(32), buffer::binary>> = rest
+
+    {"", connection_properties} = Enum.reduce(0..(size-1), {buffer, []}, fn _, {buffer, acc} ->
+      {buffer, key} = fetch_string(buffer)
+      {buffer, value} = fetch_string(buffer)
+
+      {buffer, [{key, value} | acc]}
+    end)
+
+
+    data = %OpenData{
+      connection_properties: connection_properties
+    }
+
+    %{response | data: data}
+  end
+
+  def new!(%Connection{} = conn, {:tune, correlation}) do
+    %Response{
+      version: conn.version,
+      command: %Tune{},
+      correlation_id: correlation,
+      data: %TuneData{
+        frame_max: conn.frame_max,
+        heartbeat: conn.heartbeat
+      }
+    }
+  end
+
+  def encode!(%Response{command: %Tune{}, data: %TuneData{} = data} = response) do
+    data = <<
+      0b1::1,
+      response.command.code::unsigned-integer-size(15),
+      response.version::unsigned-integer-size(16),
+      data.frame_max::unsigned-integer-size(32),
+      data.heartbeat::unsigned-integer-size(32),
+    >>
+
+    <<byte_size(data)::unsigned-integer-size(32), data::binary>>
+  end
+
+  def new_encoded!(%Connection{} = conn, {command, correlation}) when is_atom(command) do
+    conn
+    |> new!({command, correlation})
+    |> IO.inspect()
+    |> encode!()
   end
 end
