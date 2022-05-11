@@ -4,7 +4,19 @@ defmodule XColony.Connection do
 
   alias __MODULE__, as: Connection
 
-  alias XColony.Message.Request
+  alias XColony.Message.{Request,Response}
+  alias XColony.Message.Command.Code.{
+    SaslHandshake,
+    PeerProperties,
+    SaslAuthenticate,
+    Tune
+  }
+
+  alias XColony.Message.Response.{
+    TuneData,
+    PeerPropertiesData,
+    SaslHandshakeData
+  }
 
   @type t :: %__MODULE__{
     host: String.t(),
@@ -20,9 +32,12 @@ defmodule XColony.Connection do
     :username,
     :password,
     :socket,
+    :frame_max,
+    :heartbeat,
     version: 1,
     state: "down",
     correlation: 1,
+    peer_properties: [],
     requests: []
   ]
 
@@ -35,24 +50,6 @@ defmodule XColony.Connection do
     GenServer.call(pid, :connect)
   end
 
-  defp send_command(%Connection{}=conn, command) do
-    case command do
-      :peer_properties ->
-        frame = Request.new!(:peer_properties, conn.version, conn.correlation) |> Request.encode!()
-        {:gen_tcp.send(conn.socket, frame), %{conn | correlation:  conn.correlation + 1}}
-
-
-      :sasl_handshake ->
-        frame = Request.new!(:sasl_handshake, conn.version, conn.correlation) |> Request.encode!()
-        {:gen_tcp.send(conn.socket, frame), %{conn | correlation:  conn.correlation + 1}}
-
-      :sasl_authenticate ->
-        frame = Request.new!(:sasl_authenticate, conn.version, conn.correlation) |> Request.encode!()
-        {:gen_tcp.send(conn.socket, frame), %{conn | correlation: conn.correlation + 1}}
-
-    end
-  end
-
   @impl true
   def init(opts \\ []) do
     username = opts[:username] || "guest"
@@ -60,43 +57,77 @@ defmodule XColony.Connection do
     host = opts[:host] || 'localhost'
     port = opts[:port] || 5552
 
-    with {:ok, socket} <- :gen_tcp.connect(host, port, [:binary]),
+    with {:ok, socket} <- :gen_tcp.connect(host, port, [:binary, active: true]),
       :ok <- :gen_tcp.controlling_process(socket,self()) do
       conn = %Connection{
         host: host,
         port: port,
         username: username,
         password: password,
-        state: "started",
+        state: "peer_properties",
         socket: socket,
         correlation: 2,
       }
-      with {:ok, conn} <- send_command(conn, :peer_properties) do
-      #  {:ok, conn} <- send_command(conn, :sasl_handshake),
-      #  {:ok, conn} <- send_command(conn, :sasl_authenticate) do
-        {:ok,conn}
-       end
+      {:ok, send_command(conn, :peer_properties)}
     end
   end
 
 
+  defp send_command(%Connection{}=conn, command) do
+    case command do
+      :peer_properties ->
+        frame = Request.new!(:peer_properties, conn) |> Request.encode!()
+        :ok = :gen_tcp.send(conn.socket, frame)
+
+      :sasl_handshake ->
+        frame = Request.new!(:sasl_handshake, conn) |> Request.encode!()
+        :ok = :gen_tcp.send(conn.socket, frame)
+
+      :sasl_authenticate ->
+        frame = Request.new!(:sasl_authenticate, conn) |> Request.encode!()
+        :ok = :gen_tcp.send(conn.socket, frame)
+
+      :tune ->
+        frame = Request.new!(:tune, conn) |> Request.encode!()
+        :ok = :gen_tcp.send(conn.socket, frame)
+
+    end
+    %{conn | correlation: conn.correlation + 1}
+  end
+
   @impl true
   def handle_info({:tcp, _socket, data}, conn) do
-    IO.inspect("DATA")
-    IO.inspect(data)
+
+    conn = case Response.decode!(data) do
+      %Response{command: %PeerProperties{}, data: %PeerPropertiesData{} = data} ->
+        conn = %{conn | peer_properties: data.peer_properties}
+        send_command(conn, :sasl_handshake)
+
+      %Response{command: %SaslHandshake{}, data: %SaslHandshakeData{}} ->
+        send_command(conn, :sasl_authenticate)
+
+      %Response{command: %SaslAuthenticate{}} ->
+        %{conn | state: "up"}
+
+      %Response{command: %Tune{}, data: %TuneData{} = data} ->
+        conn = %{conn | frame_max: data.frame_max, heartbeat: data.heartbeat}
+
+        send_command(conn, :tune)
+
+    end
+
+
     {:noreply, conn}
   end
 
   @impl true
   def handle_info({:tcp_closed, _socket}, conn) do
-    IO.inspect("CLOSED")
     {:noreply, conn}
   end
 
   @impl true
-  def handle_info({:tcp_error, _socket, reason}, conn) do
-    IO.inspect("ERR")
-    IO.inspect(reason)
+  def handle_info({:tcp_error, _socket, _reason}, conn) do
     {:noreply, conn}
   end
+
 end
