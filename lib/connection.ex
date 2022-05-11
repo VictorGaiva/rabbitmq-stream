@@ -12,7 +12,8 @@ defmodule XColony.Connection do
     PeerProperties,
     SaslAuthenticate,
     Tune,
-    Open
+    Open,
+    Heartbeat
   }
 
   alias XColony.Message.Data.{
@@ -20,14 +21,6 @@ defmodule XColony.Connection do
     PeerPropertiesData,
     SaslHandshakeData,
     OpenData
-  }
-
-  @type t :: %__MODULE__{
-    host: String.t(),
-    port: integer(),
-    username: String.t(),
-    password: String.t(),
-    socket: :socket.type()
   }
 
   defstruct [
@@ -63,7 +56,7 @@ defmodule XColony.Connection do
     password = opts[:password] || "guest"
     host = opts[:host] || 'localhost'
     port = opts[:port] || 5552
-    vhost = opts[:vhost] || "/"
+    vhost = opts[:vhost] || "dev"
 
     with {:ok, socket} <- :gen_tcp.connect(host, port, [:binary, active: true]),
       :ok <- :gen_tcp.controlling_process(socket,self()) do
@@ -81,7 +74,7 @@ defmodule XColony.Connection do
   end
 
 
-  defp send_request(%Connection{}=conn, command) do
+  defp send_request(%Connection{}=conn, command, sum \\ 1) do
     case command do
       :peer_properties ->
         frame = Request.new_encoded!(conn, :peer_properties)
@@ -103,14 +96,22 @@ defmodule XColony.Connection do
         frame = Request.new_encoded!(conn, :open)
         :ok = :gen_tcp.send(conn.socket, frame)
 
+      :heartbeat->
+        frame = Request.new_encoded!(conn, :heartbeat)
+        :ok = :gen_tcp.send(conn.socket, frame)
+
     end
-    %{conn | correlation: conn.correlation + 1}
+    %{conn | correlation: conn.correlation + sum}
   end
 
-  defp send_response(%Connection{}=conn, {command, correlation}) do
+  defp send_response(%Connection{}=conn, command) do
     case command do
-      :tune ->
-        frame = Response.new_encoded!(conn, {:tune, correlation})
+      {:tune, _} ->
+        frame = Response.new_encoded!(conn, command)
+        :ok = :gen_tcp.send(conn.socket, frame)
+
+      {:heartbeat, _} ->
+        frame = Response.new_encoded!(conn, command)
         :ok = :gen_tcp.send(conn.socket, frame)
 
     end
@@ -120,7 +121,6 @@ defmodule XColony.Connection do
 
   @impl true
   def handle_info({:tcp, _socket, data}, conn) do
-
     conn = case Message.decode!(data) do
       %Response{command: %PeerProperties{}, data: %PeerPropertiesData{}=data} ->
         %{conn | peer_properties: data.peer_properties}
@@ -134,15 +134,19 @@ defmodule XColony.Connection do
         %{conn | state: "tunning"}
 
       %Response{command: %Tune{}, data: %TuneData{} = data} ->
+        Process.send_after(self(), {:heartbeat}, conn.heartbeat * 1000)
         %{conn | frame_max: data.frame_max, heartbeat: data.heartbeat}
+
+      %Response{command: %Open{}, data: %OpenData{} = data} ->
+        %{conn | connection_properties: data.connection_properties, state: "open"}
 
       %Request{command: %Tune{}, data: %TuneData{} = data, correlation_id: correlation} ->
         %{conn | frame_max: data.frame_max, heartbeat: data.heartbeat}
         |> send_response({:tune, correlation})
         |> send_request(:open)
 
-      %Response{command: %Open{}, data: %OpenData{} = data} ->
-        %{conn | connection_properties: data.connection_properties, state: "open"}
+      %Request{command: %Heartbeat{}} ->
+        conn
 
     end
 
@@ -163,8 +167,7 @@ defmodule XColony.Connection do
   def handle_info({:heartbeat}, conn) do
     Process.send_after(self(), {:heartbeat}, conn.heartbeat * 1000)
 
-    frame = Request.new_encoded!(conn, :heartbeat)
-    :ok = :gen_tcp.send(conn.socket, frame)
+    conn = send_request(conn, :heartbeat, 0)
 
     {:noreply, conn}
   end

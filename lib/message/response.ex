@@ -8,7 +8,8 @@ defmodule XColony.Message.Response do
     PeerProperties,
     SaslAuthenticate,
     Tune,
-    Open
+    Open,
+    Heartbeat
   }
 
   alias XColony.Message.Data.{
@@ -16,7 +17,8 @@ defmodule XColony.Message.Response do
     SaslHandshakeData,
     SaslAuthenticateData,
     PeerPropertiesData,
-    OpenData
+    OpenData,
+    HeartbeatData
   }
 
   defmodule Code do
@@ -156,6 +158,15 @@ defmodule XColony.Message.Response do
     }
   end
 
+  def new!(%Connection{} = conn, {:heartbeat, correlation}) do
+    %Response{
+      version: conn.version,
+      command: %Heartbeat{},
+      correlation_id: correlation,
+      data: %HeartbeatData{}
+    }
+  end
+
   def encode!(%Response{command: %Tune{}, data: %TuneData{} = data} = response) do
     data = <<
       0b1::1,
@@ -163,6 +174,16 @@ defmodule XColony.Message.Response do
       response.version::unsigned-integer-size(16),
       data.frame_max::unsigned-integer-size(32),
       data.heartbeat::unsigned-integer-size(32),
+    >>
+
+    <<byte_size(data)::unsigned-integer-size(32), data::binary>>
+  end
+
+  def encode!(%Response{command: %Heartbeat{}} = response) do
+    data = <<
+      0b1::1,
+      response.command.code::unsigned-integer-size(15),
+      response.version::unsigned-integer-size(16),
     >>
 
     <<byte_size(data)::unsigned-integer-size(32), data::binary>>

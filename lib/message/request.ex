@@ -25,7 +25,6 @@ defmodule XColony.Message.Request do
     :version,
     :correlation_id,
     :command,
-    :type,
     :data,
   ]
 
@@ -64,6 +63,10 @@ defmodule XColony.Message.Request do
     }
 
     %{response | data: data}
+  end
+
+  def decode!(%Request{command: %Heartbeat{}} = response, "") do
+    %{response | data: %HeartbeatData{}}
   end
 
   def encode!(%Request{command: %PeerProperties{}} = request) do
@@ -115,6 +118,15 @@ defmodule XColony.Message.Request do
       request.version::unsigned-integer-size(16),
       request.correlation_id::unsigned-integer-size(32),
       vhost::binary
+    >>
+
+    <<byte_size(data)::unsigned-integer-size(32), data::binary>>
+  end
+
+  def encode!(%Request{command: %Heartbeat{}} = request) do
+    data = <<
+      request.command.code::unsigned-integer-size(16),
+      request.version::unsigned-integer-size(16),
     >>
 
     <<byte_size(data)::unsigned-integer-size(32), data::binary>>
@@ -203,6 +215,7 @@ defmodule XColony.Message.Request do
   def new_encoded!(%Connection{} = conn, request) when is_atom(request) do
     conn
     |> new!(request)
+    |> IO.inspect()
     |> encode!()
   end
 end
