@@ -20,31 +20,31 @@ This implementation is following the protocol defined in the RabbitMQ's reposito
 
 An overview of the current status of the project can be estimated by what commands it is able to process, so here is a list of the current progress of the implementation.
 
-| Command                 | Status  | Side  |
-| -                       | -       | -     |
-| DeclarePublisher        |  [ ]    |       |
-| Publish                 |  [ ]    |       |
-| PublishConfirm          |  [ ]    |       |
-| PublishError            |  [ ]    |       |
-| QueryPublisherSequence  |  [ ]    |       |
-| DeletePublisher         |  [ ]    |       |
-| Subscribe               |  [ ]    |       |
-| Deliver                 |  [ ]    |       |
-| Credit                  |  [ ]    |       |
-| StoreOffset             |  [ ]    |       |
-| QueryOffset             |  [ ]    |       |
-| Unsubscribe             |  [ ]    |       |
-| Create                  |  [ ]    |       |
-| Delete                  |  [ ]    |       |
-| Metadata                |  [ ]    |       |
-| MetadataUpdate          |  [ ]    |       |
-| PeerProperties          |  [x]    |       |
-| SaslHandshake           |  [x]    |       |
-| SaslAuthenticate        |  [x]    |       |
-| Tune                    |  [x]    |       |
-| Open                    |  [x]    |       |
-| Close                   |  [x]    |       |
-| Heartbeat               |  [x]    |       |
+| Command                 | Status  |
+| -                       | -       |
+| DeclarePublisher        |  ⏳     |
+| Publish                 |  ⏳     |
+| PublishConfirm          |  ⏳     |
+| PublishError            |  ⏳     |
+| QueryPublisherSequence  |  ⏳     |
+| DeletePublisher         |  ⏳     |
+| Subscribe               |  ⏳     |
+| Deliver                 |  ⏳     |
+| Credit                  |  ⏳     |
+| StoreOffset             |  ⏳     |
+| QueryOffset             |  ⏳     |
+| Unsubscribe             |  ⏳     |
+| Create                  |  ⏳     |
+| Delete                  |  ⏳     |
+| Metadata                |  ⏳     |
+| MetadataUpdate          |  ⏳     |
+| PeerProperties          |  ✅     |
+| SaslHandshake           |  ✅     |
+| SaslAuthenticate        |  ✅     |
+| Tune                    |  ✅     |
+| Open                    |  ✅     |
+| Close                   |  ✅     |
+| Heartbeat               |  ✅     |
 
 ## Nexts steps
 
