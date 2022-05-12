@@ -110,10 +110,6 @@ defmodule RabbitStream.Connection do
         frame = Response.new_encoded!(conn, command)
         :ok = :gen_tcp.send(conn.socket, frame)
 
-      {:heartbeat, _} ->
-        frame = Response.new_encoded!(conn, command)
-        :ok = :gen_tcp.send(conn.socket, frame)
-
     end
 
     conn
