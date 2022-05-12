@@ -1,5 +1,5 @@
-defmodule XColony.Message do
-  alias XColony.Message.{Request,Response,Command}
+defmodule RabbitStream.Message do
+  alias RabbitStream.Message.{Request,Response,Command}
 
   alias Command.Code.{
     SaslHandshake,

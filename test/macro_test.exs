@@ -1,6 +1,6 @@
-# defmodule XColonyTest.Macros do
+# defmodule RabbitStreamTest.Macros do
 #   use ExUnit.Case
-#   alias XColony.Message
+#   alias RabbitStream.Message
 
 #   test "should generate structs" do
 #     assert is_map_key(%Message.ResponseCode.Ok{}, :__struct__)

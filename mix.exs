@@ -1,9 +1,9 @@
-defmodule XColony.MixProject do
+defmodule RabbitStream.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :xcolony,
+      app: :rabbit_stream,
       version: "0.1.0",
       elixir: "~> 1.13",
       start_permanent: Mix.env() == :prod,

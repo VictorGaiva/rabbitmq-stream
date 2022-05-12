@@ -1,2 +1,2 @@
-defmodule XColony do
+defmodule RabbitStream do
 end

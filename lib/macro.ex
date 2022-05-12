@@ -1,4 +1,4 @@
-defmodule XColony.Helpers do
+defmodule RabbitStream.Helpers do
   defmacro match_codes({:%{}, _, codes}) do
     Enum.map(codes, fn {code, name} ->
         module = "#{Atom.to_string(name)}"  |> Macro.camelize()

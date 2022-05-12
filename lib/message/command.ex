@@ -1,5 +1,5 @@
-defmodule XColony.Message.Command do
-  import XColony.Helpers
+defmodule RabbitStream.Message.Command do
+  import RabbitStream.Helpers
 
   defmodule Code do
     match_codes(%{

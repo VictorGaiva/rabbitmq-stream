@@ -1,4 +1,6 @@
-# XColony
+# RabbitStream - WIP
+
+
 
 * [ ] DeclarePublisher
 * [ ] Publish

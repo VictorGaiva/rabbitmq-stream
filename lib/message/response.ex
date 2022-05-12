@@ -1,7 +1,7 @@
-defmodule XColony.Message.Response do
-  import XColony.Helpers
-  alias XColony.Message.{Response,Command}
-  alias XColony.Connection
+defmodule RabbitStream.Message.Response do
+  import RabbitStream.Helpers
+  alias RabbitStream.Message.{Response,Command}
+  alias RabbitStream.Connection
 
   alias Command.Code.{
     SaslHandshake,
@@ -12,7 +12,7 @@ defmodule XColony.Message.Response do
     Heartbeat
   }
 
-  alias XColony.Message.Data.{
+  alias RabbitStream.Message.Data.{
     TuneData,
     SaslHandshakeData,
     SaslAuthenticateData,

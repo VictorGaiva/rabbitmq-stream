@@ -1,13 +1,13 @@
-defmodule XColony.Connection do
+defmodule RabbitStream.Connection do
   use GenServer
   require Logger
 
   alias __MODULE__, as: Connection
 
-  alias XColony.Message
-  alias XColony.Message.{Request,Response}
+  alias RabbitStream.Message
+  alias RabbitStream.Message.{Request,Response}
 
-  alias XColony.Message.Command.Code.{
+  alias RabbitStream.Message.Command.Code.{
     SaslHandshake,
     PeerProperties,
     SaslAuthenticate,
@@ -16,7 +16,7 @@ defmodule XColony.Connection do
     Heartbeat
   }
 
-  alias XColony.Message.Data.{
+  alias RabbitStream.Message.Data.{
     TuneData,
     PeerPropertiesData,
     SaslHandshakeData,

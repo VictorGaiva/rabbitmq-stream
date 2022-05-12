@@ -1,7 +1,7 @@
-defmodule XColony.Message.Request do
-  alias XColony.Connection
+defmodule RabbitStream.Message.Request do
+  alias RabbitStream.Connection
 
-  alias XColony.Message.Command.Code.{
+  alias RabbitStream.Message.Command.Code.{
     PeerProperties,
     SaslHandshake,
     SaslAuthenticate,
@@ -10,7 +10,7 @@ defmodule XColony.Message.Request do
     Heartbeat
   }
 
-  alias XColony.Message.Data.{
+  alias RabbitStream.Message.Data.{
     TuneData,
     OpenData,
     PeerPropertiesData,

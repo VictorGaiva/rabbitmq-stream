@@ -1,4 +1,4 @@
-defmodule XColony.Message.Data do
+defmodule RabbitStream.Message.Data do
   defmodule TuneData do
     defstruct [
       :frame_max,

@@ -1,4 +1,4 @@
-defmodule XColony.Frame do
+defmodule RabbitStream.Frame do
 
   defstruct [
     :version,
