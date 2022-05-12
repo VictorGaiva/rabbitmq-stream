@@ -5,7 +5,7 @@ defmodule RabbitStream.Connection do
   alias __MODULE__, as: Connection
 
   alias RabbitStream.Message
-  alias RabbitStream.Message.{Request,Response}
+  alias RabbitStream.Message.{Request, Response}
 
   alias RabbitStream.Message.Command.Code.{
     SaslHandshake,
@@ -20,7 +20,8 @@ defmodule RabbitStream.Connection do
     TuneData,
     PeerPropertiesData,
     SaslHandshakeData,
-    OpenData
+    OpenData,
+    SaslAuthenticateData
   }
 
   defstruct [
@@ -30,8 +31,8 @@ defmodule RabbitStream.Connection do
     :username,
     :password,
     :socket,
-    :frame_max,
-    :heartbeat,
+    frame_max: 1_048_576,
+    heartbeat: 60,
     version: 1,
     state: "down",
     correlation: 1,
@@ -40,7 +41,6 @@ defmodule RabbitStream.Connection do
     mechanisms: [],
     requests: []
   ]
-
 
   def start_link(default \\ []) when is_list(default) do
     GenServer.start_link(__MODULE__, default)
@@ -59,7 +59,7 @@ defmodule RabbitStream.Connection do
     vhost = opts[:vhost] || "dev"
 
     with {:ok, socket} <- :gen_tcp.connect(host, port, [:binary, active: true]),
-      :ok <- :gen_tcp.controlling_process(socket,self()) do
+         :ok <- :gen_tcp.controlling_process(socket, self()) do
       conn = %Connection{
         host: host,
         port: port,
@@ -67,84 +67,70 @@ defmodule RabbitStream.Connection do
         username: username,
         password: password,
         socket: socket,
-        correlation: 2,
+        correlation: 2
       }
+
       {:ok, send_request(conn, :peer_properties)}
     end
   end
 
+  defp send_request(%Connection{} = conn, command, sum \\ 1)
+       when command in [
+              :peer_properties,
+              :sasl_handshake,
+              :sasl_authenticate,
+              :tune,
+              :open,
+              :heartbeat,
+              :tune
+            ] do
+    frame = Request.new_encoded!(conn, command)
+    :ok = :gen_tcp.send(conn.socket, frame)
 
-  defp send_request(%Connection{}=conn, command, sum \\ 1) do
-    case command do
-      :peer_properties ->
-        frame = Request.new_encoded!(conn, :peer_properties)
-        :ok = :gen_tcp.send(conn.socket, frame)
-
-      :sasl_handshake ->
-        frame = Request.new_encoded!(conn, :sasl_handshake)
-        :ok = :gen_tcp.send(conn.socket, frame)
-
-      :sasl_authenticate ->
-        frame = Request.new_encoded!(conn, :sasl_authenticate)
-        :ok = :gen_tcp.send(conn.socket, frame)
-
-      :tune ->
-        frame = Request.new_encoded!(conn, :tune)
-        :ok = :gen_tcp.send(conn.socket, frame)
-
-      :open ->
-        frame = Request.new_encoded!(conn, :open)
-        :ok = :gen_tcp.send(conn.socket, frame)
-
-      :heartbeat->
-        frame = Request.new_encoded!(conn, :heartbeat)
-        :ok = :gen_tcp.send(conn.socket, frame)
-
-    end
     %{conn | correlation: conn.correlation + sum}
   end
 
-  defp send_response(%Connection{}=conn, command) do
-    case command do
-      {:tune, _} ->
-        frame = Response.new_encoded!(conn, command)
-        :ok = :gen_tcp.send(conn.socket, frame)
-
-    end
+  defp send_response(%Connection{} = conn, command) do
+    frame = Response.new_encoded!(conn, command)
+    :ok = :gen_tcp.send(conn.socket, frame)
 
     conn
   end
 
   @impl true
   def handle_info({:tcp, _socket, data}, conn) do
-    conn = case Message.decode!(data) do
-      %Response{command: %PeerProperties{}, data: %PeerPropertiesData{}=data} ->
-        %{conn | peer_properties: data.peer_properties}
-        |> send_request(:sasl_handshake)
+    conn =
+      case Message.decode!(data) do
+        %Response{command: %PeerProperties{}, data: %PeerPropertiesData{} = data} ->
+          %{conn | peer_properties: data.peer_properties}
+          |> send_request(:sasl_handshake)
 
-      %Response{command: %SaslHandshake{}, data: %SaslHandshakeData{} = data} ->
-        %{conn | mechanisms: data.mechanisms}
-        |> send_request(:sasl_authenticate)
+        %Response{command: %SaslHandshake{}, data: %SaslHandshakeData{} = data} ->
+          %{conn | mechanisms: data.mechanisms}
+          |> send_request(:sasl_authenticate)
 
-      %Response{command: %SaslAuthenticate{}, response_code: %Response.Code.Ok{}}->
-        %{conn | state: "tunning"}
+        %Response{command: %SaslAuthenticate{}, data: %SaslAuthenticateData{sasl_opaque_data: ""}} ->
+          %{conn | state: "tunning"}
 
-      %Response{command: %Tune{}, data: %TuneData{} = data} ->
-        Process.send_after(self(), {:heartbeat}, conn.heartbeat * 1000)
-        %{conn | frame_max: data.frame_max, heartbeat: data.heartbeat}
+        %Response{command: %SaslAuthenticate{}} ->
+          %{conn | state: "opening"}
+          |> send_request(:open)
 
-      %Response{command: %Open{}, data: %OpenData{} = data} ->
-        %{conn | connection_properties: data.connection_properties, state: "open"}
+        %Response{command: %Tune{}, data: %TuneData{} = data} ->
+          Process.send_after(self(), {:heartbeat}, conn.heartbeat * 1000)
+          %{conn | frame_max: data.frame_max, heartbeat: data.heartbeat}
 
-      %Request{command: %Tune{}, data: %TuneData{} = data, correlation_id: correlation} ->
-        %{conn | frame_max: data.frame_max, heartbeat: data.heartbeat}
-        |> send_response({:tune, correlation})
-        |> send_request(:open)
+        %Response{command: %Open{}, data: %OpenData{} = data} ->
+          %{conn | connection_properties: data.connection_properties, state: "open"}
 
-      %Request{command: %Heartbeat{}} ->
-        conn
+        %Request{command: %Tune{}, data: %TuneData{} = data, correlation_id: correlation} ->
+          %{conn | state: "opening", frame_max: data.frame_max, heartbeat: data.heartbeat}
+          |> send_response({:tune, correlation})
+          |> send_request(:open)
 
-    end
+        %Request{command: %Heartbeat{}} ->
+          conn
+      end
 
     {:noreply, conn}
   end
@@ -167,5 +153,4 @@ defmodule RabbitStream.Connection do
 
     {:noreply, conn}
   end
-
 end

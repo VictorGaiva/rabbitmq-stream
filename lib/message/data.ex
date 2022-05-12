@@ -8,20 +8,20 @@ defmodule RabbitStream.Message.Data do
 
   defmodule PeerPropertiesData do
     defstruct [
-      :peer_properties,
+      :peer_properties
     ]
   end
 
   defmodule SaslHandshakeData do
     defstruct [
-      :mechanisms,
+      :mechanisms
     ]
   end
 
   defmodule SaslAuthenticateData do
     defstruct [
       :mechanism,
-      :sasl_opaque_data,
+      :sasl_opaque_data
     ]
   end
 

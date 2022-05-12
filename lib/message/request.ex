@@ -25,23 +25,23 @@ defmodule RabbitStream.Message.Request do
     :version,
     :correlation_id,
     :command,
-    :data,
+    :data
   ]
 
-  def encode_string(nil)  do
+  def encode_string(nil) do
     <<-1::integer-size(16)>>
   end
 
-  def encode_string(str)  do
+  def encode_string(str) do
     <<byte_size(str)::integer-size(16), str::binary>>
   end
 
-  def encode_bytes(nil)  do
+  def encode_bytes(nil) do
     <<-1::integer-size(32)>>
   end
 
-  def encode_bytes(str)  do
-    <<byte_size(str)::integer-size(32), str::binary>>
+  def encode_bytes(bytes) do
+    <<byte_size(bytes)::integer-size(32), bytes::binary>>
   end
 
   def encode_array(arr) do
@@ -54,7 +54,7 @@ defmodule RabbitStream.Message.Request do
   def decode!(%Request{command: %Tune{}} = response, rest) do
     <<
       frame_max::unsigned-integer-size(32),
-      heartbeat::unsigned-integer-size(32),
+      heartbeat::unsigned-integer-size(32)
     >> = rest
 
     data = %TuneData{
@@ -70,10 +70,10 @@ defmodule RabbitStream.Message.Request do
   end
 
   def encode!(%Request{command: %PeerProperties{}} = request) do
-    properties = request.data.peer_properties
+    properties =
+      request.data.peer_properties
       |> Enum.map(fn [key, value] -> encode_string(key) <> encode_string(value) end)
       |> encode_array()
-
 
     data = <<
       request.command.code::unsigned-integer-size(16),
@@ -95,9 +95,13 @@ defmodule RabbitStream.Message.Request do
     <<byte_size(data)::unsigned-integer-size(32), data::binary>>
   end
 
-  def encode!(%Request{command: %SaslAuthenticate{}} = request)  do
+  def encode!(%Request{command: %SaslAuthenticate{}} = request) do
     mechanism = encode_string(request.data.mechanism)
-    credentials = encode_bytes("\u0000#{request.data.sasl_opaque_data[:username]}\u0000#{request.data.sasl_opaque_data[:password]}")
+
+    credentials =
+      encode_bytes(
+        "\u0000#{request.data.sasl_opaque_data[:username]}\u0000#{request.data.sasl_opaque_data[:password]}"
+      )
 
     data = <<
       request.command.code::unsigned-integer-size(16),
@@ -126,7 +130,18 @@ defmodule RabbitStream.Message.Request do
   def encode!(%Request{command: %Heartbeat{}} = request) do
     data = <<
       request.command.code::unsigned-integer-size(16),
+      request.version::unsigned-integer-size(16)
+    >>
+
+    <<byte_size(data)::unsigned-integer-size(32), data::binary>>
+  end
+
+  def encode!(%Request{command: %Tune{}, data: %TuneData{} = data} = request) do
+    data = <<
+      request.command.code::unsigned-integer-size(16),
       request.version::unsigned-integer-size(16),
+      data.frame_max::unsigned-integer-size(32),
+      data.heartbeat::unsigned-integer-size(32)
     >>
 
     <<byte_size(data)::unsigned-integer-size(32), data::binary>>
@@ -139,10 +154,10 @@ defmodule RabbitStream.Message.Request do
       command: %PeerProperties{},
       data: %PeerPropertiesData{
         peer_properties: [
-          ["product","RabbitMQ Stream Client"],
-          ["information","Development"],
-          ["version","0.0.1"],
-          ["platform","Elixir"],
+          ["product", "RabbitMQ Stream Client"],
+          ["information", "Development"],
+          ["version", "0.0.1"],
+          ["platform", "Elixir"]
         ]
       }
     }
@@ -172,12 +187,13 @@ defmodule RabbitStream.Message.Request do
             mechanism: "PLAIN",
             sasl_opaque_data: [
               username: conn.username,
-              password: conn.password,
+              password: conn.password
             ]
           }
         }
 
-      true -> raise "Unsupported SASL mechanism: #{conn.mechanisms}"
+      true ->
+        raise "Unsupported SASL mechanism: #{conn.mechanisms}"
     end
   end
 
@@ -188,7 +204,7 @@ defmodule RabbitStream.Message.Request do
       command: %Tune{},
       data: %TuneData{
         frame_max: conn.frame_max,
-        heartbeat: conn.heartbeat,
+        heartbeat: conn.heartbeat
       }
     }
   end
@@ -199,7 +215,7 @@ defmodule RabbitStream.Message.Request do
       correlation_id: conn.correlation,
       command: %Open{},
       data: %OpenData{
-        vhost: conn.vhost,
+        vhost: conn.vhost
       }
     }
   end

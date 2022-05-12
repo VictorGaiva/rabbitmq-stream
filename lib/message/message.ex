@@ -1,5 +1,5 @@
 defmodule RabbitStream.Message do
-  alias RabbitStream.Message.{Request,Response,Command}
+  alias RabbitStream.Message.{Request, Response, Command}
 
   alias Command.Code.{
     SaslHandshake,
@@ -37,7 +37,6 @@ defmodule RabbitStream.Message do
     ]
   end
 
-
   # def decode!(<<size::unsigned-integer-size(32), buffer::binary-size(size)>>) do
   def decode!(<<_::unsigned-integer-size(32), buffer::binary>>) do
     <<
@@ -52,20 +51,21 @@ defmodule RabbitStream.Message do
 
     case {flag, has_correlation?(command)} do
       {0b1, true} ->
-          <<correlation_id::unsigned-integer-size(32), response_code::unsigned-integer-size(16), buffer::binary>> = buffer
+        <<correlation_id::unsigned-integer-size(32), response_code::unsigned-integer-size(16),
+          buffer::binary>> = buffer
 
-          %Response{
-            version: version,
-            command: command,
-            correlation_id: correlation_id,
-            response_code: Response.Code.decode(response_code)
-          }
-          |> Response.decode!(buffer)
+        %Response{
+          version: version,
+          command: command,
+          correlation_id: correlation_id,
+          response_code: Response.Code.decode(response_code)
+        }
+        |> Response.decode!(buffer)
 
       {0b0, true} ->
         <<correlation_id::unsigned-integer-size(32), buffer::binary>> = buffer
 
-        %Request{version: version, command: command, correlation_id: correlation_id,}
+        %Request{version: version, command: command, correlation_id: correlation_id}
         |> Request.decode!(buffer)
 
       {0b1, false} ->
