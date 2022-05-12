@@ -2,6 +2,7 @@ defmodule RabbitStream.Message.Response do
   import RabbitStream.Helpers
   alias RabbitStream.Message.{Response, Command}
   alias RabbitStream.Connection
+  require Logger
 
   alias Command.Code.{
     SaslHandshake,
@@ -181,9 +182,8 @@ defmodule RabbitStream.Message.Response do
   end
 
   def new_encoded!(%Connection{} = conn, {command, correlation}) when is_atom(command) do
-    conn
-    |> new!({command, correlation})
-    |> IO.inspect()
-    |> encode!()
+    message = conn |> new!({command, correlation})
+    Logger.debug(message)
+    encode!(message)
   end
 end

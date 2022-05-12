@@ -58,20 +58,17 @@ defmodule RabbitStream.Connection do
     port = opts[:port] || 5552
     vhost = opts[:vhost] || "dev"
 
-    with {:ok, socket} <- :gen_tcp.connect(host, port, [:binary, active: true]),
-         :ok <- :gen_tcp.controlling_process(socket, self()) do
-      conn = %Connection{
-        host: host,
-        port: port,
-        vhost: vhost,
-        username: username,
-        password: password,
-        socket: socket,
-        correlation: 2
-      }
+    conn = %Connection{
+      host: host,
+      port: port,
+      vhost: vhost,
+      username: username,
+      password: password
+    }
 
-      {:ok, send_request(conn, :peer_properties)}
-    end
+    send(self(), {:connect})
+
+    {:ok, conn}
   end
 
   defp send_request(%Connection{} = conn, command, sum \\ 1)
@@ -95,6 +92,20 @@ defmodule RabbitStream.Connection do
     :ok = :gen_tcp.send(conn.socket, frame)
 
     conn
+  end
+
+  @impl true
+  def handle_info({:connect}, conn) do
+    with {:ok, socket} <- :gen_tcp.connect(conn.host, conn.port, [:binary, active: true]),
+         :ok <- :gen_tcp.controlling_process(socket, self()) do
+      conn = %Connection{conn | socket: socket}
+
+      {:noreply, send_request(conn, :peer_properties)}
+    else
+      _ ->
+        Logger.error("Failed to connect to #{conn.host}:#{conn.port}")
+        {:noreply, conn}
+    end
   end
 
   @impl true

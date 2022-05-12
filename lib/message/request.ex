@@ -1,4 +1,6 @@
 defmodule RabbitStream.Message.Request do
+  require Logger
+
   alias RabbitStream.Connection
 
   alias RabbitStream.Message.Command.Code.{
@@ -229,9 +231,8 @@ defmodule RabbitStream.Message.Request do
   end
 
   def new_encoded!(%Connection{} = conn, request) when is_atom(request) do
-    conn
-    |> new!(request)
-    |> IO.inspect()
-    |> encode!()
+    message = conn |> new!(request)
+    Logger.debug(message)
+    encode!(message)
   end
 end
