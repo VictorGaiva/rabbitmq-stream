@@ -9,7 +9,8 @@ defmodule RabbitStream.Message.Request do
     SaslAuthenticate,
     Tune,
     Open,
-    Heartbeat
+    Heartbeat,
+    Close
   }
 
   alias RabbitStream.Message.Data.{
@@ -18,7 +19,8 @@ defmodule RabbitStream.Message.Request do
     PeerPropertiesData,
     SaslAuthenticateData,
     SaslHandshakeData,
-    HeartbeatData
+    HeartbeatData,
+    CloseData
   }
 
   alias __MODULE__, as: Request
@@ -53,6 +55,10 @@ defmodule RabbitStream.Message.Request do
     <<size::integer-size(32), arr::binary>>
   end
 
+  defp fetch_string(<<size::integer-size(16), text::binary-size(size), rest::binary>>) do
+    {rest, to_string(text)}
+  end
+
   def decode!(%Request{command: %Tune{}} = response, rest) do
     <<
       frame_max::unsigned-integer-size(32),
@@ -69,6 +75,19 @@ defmodule RabbitStream.Message.Request do
 
   def decode!(%Request{command: %Heartbeat{}} = response, "") do
     %{response | data: %HeartbeatData{}}
+  end
+
+  def decode!(%Request{command: %Close{}} = response, buffer) do
+    <<code::unsigned-integer-size(16), buffer::binary>> = buffer
+
+    {"", reason} = fetch_string(buffer)
+
+    data = %CloseData{
+      code: code,
+      reason: reason
+    }
+
+    %{response | data: data}
   end
 
   def encode!(%Request{command: %PeerProperties{}} = request) do
@@ -149,7 +168,21 @@ defmodule RabbitStream.Message.Request do
     <<byte_size(data)::unsigned-integer-size(32), data::binary>>
   end
 
-  def new!(%Connection{} = conn, :peer_properties) do
+  def encode!(%Request{command: %Close{}, data: %CloseData{} = data} = request) do
+    reason = encode_string(data.reason)
+
+    data = <<
+      request.command.code::unsigned-integer-size(16),
+      request.version::unsigned-integer-size(16),
+      request.correlation_id::unsigned-integer-size(32),
+      data.code::unsigned-integer-size(16),
+      reason::binary
+    >>
+
+    <<byte_size(data)::unsigned-integer-size(32), data::binary>>
+  end
+
+  def new!(%Connection{} = conn, :peer_properties, _) do
     %Request{
       version: conn.version,
       correlation_id: conn.correlation,
@@ -165,7 +198,7 @@ defmodule RabbitStream.Message.Request do
     }
   end
 
-  def new!(%Connection{} = conn, :sasl_handshake) do
+  def new!(%Connection{} = conn, :sasl_handshake, _) do
     %Request{
       version: conn.version,
       correlation_id: conn.correlation,
@@ -178,7 +211,7 @@ defmodule RabbitStream.Message.Request do
     }
   end
 
-  def new!(%Connection{} = conn, :sasl_authenticate) do
+  def new!(%Connection{} = conn, :sasl_authenticate, _) do
     cond do
       Enum.member?(conn.mechanisms, "PLAIN") ->
         %Request{
@@ -199,7 +232,7 @@ defmodule RabbitStream.Message.Request do
     end
   end
 
-  def new!(%Connection{} = conn, :tune) do
+  def new!(%Connection{} = conn, :tune, _) do
     %Request{
       version: conn.version,
       correlation_id: conn.correlation,
@@ -211,7 +244,7 @@ defmodule RabbitStream.Message.Request do
     }
   end
 
-  def new!(%Connection{} = conn, :open) do
+  def new!(%Connection{} = conn, :open, _) do
     %Request{
       version: conn.version,
       correlation_id: conn.correlation,
@@ -222,7 +255,7 @@ defmodule RabbitStream.Message.Request do
     }
   end
 
-  def new!(%Connection{} = conn, :heartbeat) do
+  def new!(%Connection{} = conn, :heartbeat, _) do
     %Request{
       version: conn.version,
       command: %Heartbeat{},
@@ -230,9 +263,21 @@ defmodule RabbitStream.Message.Request do
     }
   end
 
-  def new_encoded!(%Connection{} = conn, request) when is_atom(request) do
-    message = conn |> new!(request)
-    Logger.debug(message)
-    encode!(message)
+  def new!(%Connection{} = conn, :close, code: code, reason: reason) do
+    %Request{
+      version: conn.version,
+      command: %Close{},
+      correlation_id: conn.correlation,
+      data: %CloseData{
+        code: code,
+        reason: reason
+      }
+    }
+  end
+
+  def new_encoded!(%Connection{} = conn, command, opts) do
+    conn
+    |> new!(command, opts)
+    |> encode!()
   end
 end

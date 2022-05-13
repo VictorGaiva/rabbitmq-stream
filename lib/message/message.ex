@@ -51,37 +51,32 @@ defmodule RabbitStream.Message do
     <<key::unsigned-integer-size(16)>> = <<0b0::1, key::bits>>
     command = Command.Code.decode(key)
 
-    message =
-      case {flag, has_correlation?(command)} do
-        {0b1, true} ->
-          <<correlation_id::unsigned-integer-size(32), response_code::unsigned-integer-size(16),
-            buffer::binary>> = buffer
+    case {flag, has_correlation?(command)} do
+      {0b1, true} ->
+        <<correlation_id::unsigned-integer-size(32), code::unsigned-integer-size(16),
+          buffer::binary>> = buffer
 
-          %Response{
-            version: version,
-            command: command,
-            correlation_id: correlation_id,
-            response_code: Response.Code.decode(response_code)
-          }
-          |> Response.decode!(buffer)
+        %Response{
+          version: version,
+          command: command,
+          correlation_id: correlation_id,
+          code: Response.Code.decode(code)
+        }
+        |> Response.decode!(buffer)
 
-        {0b0, true} ->
-          <<correlation_id::unsigned-integer-size(32), buffer::binary>> = buffer
+      {0b0, true} ->
+        <<correlation_id::unsigned-integer-size(32), buffer::binary>> = buffer
 
-          %Request{version: version, command: command, correlation_id: correlation_id}
-          |> Request.decode!(buffer)
+        %Request{version: version, command: command, correlation_id: correlation_id}
+        |> Request.decode!(buffer)
 
-        {0b1, false} ->
-          %Response{command: command, version: version}
-          |> Response.decode!(buffer)
+      {0b1, false} ->
+        %Response{command: command, version: version}
+        |> Response.decode!(buffer)
 
-        {0b0, false} ->
-          %Request{command: command, version: version}
-          |> Request.decode!(buffer)
-      end
-
-    Logger.debug(message)
-
-    message
+      {0b0, false} ->
+        %Request{command: command, version: version}
+        |> Request.decode!(buffer)
+    end
   end
 end

@@ -11,5 +11,4 @@ defmodule RabbitStreamTest.Connection do
 
     assert match?({:ok, _pid}, Connection.connect(pid))
   end
-
 end

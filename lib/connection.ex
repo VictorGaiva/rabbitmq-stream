@@ -2,8 +2,6 @@ defmodule RabbitStream.Connection do
   use GenServer
   require Logger
 
-  alias __MODULE__, as: Connection
-
   alias RabbitStream.Message
   alias RabbitStream.Message.{Request, Response}
 
@@ -11,6 +9,7 @@ defmodule RabbitStream.Connection do
     SaslHandshake,
     PeerProperties,
     SaslAuthenticate,
+    Close,
     Tune,
     Open,
     Heartbeat
@@ -21,8 +20,11 @@ defmodule RabbitStream.Connection do
     PeerPropertiesData,
     SaslHandshakeData,
     OpenData,
-    SaslAuthenticateData
+    SaslAuthenticateData,
+    CloseData
   }
+
+  alias __MODULE__, as: Connection
 
   defstruct [
     :host,
@@ -47,7 +49,11 @@ defmodule RabbitStream.Connection do
   end
 
   def connect(pid) do
-    GenServer.call(pid, :connect)
+    GenServer.call(pid, {:connect})
+  end
+
+  def close(pid, code, reason) do
+    GenServer.call(pid, {:close, code, reason})
   end
 
   @impl true
@@ -66,82 +72,50 @@ defmodule RabbitStream.Connection do
       password: password
     }
 
-    send(self(), {:connect})
-
     {:ok, conn}
   end
 
-  defp send_request(%Connection{} = conn, command, sum \\ 1)
-       when command in [
-              :peer_properties,
-              :sasl_handshake,
-              :sasl_authenticate,
-              :tune,
-              :open,
-              :heartbeat,
-              :tune
-            ] do
-    frame = Request.new_encoded!(conn, command)
-    :ok = :gen_tcp.send(conn.socket, frame)
-
-    %{conn | correlation: conn.correlation + sum}
-  end
-
-  defp send_response(%Connection{} = conn, command) do
-    frame = Response.new_encoded!(conn, command)
-    :ok = :gen_tcp.send(conn.socket, frame)
-
-    conn
-  end
-
   @impl true
-  def handle_info({:connect}, conn) do
+  def handle_call({:connect}, _from, conn) do
+    Logger.info("Connecting to server: #{conn.host}:#{conn.port}")
+
     with {:ok, socket} <- :gen_tcp.connect(conn.host, conn.port, [:binary, active: true]),
          :ok <- :gen_tcp.controlling_process(socket, self()) do
-      conn = %Connection{conn | socket: socket}
+      Logger.debug("Connection stablished. Initiating properties exchange.")
 
-      {:noreply, send_request(conn, :peer_properties)}
+      conn = %{conn | socket: socket} |> send_request(:peer_properties)
+
+      {:reply, :ok, conn}
     else
-      _ ->
+      err ->
         Logger.error("Failed to connect to #{conn.host}:#{conn.port}")
-        {:noreply, conn}
+        {:reply, {:error, err}, conn}
     end
   end
 
   @impl true
-  def handle_info({:tcp, _socket, data}, conn) do
+  def handle_call({:close, code, reason}, _from, %Connection{state: "open"} = conn) do
+    Logger.info("Connection close requested by client: #{code} #{reason}")
+
     conn =
-      case Message.decode!(data) do
-        %Response{command: %PeerProperties{}, data: %PeerPropertiesData{} = data} ->
-          %{conn | peer_properties: data.peer_properties}
-          |> send_request(:sasl_handshake)
+      %{conn | state: "closing"}
+      |> send_request(:close, code: code, reason: reason)
 
-        %Response{command: %SaslHandshake{}, data: %SaslHandshakeData{} = data} ->
-          %{conn | mechanisms: data.mechanisms}
-          |> send_request(:sasl_authenticate)
+    {:reply, :ok, conn}
+  end
 
-        %Response{command: %SaslAuthenticate{}, data: %SaslAuthenticateData{sasl_opaque_data: ""}} ->
-          %{conn | state: "tunning"}
+  @impl true
+  def handle_info({:tcp, _socket, data}, conn) do
+    conn = handle(conn, Message.decode!(data))
 
-        %Response{command: %SaslAuthenticate{}} ->
-          %{conn | state: "opening"}
-          |> send_request(:open)
+    {:noreply, conn}
+  end
 
-        %Response{command: %Tune{}, data: %TuneData{} = data} ->
-          Process.send_after(self(), {:heartbeat}, conn.heartbeat * 1000)
-          %{conn | frame_max: data.frame_max, heartbeat: data.heartbeat}
+  @impl true
+  def handle_info({:heartbeat}, conn) do
+    conn = send_request(conn, :heartbeat, sum: 0)
 
-        %Response{command: %Open{}, data: %OpenData{} = data} ->
-          %{conn | connection_properties: data.connection_properties, state: "open"}
-
-        %Request{command: %Tune{}, data: %TuneData{} = data, correlation_id: correlation} ->
-          %{conn | state: "opening", frame_max: data.frame_max, heartbeat: data.heartbeat}
-          |> send_response({:tune, correlation})
-          |> send_request(:open)
-
-        %Request{command: %Heartbeat{}} ->
-          conn
-      end
+    Process.send_after(self(), {:heartbeat}, conn.heartbeat * 1000)
 
     {:noreply, conn}
   end
@@ -156,12 +130,106 @@ defmodule RabbitStream.Connection do
     {:noreply, conn}
   end
 
-  @impl true
-  def handle_info({:heartbeat}, conn) do
+  defp handle(conn, %Response{command: %Close{}}) do
+    Logger.debug("Connection closed: #{conn.host}:#{conn.port}")
+
+    %{conn | state: "closed"}
+  end
+
+  defp handle(conn, %Request{
+         command: %Close{},
+         data: %CloseData{} = data,
+         correlation_id: correlation_id
+       }) do
+    Logger.debug("Connection close requested by server: #{data.code} #{data.reason}")
+    Logger.debug("Connection closed")
+
+    %{conn | state: "closing"}
+    |> send_response(:close, correlation_id: correlation_id, code: %Response.Code.Ok{})
+  end
+
+  defp handle(%{state: "closed"} = conn, _) do
+    Logger.warn("Message received on closed connection")
+
+    conn
+  end
+
+  defp handle(conn, %Response{command: %PeerProperties{}, data: %PeerPropertiesData{} = data}) do
+    Logger.debug("Exchange successful.")
+    Logger.debug("Initiating SASL handshake.")
+
+    %{conn | peer_properties: data.peer_properties}
+    |> send_request(:sasl_handshake)
+  end
+
+  defp handle(conn, %Response{command: %SaslHandshake{}, data: %SaslHandshakeData{} = data}) do
+    Logger.debug("SASL handshake successful. Initiating authentication.")
+
+    %{conn | state: "authenticating", mechanisms: data.mechanisms}
+    |> send_request(:sasl_authenticate)
+  end
+
+  defp handle(conn, %Response{
+         command: %SaslAuthenticate{},
+         data: %SaslAuthenticateData{sasl_opaque_data: ""}
+       }) do
+    Logger.debug("Authentication successful. Initiating connection tuning.")
+
+    %{conn | state: "waiting-tune"}
+  end
+
+  defp handle(conn, %Response{command: %SaslAuthenticate{}}) do
+    Logger.debug("Authentication successful. Skipping connection tuning.")
+    Logger.debug("Opening connection to vhost: \"#{conn.vhost}\"")
+
+    %{conn | state: "auhenticated"}
+    |> send_request(:open)
+    |> Map.put(:state, "opening")
+  end
+
+  defp handle(conn, %Response{command: %Tune{}, data: %TuneData{} = data}) do
+    Logger.debug("Tunning complete. Starting heartbeat timer.")
+
     Process.send_after(self(), {:heartbeat}, conn.heartbeat * 1000)
 
-    conn = send_request(conn, :heartbeat, 0)
+    %{conn | state: "tuned", frame_max: data.frame_max, heartbeat: data.heartbeat}
+  end
 
-    {:noreply, conn}
+  defp handle(conn, %Request{
+         command: %Tune{},
+         data: %TuneData{} = data,
+         correlation_id: correlation_id
+       }) do
+    Logger.debug("Tunning data received. Starting heartbeat timer.")
+    Logger.debug("Opening connection to vhost: \"#{conn.vhost}\"")
+
+    %{conn | state: "tuned", frame_max: data.frame_max, heartbeat: data.heartbeat}
+    |> send_response(:tune, correlation_id: correlation_id)
+    |> Map.put(:state, "opening")
+    |> send_request(:open)
+  end
+
+  defp handle(conn, %Response{command: %Open{}, data: %OpenData{} = data}) do
+    Logger.debug("Successfully opened connection with vhost: \"#{conn.vhost}\"")
+
+    %{conn | state: "open", connection_properties: data.connection_properties}
+  end
+
+  defp handle(conn, %Request{command: %Heartbeat{}}) do
+    conn
+  end
+
+  defp send_request(%Connection{} = conn, command, opts \\ []) do
+    frame = Request.new_encoded!(conn, command, opts)
+    :ok = :gen_tcp.send(conn.socket, frame)
+
+    %{conn | correlation: conn.correlation + (opts[:sum] || 1)}
+  end
+
+  defp send_response(%Connection{} = conn, command, opts) do
+    frame = Response.new_encoded!(conn, command, opts)
+    :ok = :gen_tcp.send(conn.socket, frame)
+
+    conn
   end
 end

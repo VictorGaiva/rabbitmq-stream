@@ -10,6 +10,7 @@ defmodule RabbitStream.Message.Response do
     SaslAuthenticate,
     Tune,
     Open,
+    Close,
     Heartbeat
   }
 
@@ -19,7 +20,8 @@ defmodule RabbitStream.Message.Response do
     SaslAuthenticateData,
     PeerPropertiesData,
     OpenData,
-    HeartbeatData
+    HeartbeatData,
+    CloseData
   }
 
   defmodule Code do
@@ -51,7 +53,7 @@ defmodule RabbitStream.Message.Response do
     :command,
     :correlation_id,
     :data,
-    :response_code
+    :code
   ])
 
   defp fetch_string(<<size::integer-size(16), text::binary-size(size), rest::binary>>) do
@@ -138,25 +140,10 @@ defmodule RabbitStream.Message.Response do
     %{response | data: data}
   end
 
-  def new!(%Connection{} = conn, {:tune, correlation}) do
-    %Response{
-      version: conn.version,
-      command: %Tune{},
-      correlation_id: correlation,
-      data: %TuneData{
-        frame_max: conn.frame_max,
-        heartbeat: conn.heartbeat
-      }
-    }
-  end
+  def decode!(%Response{command: %Close{}} = response, "") do
+    data = %CloseData{}
 
-  def new!(%Connection{} = conn, {:heartbeat, correlation}) do
-    %Response{
-      version: conn.version,
-      command: %Heartbeat{},
-      correlation_id: correlation,
-      data: %HeartbeatData{}
-    }
+    %{response | data: data}
   end
 
   def encode!(%Response{command: %Tune{}, data: %TuneData{} = data} = response) do
@@ -181,9 +168,55 @@ defmodule RabbitStream.Message.Response do
     <<byte_size(data)::unsigned-integer-size(32), data::binary>>
   end
 
-  def new_encoded!(%Connection{} = conn, {command, correlation}) when is_atom(command) do
-    message = conn |> new!({command, correlation})
-    Logger.debug(message)
-    encode!(message)
+  def encode!(%Response{command: %Close{}} = response) do
+    data = <<
+      0b1::1,
+      response.command.code::unsigned-integer-size(15),
+      response.version::unsigned-integer-size(16),
+      response.correlation_id::unsigned-integer-size(32),
+      response.code.code::unsigned-integer-size(16)
+    >>
+
+    <<byte_size(data)::unsigned-integer-size(32), data::binary>>
+  end
+
+  def new!(%Connection{} = conn, :tune, correlation_id: correlation_id) do
+    %Response{
+      version: conn.version,
+      command: %Tune{},
+      correlation_id: correlation_id,
+      data: %TuneData{
+        frame_max: conn.frame_max,
+        heartbeat: conn.heartbeat
+      }
+    }
+  end
+
+  def new!(%Connection{} = conn, :heartbeat, correlation_id: correlation_id) do
+    %Response{
+      version: conn.version,
+      command: %Heartbeat{},
+      correlation_id: correlation_id,
+      data: %HeartbeatData{}
+    }
+  end
+
+  def new!(%Connection{} = conn, :close,
+        correlation_id: correlation_id,
+        code: code
+      ) do
+    %Response{
+      version: conn.version,
+      correlation_id: correlation_id,
+      command: %Close{},
+      data: %CloseData{},
+      code: code
+    }
+  end
+
+  def new_encoded!(%Connection{} = conn, command, opts) do
+    conn
+    |> new!(command, opts)
+    |> encode!()
   end
 end

@@ -35,4 +35,11 @@ defmodule RabbitStream.Message.Data do
   defmodule HeartbeatData do
     defstruct []
   end
+
+  defmodule CloseData do
+    defstruct [
+      :code,
+      :reason
+    ]
+  end
 end
