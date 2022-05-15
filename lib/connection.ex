@@ -25,7 +25,8 @@ defmodule RabbitStream.Connection do
     SaslError,
     SaslChallenge,
     SaslAuthenticationFailureLoopback,
-    VirtualHostAccessFailure
+    VirtualHostAccessFailure,
+    StreamAlreadyExists
   }
 
   defstruct [
@@ -312,6 +313,18 @@ defmodule RabbitStream.Connection do
     GenServer.reply(conn.connect_request, {:error, code})
 
     %{conn | state: "closed", socket: nil, connect_request: nil}
+  end
+
+  defp handle_error(%Connection{} = conn, %Response{code: %StreamAlreadyExists{}} = response) do
+    {client, conn} = pop_tracker(conn, :create_stream, response.correlation_id)
+
+    if client == nil do
+      Logger.error("No matching pending request for #{:create_stream}#{response.correlation_id}")
+    else
+      GenServer.reply(client, {:error, response.code})
+    end
+
+    conn
   end
 
   defp handle_closed(%Connection{} = conn, reason) do
