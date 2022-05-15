@@ -120,9 +120,7 @@ defmodule RabbitStream.Message.Request do
     mechanism = encode_string(request.data.mechanism)
 
     credentials =
-      encode_bytes(
-        "\u0000#{request.data.sasl_opaque_data[:username]}\u0000#{request.data.sasl_opaque_data[:password]}"
-      )
+      encode_bytes("\u0000#{request.data.sasl_opaque_data[:username]}\u0000#{request.data.sasl_opaque_data[:password]}")
 
     data = <<
       request.command.code::unsigned-integer-size(16),
