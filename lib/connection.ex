@@ -290,9 +290,7 @@ defmodule RabbitStream.Connection do
   defp handle_message(%Connection{} = conn, %Response{command: %Create{}} = response) do
     {client, conn} = pop_tracker(conn, :create_stream, response.correlation_id)
 
-    if client == nil do
-      Logger.error("Received a create stream response, but no request was pending")
-    else
+    if client != nil do
       GenServer.reply(client, :ok)
     end
 
@@ -318,9 +316,7 @@ defmodule RabbitStream.Connection do
   defp handle_error(%Connection{} = conn, %Response{code: %StreamAlreadyExists{}} = response) do
     {client, conn} = pop_tracker(conn, :create_stream, response.correlation_id)
 
-    if client == nil do
-      Logger.error("No matching pending request for #{:create_stream}#{response.correlation_id}")
-    else
+    if client != nil do
       GenServer.reply(client, {:error, response.code})
     end
 
@@ -361,6 +357,10 @@ defmodule RabbitStream.Connection do
 
   defp pop_tracker(%Connection{} = conn, type, correlation) when is_atom(type) do
     {value, requests} = Map.pop(conn.requests, {type, correlation})
+
+    if value == nil do
+      Logger.error("No pending request for \"#{type}:#{correlation}\" found.")
+    end
 
     {value, %{conn | requests: requests}}
   end
