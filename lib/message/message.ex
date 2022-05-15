@@ -15,7 +15,7 @@ defmodule RabbitStream.Message do
     QueryOffset,
     # Unsubscribe,
     Create,
-    # Delete,
+    Delete,
     # Metadata,
     PeerProperties,
     SaslHandshake,
@@ -36,7 +36,8 @@ defmodule RabbitStream.Message do
       %SaslAuthenticate{},
       %Open{},
       %Close{},
-      %Create{}
+      %Create{},
+      %Delete{}
     ]
   end
 

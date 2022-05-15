@@ -12,7 +12,8 @@ defmodule RabbitStream.Message.Response do
     Open,
     Close,
     Heartbeat,
-    Create
+    Create,
+    Delete
   }
 
   alias RabbitStream.Message.Data.{
@@ -23,7 +24,8 @@ defmodule RabbitStream.Message.Response do
     OpenData,
     HeartbeatData,
     CloseData,
-    CreateData
+    CreateData,
+    DeleteData
   }
 
   defmodule Code do
@@ -148,8 +150,14 @@ defmodule RabbitStream.Message.Response do
     %{response | data: data}
   end
 
-  def decode!(%Response{command: %Create{}} = response, buffer) do
+  def decode!(%Response{command: %Create{}} = response, "") do
     data = %CreateData{}
+
+    %{response | data: data}
+  end
+
+  def decode!(%Response{command: %Delete{}} = response, "") do
+    data = %DeleteData{}
 
     %{response | data: data}
   end

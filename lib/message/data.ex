@@ -49,4 +49,10 @@ defmodule RabbitStream.Message.Data do
       :arguments
     ]
   end
+
+  defmodule DeleteData do
+    defstruct [
+      :name
+    ]
+  end
 end

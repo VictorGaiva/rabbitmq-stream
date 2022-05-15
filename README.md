@@ -27,8 +27,8 @@ This implementation is following the protocol defined in the RabbitMQ's reposito
 
 An overview of the current status of the project can be estimated by what commands it is able to process, so here is a list of the current progress of the implementation.
 
-| Command                | Status |
-| ---------------------- | ------ |
+| Command                | Status | Description     |
+| ---------------------- | ------ | --------------- |
 | DeclarePublisher       | ⏳     |
 | Publish                | ⏳     |
 | PublishConfirm         | ⏳     |
@@ -41,17 +41,17 @@ An overview of the current status of the project can be estimated by what comman
 | StoreOffset            | ⏳     |
 | QueryOffset            | ⏳     |
 | Unsubscribe            | ⏳     |
-| Create                 | ✅     |
-| Delete                 | ⏳     |
+| Create                 | ✅     | Create a Stream |
+| Delete                 | ✅     | Delete a Stream |
 | Metadata               | ⏳     |
 | MetadataUpdate         | ⏳     |
-| PeerProperties         | ✅     |
-| SaslHandshake          | ✅     |
-| SaslAuthenticate       | ✅     |
-| Tune                   | ✅     |
-| Open                   | ✅     |
-| Close                  | ✅     |
-| Heartbeat              | ✅     |
+| PeerProperties         | ✅     | --              |
+| SaslHandshake          | ✅     | --              |
+| SaslAuthenticate       | ✅     | --              |
+| Tune                   | ✅     | --              |
+| Open                   | ✅     | --              |
+| Close                  | ✅     | --              |
+| Heartbeat              | ✅     | --              |
 
 ## Nexts steps
 

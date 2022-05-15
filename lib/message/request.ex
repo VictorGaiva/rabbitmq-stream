@@ -11,7 +11,8 @@ defmodule RabbitStream.Message.Request do
     Open,
     Heartbeat,
     Close,
-    Create
+    Create,
+    Delete
   }
 
   alias RabbitStream.Message.Data.{
@@ -22,7 +23,8 @@ defmodule RabbitStream.Message.Request do
     SaslHandshakeData,
     HeartbeatData,
     CloseData,
-    CreateData
+    CreateData,
+    DeleteData
   }
 
   alias __MODULE__, as: Request
@@ -205,6 +207,19 @@ defmodule RabbitStream.Message.Request do
     <<byte_size(data)::unsigned-integer-size(32), data::binary>>
   end
 
+  def encode!(%Request{command: %Delete{}, data: %DeleteData{} = data} = request) do
+    stream_name = encode_string(data.name)
+
+    data = <<
+      request.command.code::unsigned-integer-size(16),
+      request.version::unsigned-integer-size(16),
+      request.correlation_id::unsigned-integer-size(32),
+      stream_name::binary
+    >>
+
+    <<byte_size(data)::unsigned-integer-size(32), data::binary>>
+  end
+
   def new!(%Connection{} = conn, :peer_properties, _) do
     %Request{
       version: conn.version,
@@ -298,7 +313,7 @@ defmodule RabbitStream.Message.Request do
     }
   end
 
-  def new!(%Connection{} = conn, :create_stream, opts) do
+  def new!(%Connection{} = conn, :create, opts) do
     %Request{
       version: conn.version,
       command: %Create{},
@@ -306,6 +321,17 @@ defmodule RabbitStream.Message.Request do
       data: %CreateData{
         name: opts[:name],
         arguments: opts[:arguments]
+      }
+    }
+  end
+
+  def new!(%Connection{} = conn, :delete, opts) do
+    %Request{
+      version: conn.version,
+      command: %Delete{},
+      correlation_id: conn.correlation,
+      data: %DeleteData{
+        name: opts[:name]
       }
     }
   end

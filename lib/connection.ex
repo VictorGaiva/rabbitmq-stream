@@ -15,7 +15,8 @@ defmodule RabbitStream.Connection do
     Tune,
     Open,
     Heartbeat,
-    Create
+    Create,
+    Delete
   }
 
   alias Response.Code.{
@@ -26,7 +27,8 @@ defmodule RabbitStream.Connection do
     SaslChallenge,
     SaslAuthenticationFailureLoopback,
     VirtualHostAccessFailure,
-    StreamAlreadyExists
+    StreamAlreadyExists,
+    StreamDoesNotExist
   }
 
   defstruct [
@@ -70,7 +72,11 @@ defmodule RabbitStream.Connection do
   end
 
   def create_stream(pid, name, opts \\ []) when is_binary(name) do
-    GenServer.call(pid, {:create_stream, name, opts})
+    GenServer.call(pid, {:create, name, opts})
+  end
+
+  def delete_stream(pid, name) when is_binary(name) do
+    GenServer.call(pid, {:delete, name})
   end
 
   def get_state(pid) do
@@ -138,11 +144,20 @@ defmodule RabbitStream.Connection do
     {:reply, {:error, "Can't attempt to close a not \"open\" connection. Current state: \"#{state}\""}, conn}
   end
 
-  def handle_call({:create_stream, name, opts}, from, %Connection{state: "open"} = conn) do
+  def handle_call({:create, name, opts}, from, %Connection{state: "open"} = conn) do
     conn =
       conn
-      |> push_tracker(:create_stream, from)
-      |> send_request(:create_stream, name: name, arguments: opts)
+      |> push_tracker(:create, from)
+      |> send_request(:create, name: name, arguments: opts)
+
+    {:noreply, conn}
+  end
+
+  def handle_call({:delete, name}, from, %Connection{state: "open"} = conn) do
+    conn =
+      conn
+      |> push_tracker(:delete, from)
+      |> send_request(:delete, name: name)
 
     {:noreply, conn}
   end
@@ -196,7 +211,7 @@ defmodule RabbitStream.Connection do
     {:noreply, conn}
   end
 
-  defp handle_message(conn, %Response{command: %Close{}}) do
+  defp handle_message(%Connection{} = conn, %Response{command: %Close{}}) do
     Logger.debug("Connection closed: #{conn.host}:#{conn.port}")
 
     client = conn.close_request
@@ -288,7 +303,17 @@ defmodule RabbitStream.Connection do
   end
 
   defp handle_message(%Connection{} = conn, %Response{command: %Create{}} = response) do
-    {client, conn} = pop_tracker(conn, :create_stream, response.correlation_id)
+    {client, conn} = pop_tracker(conn, :create, response.correlation_id)
+
+    if client != nil do
+      GenServer.reply(client, :ok)
+    end
+
+    conn
+  end
+
+  defp handle_message(%Connection{} = conn, %Response{command: %Delete{}} = response) do
+    {client, conn} = pop_tracker(conn, :delete, response.correlation_id)
 
     if client != nil do
       GenServer.reply(client, :ok)
@@ -314,7 +339,17 @@ defmodule RabbitStream.Connection do
   end
 
   defp handle_error(%Connection{} = conn, %Response{code: %StreamAlreadyExists{}} = response) do
-    {client, conn} = pop_tracker(conn, :create_stream, response.correlation_id)
+    {client, conn} = pop_tracker(conn, :create, response.correlation_id)
+
+    if client != nil do
+      GenServer.reply(client, {:error, response.code})
+    end
+
+    conn
+  end
+
+  defp handle_error(%Connection{} = conn, %Response{code: %StreamDoesNotExist{}} = response) do
+    {client, conn} = pop_tracker(conn, :delete, response.correlation_id)
 
     if client != nil do
       GenServer.reply(client, {:error, response.code})
