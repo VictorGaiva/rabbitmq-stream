@@ -10,7 +10,8 @@ defmodule RabbitStream.Message.Request do
     Tune,
     Open,
     Heartbeat,
-    Close
+    Close,
+    Create
   }
 
   alias RabbitStream.Message.Data.{
@@ -20,7 +21,8 @@ defmodule RabbitStream.Message.Request do
     SaslAuthenticateData,
     SaslHandshakeData,
     HeartbeatData,
-    CloseData
+    CloseData,
+    CreateData
   }
 
   alias __MODULE__, as: Request
@@ -46,6 +48,10 @@ defmodule RabbitStream.Message.Request do
 
   def encode_bytes(bytes) do
     <<byte_size(bytes)::integer-size(32), bytes::binary>>
+  end
+
+  def encode_array([]) do
+    <<0::integer-size(32)>>
   end
 
   def encode_array(arr) do
@@ -93,7 +99,7 @@ defmodule RabbitStream.Message.Request do
   def encode!(%Request{command: %PeerProperties{}} = request) do
     properties =
       request.data.peer_properties
-      |> Enum.map(fn [key, value] -> encode_string(key) <> encode_string(value) end)
+      |> Enum.map(fn {key, value} -> encode_string(key) <> encode_string(value) end)
       |> encode_array()
 
     data = <<
@@ -180,6 +186,25 @@ defmodule RabbitStream.Message.Request do
     <<byte_size(data)::unsigned-integer-size(32), data::binary>>
   end
 
+  def encode!(%Request{command: %Create{}, data: %CreateData{} = data} = request) do
+    stream_name = encode_string(data.name)
+
+    arguments =
+      data.arguments
+      |> Enum.map(fn {key, value} -> encode_string(key) <> encode_string(value) end)
+      |> encode_array()
+
+    data = <<
+      request.command.code::unsigned-integer-size(16),
+      request.version::unsigned-integer-size(16),
+      request.correlation_id::unsigned-integer-size(32),
+      stream_name::binary,
+      arguments::binary
+    >>
+
+    <<byte_size(data)::unsigned-integer-size(32), data::binary>>
+  end
+
   def new!(%Connection{} = conn, :peer_properties, _) do
     %Request{
       version: conn.version,
@@ -187,10 +212,10 @@ defmodule RabbitStream.Message.Request do
       command: %PeerProperties{},
       data: %PeerPropertiesData{
         peer_properties: [
-          ["product", "RabbitMQ Stream Client"],
-          ["information", "Development"],
-          ["version", "0.0.1"],
-          ["platform", "Elixir"]
+          {"product", "RabbitMQ Stream Client"},
+          {"information", "Development"},
+          {"version", "0.0.1"},
+          {"platform", "Elixir"}
         ]
       }
     }
@@ -269,6 +294,18 @@ defmodule RabbitStream.Message.Request do
       data: %CloseData{
         code: opts[:code],
         reason: opts[:reason]
+      }
+    }
+  end
+
+  def new!(%Connection{} = conn, :create_stream, opts) do
+    %Request{
+      version: conn.version,
+      command: %Create{},
+      correlation_id: conn.correlation,
+      data: %CreateData{
+        name: opts[:name],
+        arguments: opts[:arguments]
       }
     }
   end

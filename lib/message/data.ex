@@ -42,4 +42,11 @@ defmodule RabbitStream.Message.Data do
       :reason
     ]
   end
+
+  defmodule CreateData do
+    defstruct [
+      :name,
+      :arguments
+    ]
+  end
 end

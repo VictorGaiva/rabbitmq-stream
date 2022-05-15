@@ -11,7 +11,8 @@ defmodule RabbitStream.Message.Response do
     Tune,
     Open,
     Close,
-    Heartbeat
+    Heartbeat,
+    Create
   }
 
   alias RabbitStream.Message.Data.{
@@ -21,7 +22,8 @@ defmodule RabbitStream.Message.Response do
     PeerPropertiesData,
     OpenData,
     HeartbeatData,
-    CloseData
+    CloseData,
+    CreateData
   }
 
   defmodule Code do
@@ -32,15 +34,15 @@ defmodule RabbitStream.Message.Response do
       0x04 => :subscription_id_does_not_exist,
       0x05 => :stream_already_exists,
       0x06 => :stream_not_available,
-      0x07 => :sasl_mechanism_not_supported,#
-      0x08 => :authentication_failure,#
-      0x09 => :sasl_error,#
-      0x0A => :sasl_challenge,#
-      0x0B => :sasl_authentication_failure_loopback,#
-      0x0C => :virtual_host_access_failure,#
+      0x07 => :sasl_mechanism_not_supported,
+      0x08 => :authentication_failure,
+      0x09 => :sasl_error,
+      0x0A => :sasl_challenge,
+      0x0B => :sasl_authentication_failure_loopback,
+      0x0C => :virtual_host_access_failure,
       0x0D => :unknown_frame,
       0x0E => :frame_too_large,
-      0x0F => :internal_error,#
+      0x0F => :internal_error,
       0x10 => :access_refused,
       0x11 => :precondition_failed,
       0x12 => :publisher_does_not_exist,
@@ -142,6 +144,12 @@ defmodule RabbitStream.Message.Response do
 
   def decode!(%Response{command: %Close{}} = response, "") do
     data = %CloseData{}
+
+    %{response | data: data}
+  end
+
+  def decode!(%Response{command: %Create{}} = response, buffer) do
+    data = %CreateData{}
 
     %{response | data: data}
   end

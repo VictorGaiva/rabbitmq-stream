@@ -14,7 +14,7 @@ defmodule RabbitStream.Message do
     # Subscribe,
     QueryOffset,
     # Unsubscribe,
-    # Create,
+    Create,
     # Delete,
     # Metadata,
     PeerProperties,
@@ -35,7 +35,8 @@ defmodule RabbitStream.Message do
       %SaslHandshake{},
       %SaslAuthenticate{},
       %Open{},
-      %Close{}
+      %Close{},
+      %Create{}
     ]
   end
 
@@ -53,8 +54,7 @@ defmodule RabbitStream.Message do
 
     case {flag, has_correlation?(command)} do
       {0b1, true} ->
-        <<correlation_id::unsigned-integer-size(32), code::unsigned-integer-size(16),
-          buffer::binary>> = buffer
+        <<correlation_id::unsigned-integer-size(32), code::unsigned-integer-size(16), buffer::binary>> = buffer
 
         %Response{
           version: version,

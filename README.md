@@ -41,7 +41,7 @@ An overview of the current status of the project can be estimated by what comman
 | StoreOffset            | ⏳     |
 | QueryOffset            | ⏳     |
 | Unsubscribe            | ⏳     |
-| Create                 | ⏳     |
+| Create                 | ✅     |
 | Delete                 | ⏳     |
 | Metadata               | ⏳     |
 | MetadataUpdate         | ⏳     |
