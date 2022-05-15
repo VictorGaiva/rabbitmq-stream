@@ -261,14 +261,14 @@ defmodule RabbitStream.Message.Request do
     }
   end
 
-  def new!(%Connection{} = conn, :close, code: code, reason: reason) do
+  def new!(%Connection{} = conn, :close, opts) do
     %Request{
       version: conn.version,
       command: %Close{},
       correlation_id: conn.correlation,
       data: %CloseData{
-        code: code,
-        reason: reason
+        code: opts[:code],
+        reason: opts[:reason]
       }
     }
   end

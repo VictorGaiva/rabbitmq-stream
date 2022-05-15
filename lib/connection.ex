@@ -64,17 +64,21 @@ defmodule RabbitStream.Connection do
     GenServer.call(pid, {:connect})
   end
 
-  def close(pid, code, reason) do
-    GenServer.call(pid, {:close, code, reason})
+  def close(pid, reason \\ "", code \\ 0x00) do
+    GenServer.call(pid, {:close, reason, code})
+  end
+
+  def get_state(pid) do
+    GenServer.call(pid, {:state})
   end
 
   @impl true
   def init(opts \\ []) do
     username = opts[:username] || "guest"
     password = opts[:password] || "guest"
-    host = String.to_charlist(opts[:host] || "localhost")
+    host = opts[:host] || "localhost"
     port = opts[:port] || 5552
-    vhost = opts[:vhost] || "dev"
+    vhost = opts[:vhost] || "/"
 
     conn = %Connection{
       host: host,
@@ -88,10 +92,15 @@ defmodule RabbitStream.Connection do
   end
 
   @impl true
+  def handle_call({:state}, _from, %Connection{} = conn) do
+    {:reply, conn, conn}
+  end
+
+  @impl true
   def handle_call({:connect}, from, %Connection{state: "closed"} = conn) do
     Logger.info("Connecting to server: #{conn.host}:#{conn.port}")
 
-    with {:ok, socket} <- :gen_tcp.connect(conn.host, conn.port, [:binary, active: true]),
+    with {:ok, socket} <- :gen_tcp.connect(String.to_charlist(conn.host), conn.port, [:binary, active: true]),
          :ok <- :gen_tcp.controlling_process(socket, self()) do
       Logger.debug("Connection stablished. Initiating properties exchange.")
 
@@ -113,13 +122,13 @@ defmodule RabbitStream.Connection do
   end
 
   @impl true
-  def handle_call({:close, code, reason}, from, %Connection{state: "open"} = conn) do
-    Logger.info("Connection close requested by client: #{code} #{reason}")
+  def handle_call({:close, reason, code}, from, %Connection{state: "open"} = conn) do
+    Logger.info("Connection close requested by client: #{reason} #{code}")
 
     conn =
       %{conn | state: "closing"}
       |> Map.update!(:requests, &Map.put(&1, :close, from))
-      |> send_request(:close, code: code, reason: reason)
+      |> send_request(:close, reason: reason, code: code)
 
     {:noreply, conn}
   end
@@ -303,7 +312,7 @@ defmodule RabbitStream.Connection do
              %SaslAuthenticationFailureLoopback{},
              %VirtualHostAccessFailure{}
            ] do
-    Logger.error("Failed to connect to #{conn.host}:#{conn.port}. Reason: #{code}")
+    Logger.error("Failed to connect to #{conn.host}:#{conn.port}. Reason: #{code.__struct__}")
 
     GenServer.reply(conn.requests.connect, {:error, code})
 
