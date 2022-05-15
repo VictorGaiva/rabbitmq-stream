@@ -72,7 +72,7 @@ defmodule RabbitStream.Connection do
   def init(opts \\ []) do
     username = opts[:username] || "guest"
     password = opts[:password] || "guest"
-    host = opts[:host] || 'localhost'
+    host = String.to_charlist(opts[:host] || "localhost")
     port = opts[:port] || 5552
     vhost = opts[:vhost] || "dev"
 
@@ -124,6 +124,10 @@ defmodule RabbitStream.Connection do
     {:noreply, conn}
   end
 
+  def handle_call({:close, _, _}, _from, %Connection{state: state} = conn) do
+    {:reply, {:error, "Can't attempt to close a not \"open\" connection. Current state: \"#{state}\""}, conn}
+  end
+
   @impl true
   def handle_info({:tcp, _socket, data}, conn) do
     conn =
@@ -138,7 +142,13 @@ defmodule RabbitStream.Connection do
           handle_error(conn, decoded)
       end
 
-    {:noreply, conn}
+    case conn.state do
+      "closed" ->
+        {:noreply, conn, :hibernate}
+
+      _ ->
+        {:noreply, conn}
+    end
   end
 
   @impl true
@@ -152,11 +162,41 @@ defmodule RabbitStream.Connection do
 
   @impl true
   def handle_info({:tcp_closed, _socket}, conn) do
-    {:noreply, conn}
+    if conn.state == "connecting" do
+      Logger.warn(
+        "The connection was closed by the host, after the socket was already open, while running the authentication sequence. This could be caused by the server not having Stream Plugin active"
+      )
+    end
+
+    conn = %{conn | socket: nil, state: "closed"}
+
+    conn =
+      if conn.requests.connect != nil do
+        GenServer.reply(conn.requests.connect, {:error, "closed"})
+
+        conn
+        |> Map.update!(:requests, &%{&1 | connect: nil})
+      else
+        conn
+      end
+
+    {:noreply, conn, :hibernate}
   end
 
   @impl true
-  def handle_info({:tcp_error, _socket, _reason}, conn) do
+  def handle_info({:tcp_error, _socket, reason}, conn) do
+    conn = %{conn | socket: nil, state: "closed"}
+
+    conn =
+      if conn.requests.connect != nil do
+        GenServer.reply(conn.requests.connect, {:error, reason})
+
+        conn
+        |> Map.update!(:requests, &%{&1 | connect: nil})
+      else
+        conn
+      end
+
     {:noreply, conn}
   end
 
@@ -166,7 +206,7 @@ defmodule RabbitStream.Connection do
     client = conn.requests.close
 
     conn =
-      %{conn | state: "closed"}
+      %{conn | state: "closed", socket: nil}
       |> Map.update!(:requests, &%{&1 | close: nil})
 
     GenServer.reply(client, {:ok, conn})
@@ -267,7 +307,7 @@ defmodule RabbitStream.Connection do
 
     GenServer.reply(conn.requests.connect, {:error, code})
 
-    %{conn | state: "closed"}
+    %{conn | state: "closed", socket: nil}
     |> Map.update!(:requests, &%{&1 | connect: nil})
   end
 
