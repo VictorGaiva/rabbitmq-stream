@@ -16,19 +16,19 @@ defmodule RabbitStream.Connection do
     Open,
     Heartbeat,
     Create,
-    Delete
+    Delete,
+    StoreOffset,
+    QueryOffset
   }
 
-  alias Response.Code.{
+  alias Message.Code.{
     Ok,
     SaslMechanismNotSupported,
     AuthenticationFailure,
     SaslError,
     SaslChallenge,
     SaslAuthenticationFailureLoopback,
-    VirtualHostAccessFailure,
-    StreamAlreadyExists,
-    StreamDoesNotExist
+    VirtualHostAccessFailure
   }
 
   defstruct [
@@ -43,11 +43,11 @@ defmodule RabbitStream.Connection do
     version: 1,
     state: "closed",
     correlation: 1,
+    subscription: 1,
     peer_properties: [],
     connection_properties: [],
     mechanisms: [],
     connect_request: nil,
-    close_request: nil,
     requests: %{}
   ]
 
@@ -77,6 +77,19 @@ defmodule RabbitStream.Connection do
 
   def delete_stream(pid, name) when is_binary(name) do
     GenServer.call(pid, {:delete, name})
+  end
+
+  def store_offset(pid, name, reference, offset)
+      when is_binary(name)
+      when is_binary(reference)
+      when is_integer(offset) do
+    GenServer.call(pid, {:store_offset, stream_name: name, reference: reference, offset: offset})
+  end
+
+  def query_offset(pid, name, reference)
+      when is_binary(name)
+      when is_binary(reference) do
+    GenServer.call(pid, {:query_offset, stream_name: name, reference: reference})
   end
 
   def get_state(pid) do
@@ -116,7 +129,7 @@ defmodule RabbitStream.Connection do
 
       conn =
         %{conn | socket: socket, state: "connecting", connect_request: from}
-        |> send_request(:peer_properties)
+        |> send_request(%PeerProperties{})
 
       {:noreply, conn}
     else
@@ -130,34 +143,52 @@ defmodule RabbitStream.Connection do
     {:reply, {:error, "Can only connect while in the \"closed\" state. Current state: \"#{conn.state}\""}, conn}
   end
 
-  def handle_call({:close, reason, code}, from, %Connection{state: "open"} = conn) do
+  def handle_call(_, _from, %Connection{state: "closed"} = conn) do
+    {:reply, {:error, :closed}, conn}
+  end
+
+  def handle_call({:close, reason, code}, from, %Connection{} = conn) do
     Logger.info("Connection close requested by client: #{reason} #{code}")
 
     conn =
-      %{conn | state: "closing", close_request: from}
-      |> send_request(:close, reason: reason, code: code)
+      %{conn | state: "closing"}
+      |> push_tracker(%Close{}, from)
+      |> send_request(%Close{}, reason: reason, code: code)
 
     {:noreply, conn}
   end
 
-  def handle_call({:close, _, _}, _from, %Connection{state: state} = conn) do
-    {:reply, {:error, "Can't attempt to close a not \"open\" connection. Current state: \"#{state}\""}, conn}
-  end
-
-  def handle_call({:create, name, opts}, from, %Connection{state: "open"} = conn) do
+  def handle_call({:create, name, opts}, from, %Connection{} = conn) do
     conn =
       conn
-      |> push_tracker(:create, from)
-      |> send_request(:create, name: name, arguments: opts)
+      |> push_tracker(%Create{}, from)
+      |> send_request(%Create{}, name: name, arguments: opts)
 
     {:noreply, conn}
   end
 
-  def handle_call({:delete, name}, from, %Connection{state: "open"} = conn) do
+  def handle_call({:delete, name}, from, %Connection{} = conn) do
     conn =
       conn
-      |> push_tracker(:delete, from)
-      |> send_request(:delete, name: name)
+      |> push_tracker(%Delete{}, from)
+      |> send_request(%Delete{}, name: name)
+
+    {:noreply, conn}
+  end
+
+  def handle_call({:store_offset, opts}, _from, %Connection{} = conn) do
+    conn =
+      conn
+      |> send_request(%StoreOffset{}, opts)
+
+    {:reply, :ok, conn}
+  end
+
+  def handle_call({:query_offset, opts}, from, %Connection{} = conn) do
+    conn =
+      conn
+      |> push_tracker(%QueryOffset{}, from)
+      |> send_request(%QueryOffset{}, opts)
 
     {:noreply, conn}
   end
@@ -165,16 +196,18 @@ defmodule RabbitStream.Connection do
   @impl true
   def handle_info({:tcp, _socket, data}, conn) do
     conn =
-      case Message.decode!(data) do
-        %Request{} = decoded ->
+      data
+      |> Message.decode!()
+      |> Enum.reduce(conn, fn
+        %Request{} = decoded, conn ->
           handle_message(conn, decoded)
 
-        %Response{code: %Ok{}} = decoded ->
+        %Response{code: %Ok{}} = decoded, conn ->
           handle_message(conn, decoded)
 
-        decoded ->
+        decoded, conn ->
           handle_error(conn, decoded)
-      end
+      end)
 
     case conn.state do
       "closed" ->
@@ -186,7 +219,7 @@ defmodule RabbitStream.Connection do
   end
 
   def handle_info({:heartbeat}, conn) do
-    conn = send_request(conn, :heartbeat, sum: 0)
+    conn = send_request(conn, %Heartbeat{}, sum: 0)
 
     Process.send_after(self(), {:heartbeat}, conn.heartbeat * 1000)
 
@@ -211,12 +244,12 @@ defmodule RabbitStream.Connection do
     {:noreply, conn}
   end
 
-  defp handle_message(%Connection{} = conn, %Response{command: %Close{}}) do
+  defp handle_message(%Connection{} = conn, %Response{command: %Close{}} = response) do
     Logger.debug("Connection closed: #{conn.host}:#{conn.port}")
 
-    client = conn.close_request
+    {client, conn} = pop_tracker(conn, %Close{}, response.correlation_id)
 
-    conn = %{conn | state: "closed", socket: nil, close_request: nil}
+    conn = %{conn | state: "closed", socket: nil}
 
     GenServer.reply(client, {:ok, conn})
 
@@ -228,7 +261,7 @@ defmodule RabbitStream.Connection do
     Logger.debug("Connection closed")
 
     %{conn | state: "closing"}
-    |> send_response(:close, correlation_id: request.correlation_id, code: %Response.Code.Ok{})
+    |> send_response(:close, correlation_id: request.correlation_id, code: %Ok{})
     |> handle_closed(request.data.reason)
   end
 
@@ -243,14 +276,14 @@ defmodule RabbitStream.Connection do
     Logger.debug("Initiating SASL handshake.")
 
     %{conn | peer_properties: request.data.peer_properties}
-    |> send_request(:sasl_handshake)
+    |> send_request(%SaslHandshake{})
   end
 
   defp handle_message(%Connection{} = conn, %Response{command: %SaslHandshake{}} = request) do
     Logger.debug("SASL handshake successful. Initiating authentication.")
 
     %{conn | mechanisms: request.data.mechanisms}
-    |> send_request(:sasl_authenticate)
+    |> send_request(%SaslAuthenticate{})
   end
 
   defp handle_message(%Connection{} = conn, %Response{command: %SaslAuthenticate{}, data: %{sasl_opaque_data: ""}}) do
@@ -264,7 +297,7 @@ defmodule RabbitStream.Connection do
     Logger.debug("Opening connection to vhost: \"#{conn.vhost}\"")
 
     conn
-    |> send_request(:open)
+    |> send_request(%Open{})
     |> Map.put(:state, "opening")
   end
 
@@ -283,7 +316,7 @@ defmodule RabbitStream.Connection do
     %{conn | frame_max: request.data.frame_max, heartbeat: request.data.heartbeat}
     |> send_response(:tune, correlation_id: request.correlation_id)
     |> Map.put(:state, "opening")
-    |> send_request(:open)
+    |> send_request(%Open{})
   end
 
   defp handle_message(%Connection{} = conn, %Response{command: %Open{}} = response) do
@@ -302,18 +335,19 @@ defmodule RabbitStream.Connection do
     conn
   end
 
-  defp handle_message(%Connection{} = conn, %Response{command: %Create{}} = response) do
-    {client, conn} = pop_tracker(conn, :create, response.correlation_id)
+  defp handle_message(%Connection{} = conn, %Response{command: %QueryOffset{}} = response) do
+    {client, conn} = pop_tracker(conn, %QueryOffset{}, response.correlation_id)
 
     if client != nil do
-      GenServer.reply(client, :ok)
+      GenServer.reply(client, {:ok, response.data.offset})
     end
 
     conn
   end
 
-  defp handle_message(%Connection{} = conn, %Response{command: %Delete{}} = response) do
-    {client, conn} = pop_tracker(conn, :delete, response.correlation_id)
+  defp handle_message(%Connection{} = conn, %Response{command: command} = response)
+       when command in [%Create{}, %Delete{}] do
+    {client, conn} = pop_tracker(conn, command, response.correlation_id)
 
     if client != nil do
       GenServer.reply(client, :ok)
@@ -338,18 +372,13 @@ defmodule RabbitStream.Connection do
     %{conn | state: "closed", socket: nil, connect_request: nil}
   end
 
-  defp handle_error(%Connection{} = conn, %Response{code: %StreamAlreadyExists{}} = response) do
-    {client, conn} = pop_tracker(conn, :create, response.correlation_id)
-
-    if client != nil do
-      GenServer.reply(client, {:error, response.code})
-    end
-
-    conn
-  end
-
-  defp handle_error(%Connection{} = conn, %Response{code: %StreamDoesNotExist{}} = response) do
-    {client, conn} = pop_tracker(conn, :delete, response.correlation_id)
+  defp handle_error(%Connection{} = conn, %Response{command: command} = response)
+       when command in [
+              %Create{},
+              %Delete{},
+              %StoreOffset{}
+            ] do
+    {client, conn} = pop_tracker(conn, command, response.correlation_id)
 
     if client != nil do
       GenServer.reply(client, {:error, response.code})
@@ -359,15 +388,11 @@ defmodule RabbitStream.Connection do
   end
 
   defp handle_closed(%Connection{} = conn, reason) do
-    if conn.close_request != nil do
-      GenServer.reply(conn.close_request, {:error, reason})
-    end
-
     for client <- Map.values(conn.requests) do
       GenServer.reply(client, {:error, reason})
     end
 
-    %{conn | requests: %{}, close_request: nil}
+    %{conn | requests: %{}}
   end
 
   defp send_request(%Connection{} = conn, command, opts \\ []) do
@@ -384,13 +409,13 @@ defmodule RabbitStream.Connection do
     conn
   end
 
-  defp push_tracker(%Connection{} = conn, type, from) when is_atom(type) when is_pid(from) do
+  defp push_tracker(%Connection{} = conn, type, from) when is_struct(type) when is_pid(from) do
     requests = Map.put(conn.requests, {type, conn.correlation}, from)
 
     %{conn | requests: requests}
   end
 
-  defp pop_tracker(%Connection{} = conn, type, correlation) when is_atom(type) do
+  defp pop_tracker(%Connection{} = conn, type, correlation) when is_struct(type) do
     {value, requests} = Map.pop(conn.requests, {type, correlation})
 
     if value == nil do

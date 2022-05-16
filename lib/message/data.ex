@@ -45,14 +45,36 @@ defmodule RabbitStream.Message.Data do
 
   defmodule CreateData do
     defstruct [
-      :name,
+      :stream_name,
       :arguments
     ]
   end
 
   defmodule DeleteData do
     defstruct [
-      :name
+      :stream_name
+    ]
+  end
+
+  defmodule StoreOffsetData do
+    defstruct [
+      :reference,
+      :stream_name,
+      :offset
+    ]
+  end
+
+  defmodule QueryOffsetData do
+    defstruct [
+      :reference,
+      :stream_name,
+      :offset
+    ]
+  end
+
+  defmodule MetadataUpdateData do
+    defstruct [
+      :stream_name
     ]
   end
 end

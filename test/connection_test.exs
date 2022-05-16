@@ -2,7 +2,7 @@ defmodule RabbitStreamTest.Connection do
   use ExUnit.Case
   alias RabbitStream.Connection
 
-  alias RabbitStream.Message.Response.Code.{
+  alias RabbitStream.Message.Code.{
     VirtualHostAccessFailure,
     AuthenticationFailure,
     StreamAlreadyExists,
@@ -37,7 +37,6 @@ defmodule RabbitStreamTest.Connection do
 
   test "should create and delete a stream" do
     {:ok, pid} = Connection.start_link(host: "localhost", vhost: "/")
-
     {:ok, _} = Connection.connect(pid)
 
     assert :ok == Connection.create_stream(pid, "test-create-01")
@@ -45,5 +44,21 @@ defmodule RabbitStreamTest.Connection do
 
     assert :ok == Connection.delete_stream(pid, "test-create-01")
     assert match?({:error, %StreamDoesNotExist{}}, Connection.delete_stream(pid, "test-create-01"))
+  end
+
+  test "should store and query an offset" do
+    {:ok, pid} = Connection.start_link(host: "localhost", vhost: "/")
+    {:ok, _} = Connection.connect(pid)
+
+    Connection.delete_stream(pid, "test-store-03")
+    :ok = Connection.create_stream(pid, "test-store-03")
+
+    offset = :os.system_time(:millisecond)
+
+    assert :ok == Connection.store_offset(pid, "test-store-03", "test-store-01", offset)
+
+    assert match?({:ok, ^offset}, Connection.query_offset(pid, "test-store-03", "test-store-01"))
+
+    :ok = Connection.delete_stream(pid, "test-store-03")
   end
 end
