@@ -12,7 +12,9 @@ defmodule RabbitStream.Message.Encoder do
     Create,
     Delete,
     StoreOffset,
-    QueryOffset
+    QueryOffset,
+    DeclarePublisher,
+    DeletePublisher
   }
 
   alias RabbitStream.Message.Data.{
@@ -21,30 +23,28 @@ defmodule RabbitStream.Message.Encoder do
     CreateData,
     DeleteData,
     StoreOffsetData,
-    QueryOffsetData
+    QueryOffsetData,
+    DeclarePublisherData,
+    DeletePublisherData
   }
 
-  def encode_string(nil) do
+  defp encode_string(nil) do
     <<-1::integer-size(16)>>
   end
 
-  def encode_string(str) do
+  defp encode_string(str) do
     <<byte_size(str)::integer-size(16), str::binary>>
   end
 
-  def encode_bytes(nil) do
-    <<-1::integer-size(32)>>
-  end
-
-  def encode_bytes(bytes) do
+  defp encode_bytes(bytes) do
     <<byte_size(bytes)::integer-size(32), bytes::binary>>
   end
 
-  def encode_array([]) do
+  defp encode_array([]) do
     <<0::integer-size(32)>>
   end
 
-  def encode_array(arr) do
+  defp encode_array(arr) do
     size = Enum.count(arr)
     arr = arr |> Enum.reduce(&<>/2)
 
@@ -174,13 +174,13 @@ defmodule RabbitStream.Message.Encoder do
   end
 
   def encode!(%Request{command: %StoreOffset{}, data: %StoreOffsetData{} = data} = request) do
-    reference = encode_string(data.reference)
+    offset_reference = encode_string(data.offset_reference)
     stream_name = encode_string(data.stream_name)
 
     data = <<
       request.command.code::unsigned-integer-size(16),
       request.version::unsigned-integer-size(16),
-      reference::binary,
+      offset_reference::binary,
       stream_name::binary,
       data.offset::unsigned-integer-size(64)
     >>
@@ -189,15 +189,42 @@ defmodule RabbitStream.Message.Encoder do
   end
 
   def encode!(%Request{command: %QueryOffset{}, data: %QueryOffsetData{} = data} = request) do
-    reference = encode_string(data.reference)
+    offset_reference = encode_string(data.offset_reference)
     stream_name = encode_string(data.stream_name)
 
     data = <<
       request.command.code::unsigned-integer-size(16),
       request.version::unsigned-integer-size(16),
       request.correlation_id::unsigned-integer-size(32),
-      reference::binary,
+      offset_reference::binary,
       stream_name::binary
+    >>
+
+    <<byte_size(data)::unsigned-integer-size(32), data::binary>>
+  end
+
+  def encode!(%Request{command: %DeclarePublisher{}, data: %DeclarePublisherData{} = data} = request) do
+    publisher_reference = encode_string(data.publisher_reference)
+    stream_name = encode_string(data.stream_name)
+
+    data = <<
+      request.command.code::unsigned-integer-size(16),
+      request.version::unsigned-integer-size(16),
+      request.correlation_id::unsigned-integer-size(32),
+      data.id::unsigned-integer-size(8),
+      publisher_reference::binary,
+      stream_name::binary
+    >>
+
+    <<byte_size(data)::unsigned-integer-size(32), data::binary>>
+  end
+
+  def encode!(%Request{command: %DeletePublisher{}, data: %DeletePublisherData{} = data} = request) do
+    data = <<
+      request.command.code::unsigned-integer-size(16),
+      request.version::unsigned-integer-size(16),
+      request.correlation_id::unsigned-integer-size(32),
+      data.id::unsigned-integer-size(8)
     >>
 
     <<byte_size(data)::unsigned-integer-size(32), data::binary>>

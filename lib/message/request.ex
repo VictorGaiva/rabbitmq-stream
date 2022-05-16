@@ -15,7 +15,9 @@ defmodule RabbitStream.Message.Request do
     Create,
     Delete,
     StoreOffset,
-    QueryOffset
+    QueryOffset,
+    DeclarePublisher,
+    DeletePublisher
   }
 
   alias RabbitStream.Message.Data.{
@@ -29,7 +31,9 @@ defmodule RabbitStream.Message.Request do
     CreateData,
     DeleteData,
     StoreOffsetData,
-    QueryOffsetData
+    QueryOffsetData,
+    DeclarePublisherData,
+    DeletePublisherData
   }
 
   alias __MODULE__, as: Request
@@ -45,7 +49,7 @@ defmodule RabbitStream.Message.Request do
   def new!(%Connection{} = conn, %PeerProperties{}, _) do
     %Request{
       version: conn.version,
-      correlation_id: conn.correlation,
+      correlation_id: conn.correlation_sequence,
       command: %PeerProperties{},
       data: %PeerPropertiesData{
         peer_properties: [
@@ -61,7 +65,7 @@ defmodule RabbitStream.Message.Request do
   def new!(%Connection{} = conn, %SaslHandshake{}, _) do
     %Request{
       version: conn.version,
-      correlation_id: conn.correlation,
+      correlation_id: conn.correlation_sequence,
       command: %SaslHandshake{},
       data: %SaslHandshakeData{
         mechanisms: [
@@ -76,7 +80,7 @@ defmodule RabbitStream.Message.Request do
       Enum.member?(conn.mechanisms, "PLAIN") ->
         %Request{
           version: conn.version,
-          correlation_id: conn.correlation,
+          correlation_id: conn.correlation_sequence,
           command: %SaslAuthenticate{},
           data: %SaslAuthenticateData{
             mechanism: "PLAIN",
@@ -95,7 +99,7 @@ defmodule RabbitStream.Message.Request do
   def new!(%Connection{} = conn, %Tune{}, _) do
     %Request{
       version: conn.version,
-      correlation_id: conn.correlation,
+      correlation_id: conn.correlation_sequence,
       command: %Tune{},
       data: %TuneData{
         frame_max: conn.frame_max,
@@ -107,7 +111,7 @@ defmodule RabbitStream.Message.Request do
   def new!(%Connection{} = conn, %Open{}, _) do
     %Request{
       version: conn.version,
-      correlation_id: conn.correlation,
+      correlation_id: conn.correlation_sequence,
       command: %Open{},
       data: %OpenData{
         vhost: conn.vhost
@@ -127,7 +131,7 @@ defmodule RabbitStream.Message.Request do
     %Request{
       version: conn.version,
       command: %Close{},
-      correlation_id: conn.correlation,
+      correlation_id: conn.correlation_sequence,
       data: %CloseData{
         code: opts[:code],
         reason: opts[:reason]
@@ -139,7 +143,7 @@ defmodule RabbitStream.Message.Request do
     %Request{
       version: conn.version,
       command: %Create{},
-      correlation_id: conn.correlation,
+      correlation_id: conn.correlation_sequence,
       data: %CreateData{
         stream_name: opts[:name],
         arguments: opts[:arguments]
@@ -151,7 +155,7 @@ defmodule RabbitStream.Message.Request do
     %Request{
       version: conn.version,
       command: %Delete{},
-      correlation_id: conn.correlation,
+      correlation_id: conn.correlation_sequence,
       data: %DeleteData{
         stream_name: opts[:name]
       }
@@ -162,10 +166,10 @@ defmodule RabbitStream.Message.Request do
     %Request{
       version: conn.version,
       command: %StoreOffset{},
-      correlation_id: conn.correlation,
+      correlation_id: conn.correlation_sequence,
       data: %StoreOffsetData{
         stream_name: opts[:stream_name],
-        reference: opts[:reference],
+        offset_reference: opts[:offset_reference],
         offset: opts[:offset]
       }
     }
@@ -175,10 +179,34 @@ defmodule RabbitStream.Message.Request do
     %Request{
       version: conn.version,
       command: %QueryOffset{},
-      correlation_id: conn.correlation,
+      correlation_id: conn.correlation_sequence,
       data: %QueryOffsetData{
         stream_name: opts[:stream_name],
-        reference: opts[:reference]
+        offset_reference: opts[:offset_reference]
+      }
+    }
+  end
+
+  def new!(%Connection{} = conn, %DeclarePublisher{}, opts) do
+    %Request{
+      version: conn.version,
+      command: %DeclarePublisher{},
+      correlation_id: conn.correlation_sequence,
+      data: %DeclarePublisherData{
+        id: conn.publisher_sequence,
+        publisher_reference: opts[:publisher_reference],
+        stream_name: opts[:stream_name]
+      }
+    }
+  end
+
+  def new!(%Connection{} = conn, %DeletePublisher{}, opts) do
+    %Request{
+      version: conn.version,
+      command: %DeletePublisher{},
+      correlation_id: conn.correlation_sequence,
+      data: %DeletePublisherData{
+        id: opts[:id]
       }
     }
   end

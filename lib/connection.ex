@@ -18,7 +18,10 @@ defmodule RabbitStream.Connection do
     Create,
     Delete,
     StoreOffset,
-    QueryOffset
+    QueryOffset,
+    DeclarePublisher,
+    DeletePublisher,
+    MetadataUpdate
   }
 
   alias Message.Code.{
@@ -42,13 +45,14 @@ defmodule RabbitStream.Connection do
     heartbeat: 60,
     version: 1,
     state: "closed",
-    correlation: 1,
-    subscription: 1,
     peer_properties: [],
     connection_properties: [],
     mechanisms: [],
     connect_request: nil,
-    requests: %{}
+    requests: %{},
+    correlation_sequence: 1,
+    publisher_sequence: 1,
+    subscription_sequence: 1
   ]
 
   # @states [
@@ -79,18 +83,31 @@ defmodule RabbitStream.Connection do
     GenServer.call(pid, {:delete, name})
   end
 
-  def store_offset(pid, name, reference, offset)
-      when is_binary(name)
-      when is_binary(reference)
+  def store_offset(pid, stream_name, offset_reference, offset)
+      when is_binary(stream_name)
+      when is_binary(offset_reference)
       when is_integer(offset)
-      when length(name) <= 255 do
-    GenServer.call(pid, {:store_offset, stream_name: name, reference: reference, offset: offset})
+      when length(stream_name) <= 255 do
+    GenServer.call(pid, {:store_offset, stream_name: stream_name, offset_reference: offset_reference, offset: offset})
   end
 
-  def query_offset(pid, name, reference)
-      when is_binary(name)
-      when is_binary(reference) do
-    GenServer.call(pid, {:query_offset, stream_name: name, reference: reference})
+  def query_offset(pid, stream_name, offset_reference)
+      when is_binary(stream_name)
+      when is_binary(offset_reference) do
+    GenServer.call(pid, {:query_offset, stream_name: stream_name, offset_reference: offset_reference})
+  end
+
+  def declare_publisher(pid, stream_name, publisher_reference)
+      when is_binary(publisher_reference)
+      when is_binary(stream_name)
+      when length(stream_name) <= 255 do
+    GenServer.call(pid, {:declare_publisher, stream_name: stream_name, publisher_reference: publisher_reference})
+  end
+
+  def delete_publisher(pid, id)
+      when is_integer(id)
+      when id <= 255 do
+    GenServer.call(pid, {:delete_publisher, id: id})
   end
 
   def get_state(pid) do
@@ -194,6 +211,24 @@ defmodule RabbitStream.Connection do
     {:noreply, conn}
   end
 
+  def handle_call({:declare_publisher, opts}, from, %Connection{} = conn) do
+    conn =
+      conn
+      |> push_tracker(%DeclarePublisher{}, from, conn.publisher_sequence)
+      |> send_request(%DeclarePublisher{}, opts ++ [publisher_sum: 1])
+
+    {:noreply, conn}
+  end
+
+  def handle_call({:delete_publisher, opts}, from, %Connection{} = conn) do
+    conn =
+      conn
+      |> push_tracker(%DeletePublisher{}, from)
+      |> send_request(%DeletePublisher{}, opts)
+
+    {:noreply, conn}
+  end
+
   @impl true
   def handle_info({:tcp, _socket, data}, conn) do
     conn =
@@ -220,7 +255,7 @@ defmodule RabbitStream.Connection do
   end
 
   def handle_info({:heartbeat}, conn) do
-    conn = send_request(conn, %Heartbeat{}, sum: 0)
+    conn = send_request(conn, %Heartbeat{}, correlation_sum: 0)
 
     Process.send_after(self(), {:heartbeat}, conn.heartbeat * 1000)
 
@@ -248,11 +283,11 @@ defmodule RabbitStream.Connection do
   defp handle_message(%Connection{} = conn, %Response{command: %Close{}} = response) do
     Logger.debug("Connection closed: #{conn.host}:#{conn.port}")
 
-    {client, conn} = pop_tracker(conn, %Close{}, response.correlation_id)
+    {{pid, _data}, conn} = pop_tracker(conn, %Close{}, response.correlation_id)
 
     conn = %{conn | state: "closed", socket: nil}
 
-    GenServer.reply(client, {:ok, conn})
+    GenServer.reply(pid, :ok)
 
     conn
   end
@@ -327,7 +362,7 @@ defmodule RabbitStream.Connection do
 
     conn = %{conn | state: "open", connect_request: nil, connection_properties: response.data.connection_properties}
 
-    GenServer.reply(client, {:ok, conn})
+    GenServer.reply(client, :ok)
 
     conn
   end
@@ -336,22 +371,38 @@ defmodule RabbitStream.Connection do
     conn
   end
 
-  defp handle_message(%Connection{} = conn, %Response{command: %QueryOffset{}} = response) do
-    {client, conn} = pop_tracker(conn, %QueryOffset{}, response.correlation_id)
+  defp handle_message(%Connection{} = conn, %Request{command: %MetadataUpdate{}} = request) do
+    Logger.info("Metadata update request received for stream  \"#{request.data.stream_name}\"")
 
-    if client != nil do
-      GenServer.reply(client, {:ok, response.data.offset})
+    conn
+  end
+
+  defp handle_message(%Connection{} = conn, %Response{command: %QueryOffset{}} = response) do
+    {{pid, _data}, conn} = pop_tracker(conn, %QueryOffset{}, response.correlation_id)
+
+    if pid != nil do
+      GenServer.reply(pid, {:ok, response.data.offset})
+    end
+
+    conn
+  end
+
+  defp handle_message(%Connection{} = conn, %Response{command: %DeclarePublisher{}} = response) do
+    {{pid, id}, conn} = pop_tracker(conn, %DeclarePublisher{}, response.correlation_id)
+
+    if pid != nil do
+      GenServer.reply(pid, {:ok, id})
     end
 
     conn
   end
 
   defp handle_message(%Connection{} = conn, %Response{command: command} = response)
-       when command in [%Create{}, %Delete{}] do
-    {client, conn} = pop_tracker(conn, command, response.correlation_id)
+       when command in [%Create{}, %Delete{}, %DeletePublisher{}] do
+    {{pid, _data}, conn} = pop_tracker(conn, command, response.correlation_id)
 
-    if client != nil do
-      GenServer.reply(client, :ok)
+    if pid != nil do
+      GenServer.reply(pid, :ok)
     end
 
     conn
@@ -377,12 +428,14 @@ defmodule RabbitStream.Connection do
        when command in [
               %Create{},
               %Delete{},
-              %StoreOffset{}
+              %QueryOffset{},
+              %DeclarePublisher{},
+              %DeletePublisher{}
             ] do
-    {client, conn} = pop_tracker(conn, command, response.correlation_id)
+    {{pid, _data}, conn} = pop_tracker(conn, command, response.correlation_id)
 
-    if client != nil do
-      GenServer.reply(client, {:error, response.code})
+    if pid != nil do
+      GenServer.reply(pid, {:error, response.code})
     end
 
     conn
@@ -397,10 +450,16 @@ defmodule RabbitStream.Connection do
   end
 
   defp send_request(%Connection{} = conn, command, opts \\ []) do
+    {correlation_sum, opts} = Keyword.pop(opts, :correlation_sum, 1)
+    {publisher_sum, opts} = Keyword.pop(opts, :publisher_sum, 0)
+
     frame = Request.new_encoded!(conn, command, opts)
     :ok = :gen_tcp.send(conn.socket, frame)
 
-    %{conn | correlation: conn.correlation + (opts[:sum] || 1)}
+    correlation_sequence = conn.correlation_sequence + correlation_sum
+    publisher_sequence = conn.publisher_sequence + publisher_sum
+
+    %{conn | correlation_sequence: correlation_sequence, publisher_sequence: publisher_sequence}
   end
 
   defp send_response(%Connection{} = conn, command, opts) do
@@ -410,19 +469,21 @@ defmodule RabbitStream.Connection do
     conn
   end
 
-  defp push_tracker(%Connection{} = conn, type, from) when is_struct(type) when is_pid(from) do
-    requests = Map.put(conn.requests, {type, conn.correlation}, from)
+  defp push_tracker(%Connection{} = conn, type, from, data \\ nil) when is_struct(type) when is_pid(from) do
+    requests = Map.put(conn.requests, {type, conn.correlation_sequence}, {from, data})
 
     %{conn | requests: requests}
   end
 
   defp pop_tracker(%Connection{} = conn, type, correlation) when is_struct(type) do
-    {value, requests} = Map.pop(conn.requests, {type, correlation})
+    {entry, requests} = Map.pop(conn.requests, {type, correlation})
 
-    if value == nil do
+    {pid, _data} = entry
+
+    if pid == nil do
       Logger.error("No pending request for \"#{type}:#{correlation}\" found.")
     end
 
-    {value, %{conn | requests: requests}}
+    {entry, %{conn | requests: requests}}
   end
 end

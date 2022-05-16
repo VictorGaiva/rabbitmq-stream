@@ -13,7 +13,9 @@ defmodule RabbitStream.Message.Decoder do
     Create,
     Delete,
     QueryOffset,
-    MetadataUpdate
+    MetadataUpdate,
+    DeclarePublisher,
+    DeletePublisher
   }
 
   alias RabbitStream.Message.Data.{
@@ -27,7 +29,9 @@ defmodule RabbitStream.Message.Decoder do
     CreateData,
     DeleteData,
     QueryOffsetData,
-    MetadataUpdateData
+    MetadataUpdateData,
+    DeclarePublisherData,
+    DeletePublisherData
   }
 
   defp fetch_string(<<size::integer-size(16), text::binary-size(size), rest::binary>>) do
@@ -196,6 +200,22 @@ defmodule RabbitStream.Message.Decoder do
     data = %QueryOffsetData{
       offset: offset
     }
+
+    %{response | data: data, correlation_id: correlation_id, code: Message.Code.decode(code)}
+  end
+
+  def decode!(%Response{command: %DeclarePublisher{}} = response, buffer) do
+    <<correlation_id::unsigned-integer-size(32), code::unsigned-integer-size(16)>> = buffer
+
+    data = %DeclarePublisherData{}
+
+    %{response | data: data, correlation_id: correlation_id, code: Message.Code.decode(code)}
+  end
+
+  def decode!(%Response{command: %DeletePublisher{}} = response, buffer) do
+    <<correlation_id::unsigned-integer-size(32), code::unsigned-integer-size(16)>> = buffer
+
+    data = %DeletePublisherData{}
 
     %{response | data: data, correlation_id: correlation_id, code: Message.Code.decode(code)}
   end

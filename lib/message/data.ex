@@ -58,7 +58,7 @@ defmodule RabbitStream.Message.Data do
 
   defmodule StoreOffsetData do
     defstruct [
-      :reference,
+      :offset_reference,
       :stream_name,
       :offset
     ]
@@ -66,7 +66,7 @@ defmodule RabbitStream.Message.Data do
 
   defmodule QueryOffsetData do
     defstruct [
-      :reference,
+      :offset_reference,
       :stream_name,
       :offset
     ]
@@ -75,6 +75,20 @@ defmodule RabbitStream.Message.Data do
   defmodule MetadataUpdateData do
     defstruct [
       :stream_name
+    ]
+  end
+
+  defmodule DeclarePublisherData do
+    defstruct [
+      :id,
+      :publisher_reference,
+      :stream_name
+    ]
+  end
+
+  defmodule DeletePublisherData do
+    defstruct [
+      :id
     ]
   end
 end

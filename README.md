@@ -29,17 +29,17 @@ An overview of the current status of the project can be estimated by what comman
 
 | Command                | Status | Description                               |
 | ---------------------- | ------ | ----------------------------------------- |
-| DeclarePublisher       | ⏳     |
+| DeclarePublisher       | ✅     | --                                        |
 | Publish                | ⏳     |
 | PublishConfirm         | ⏳     |
 | PublishError           | ⏳     |
 | QueryPublisherSequence | ⏳     |
-| DeletePublisher        | ⏳     |
+| DeletePublisher        | ✅     | --                                        |
 | Subscribe              | ⏳     |
 | Deliver                | ⏳     |
 | Credit                 | ⏳     |
 | StoreOffset            | ✅     | Stores a stream offset under given `name` |
-| QueryOffset            | ✅     | Retrives a stored offset                  |
+| QueryOffset            | ✅     | Retrieves a stored offset                 |
 | Unsubscribe            | ⏳     |
 | Create                 | ✅     | Create a Stream                           |
 | Delete                 | ✅     | Delete a Stream                           |
