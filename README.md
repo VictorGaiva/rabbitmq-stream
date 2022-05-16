@@ -1,6 +1,6 @@
 # RabbitStream - WIP
 
-An Elixir Client for the the [RabbitMQ Streams](https://www.rabbitmq.com/streams.html) Protocol.
+Elixir Client for [RabbitMQ Streams Protocol](https://www.rabbitmq.com/streams.html).
 
 ## Getting started
 

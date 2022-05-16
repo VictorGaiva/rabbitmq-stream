@@ -7,7 +7,7 @@ defmodule RabbitStream.Connection do
   alias RabbitStream.Message
   alias RabbitStream.Message.{Request, Response}
 
-  alias RabbitStream.Message.Command.Code.{
+  alias RabbitStream.Message.Command.{
     SaslHandshake,
     PeerProperties,
     SaslAuthenticate,
@@ -82,7 +82,8 @@ defmodule RabbitStream.Connection do
   def store_offset(pid, name, reference, offset)
       when is_binary(name)
       when is_binary(reference)
-      when is_integer(offset) do
+      when is_integer(offset)
+      when length(name) <= 255 do
     GenServer.call(pid, {:store_offset, stream_name: name, reference: reference, offset: offset})
   end
 

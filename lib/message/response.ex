@@ -1,15 +1,16 @@
 defmodule RabbitStream.Message.Response do
-  alias RabbitStream.Message.{Response, Command, Encoder}
-  alias RabbitStream.Connection
   require Logger
 
-  alias Command.Code.{
+  alias RabbitStream.{Connection, Message}
+  alias Message.{Response, Encoder}
+
+  alias Message.Command.{
     Tune,
     Close,
     Heartbeat
   }
 
-  alias RabbitStream.Message.Data.{
+  alias Message.Data.{
     TuneData,
     CloseData,
     HeartbeatData

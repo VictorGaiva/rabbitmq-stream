@@ -1,7 +1,7 @@
 defmodule RabbitStream.Message.Encoder do
   alias RabbitStream.Message.{Response, Request}
 
-  alias RabbitStream.Message.Command.Code.{
+  alias RabbitStream.Message.Command.{
     PeerProperties,
     SaslHandshake,
     SaslAuthenticate,
