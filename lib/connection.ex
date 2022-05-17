@@ -21,7 +21,8 @@ defmodule RabbitStream.Connection do
     QueryOffset,
     DeclarePublisher,
     DeletePublisher,
-    MetadataUpdate
+    MetadataUpdate,
+    QueryMetadata
   }
 
   alias Message.Code.{
@@ -52,7 +53,8 @@ defmodule RabbitStream.Connection do
     requests: %{},
     correlation_sequence: 1,
     publisher_sequence: 1,
-    subscription_sequence: 1
+    subscription_sequence: 1,
+    metadata: %{}
   ]
 
   # @states [
@@ -108,6 +110,10 @@ defmodule RabbitStream.Connection do
       when is_integer(id)
       when id <= 255 do
     GenServer.call(pid, {:delete_publisher, id: id})
+  end
+
+  def query_metadata(pid, streams) do
+    GenServer.call(pid, {:query_metadata, streams: streams})
   end
 
   def get_state(pid) do
@@ -229,6 +235,15 @@ defmodule RabbitStream.Connection do
     {:noreply, conn}
   end
 
+  def handle_call({:query_metadata, opts}, from, %Connection{} = conn) do
+    conn =
+      conn
+      |> push_tracker(%QueryMetadata{}, from)
+      |> send_request(%QueryMetadata{}, opts)
+
+    {:noreply, conn}
+  end
+
   @impl true
   def handle_info({:tcp, _socket, data}, conn) do
     conn =
@@ -239,6 +254,9 @@ defmodule RabbitStream.Connection do
           handle_message(conn, decoded)
 
         %Response{code: %Ok{}} = decoded, conn ->
+          handle_message(conn, decoded)
+
+        %Response{code: nil} = decoded, conn ->
           handle_message(conn, decoded)
 
         decoded, conn ->
@@ -372,9 +390,23 @@ defmodule RabbitStream.Connection do
   end
 
   defp handle_message(%Connection{} = conn, %Request{command: %MetadataUpdate{}} = request) do
-    Logger.info("Metadata update request received for stream  \"#{request.data.stream_name}\"")
-
     conn
+    |> send_request(%QueryMetadata{}, streams: [request.data.stream_name])
+  end
+
+  defp handle_message(%Connection{} = conn, %Response{command: %QueryMetadata{}} = response) do
+    metadata =
+      response.data.streams
+      |> Enum.map(&{&1.name, &1})
+      |> Map.new()
+
+    {{pid, _data}, conn} = pop_tracker(conn, %QueryMetadata{}, response.correlation_id)
+
+    if pid != nil do
+      GenServer.reply(pid, {:ok, response.data})
+    end
+
+    %{conn | metadata: Map.merge(conn.metadata, metadata)}
   end
 
   defp handle_message(%Connection{} = conn, %Response{command: %QueryOffset{}} = response) do
@@ -476,13 +508,7 @@ defmodule RabbitStream.Connection do
   end
 
   defp pop_tracker(%Connection{} = conn, type, correlation) when is_struct(type) do
-    {entry, requests} = Map.pop(conn.requests, {type, correlation})
-
-    {pid, _data} = entry
-
-    if pid == nil do
-      Logger.error("No pending request for \"#{type}:#{correlation}\" found.")
-    end
+    {entry, requests} = Map.pop(conn.requests, {type, correlation}, {nil, nil})
 
     {entry, %{conn | requests: requests}}
   end

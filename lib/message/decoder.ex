@@ -15,7 +15,8 @@ defmodule RabbitStream.Message.Decoder do
     QueryOffset,
     MetadataUpdate,
     DeclarePublisher,
-    DeletePublisher
+    DeletePublisher,
+    QueryMetadata
   }
 
   alias RabbitStream.Message.Data.{
@@ -31,11 +32,28 @@ defmodule RabbitStream.Message.Decoder do
     QueryOffsetData,
     MetadataUpdateData,
     DeclarePublisherData,
-    DeletePublisherData
+    DeletePublisherData,
+    QueryMetadataData,
+    BrokerData,
+    StreamData
   }
 
   defp fetch_string(<<size::integer-size(16), text::binary-size(size), rest::binary>>) do
     {rest, to_string(text)}
+  end
+
+  defp decode_array("", _) do
+    {"", []}
+  end
+
+  defp decode_array(<<0::integer-size(32), buffer::binary>>, _) do
+    {buffer, []}
+  end
+
+  defp decode_array(<<size::integer-size(32), buffer::binary>>, foo) do
+    Enum.reduce(0..(size - 1), {buffer, []}, fn _, {buffer, acc} ->
+      foo.(buffer, acc)
+    end)
   end
 
   def decode!(%Request{command: %Tune{}} = response, buffer) do
@@ -86,10 +104,8 @@ defmodule RabbitStream.Message.Decoder do
   def decode!(%Response{command: %PeerProperties{}} = response, buffer) do
     <<correlation_id::unsigned-integer-size(32), code::unsigned-integer-size(16), buffer::binary>> = buffer
 
-    <<size::integer-size(32), buffer::binary>> = buffer
-
     {"", peer_properties} =
-      Enum.reduce(0..(size - 1), {buffer, []}, fn _, {buffer, acc} ->
+      decode_array(buffer, fn buffer, acc ->
         {buffer, key} = fetch_string(buffer)
         {buffer, value} = fetch_string(buffer)
 
@@ -106,10 +122,8 @@ defmodule RabbitStream.Message.Decoder do
   def decode!(%Response{command: %SaslHandshake{}} = response, buffer) do
     <<correlation_id::unsigned-integer-size(32), code::unsigned-integer-size(16), buffer::binary>> = buffer
 
-    <<size::integer-size(32), buffer::binary>> = buffer
-
     {"", mechanisms} =
-      Enum.reduce(0..(size - 1), {buffer, []}, fn _, {buffer, acc} ->
+      decode_array(buffer, fn buffer, acc ->
         {buffer, value} = fetch_string(buffer)
         {buffer, [value | acc]}
       end)
@@ -149,10 +163,8 @@ defmodule RabbitStream.Message.Decoder do
 
     connection_properties =
       if buffer != "" do
-        <<size::integer-size(32), buffer::binary>> = buffer
-
         {"", connection_properties} =
-          Enum.reduce(0..(size - 1), {buffer, []}, fn _, {buffer, acc} ->
+          decode_array(buffer, fn buffer, acc ->
             {buffer, key} = fetch_string(buffer)
             {buffer, value} = fetch_string(buffer)
 
@@ -218,5 +230,60 @@ defmodule RabbitStream.Message.Decoder do
     data = %DeletePublisherData{}
 
     %{response | data: data, correlation_id: correlation_id, code: Message.Code.decode(code)}
+  end
+
+  def decode!(%Response{command: %QueryMetadata{}} = response, buffer) do
+    <<correlation_id::unsigned-integer-size(32), buffer::binary>> = buffer
+
+    {buffer, brokers} =
+      decode_array(buffer, fn buffer, acc ->
+        <<reference::unsigned-integer-size(16), buffer::binary>> = buffer
+
+        <<size::integer-size(16), host::binary-size(size), buffer::binary>> = buffer
+
+        <<port::unsigned-integer-size(32), buffer::binary>> = buffer
+
+        data = %BrokerData{
+          reference: reference,
+          host: host,
+          port: port
+        }
+
+        {buffer, [data] ++ acc}
+      end)
+
+    {"", streams} =
+      decode_array(buffer, fn buffer, acc ->
+        <<
+          size::integer-size(16),
+          name::binary-size(size),
+          code::unsigned-integer-size(16),
+          leader::unsigned-integer-size(16),
+          buffer::binary
+        >> = buffer
+
+        {buffer, replicas} =
+          decode_array(buffer, fn buffer, acc ->
+            <<replica::unsigned-integer-size(16), buffer::binary>> = buffer
+
+            {buffer, [replica] ++ acc}
+          end)
+
+        data = %StreamData{
+          code: code,
+          name: name,
+          leader: leader,
+          replicas: replicas
+        }
+
+        {buffer, [data] ++ acc}
+      end)
+
+    data = %QueryMetadataData{
+      brokers: brokers,
+      streams: streams
+    }
+
+    %{response | correlation_id: correlation_id, data: data}
   end
 end

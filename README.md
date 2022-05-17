@@ -43,8 +43,8 @@ An overview of the current status of the project can be estimated by what comman
 | Unsubscribe            | ⏳     |
 | Create                 | ✅     | Create a Stream                           |
 | Delete                 | ✅     | Delete a Stream                           |
-| Metadata               | ⏳     |
-| MetadataUpdate         | ⏳     |
+| Metadata               | ✅     | --                                        |
+| MetadataUpdate         | ✅     | --                                        |
 | PeerProperties         | ✅     | --                                        |
 | SaslHandshake          | ✅     | --                                        |
 | SaslAuthenticate       | ✅     | --                                        |

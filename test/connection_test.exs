@@ -52,7 +52,7 @@ defmodule RabbitStreamTest.Connection do
     {:ok, pid} = Connection.start_link(host: "localhost", vhost: "/")
     :ok = Connection.connect(pid)
 
-    Connection.delete_stream(pid, @stream)
+    # Connection.delete_stream(pid, @stream)
     :ok = Connection.create_stream(pid, @stream)
 
     offset = :os.system_time(:millisecond)
@@ -69,6 +69,7 @@ defmodule RabbitStreamTest.Connection do
   test "should declare and delete a publisher" do
     {:ok, pid} = Connection.start_link(host: "localhost", vhost: "/")
     :ok = Connection.connect(pid)
+
     Connection.delete_stream(pid, @stream)
     :ok = Connection.create_stream(pid, @stream)
 
@@ -76,6 +77,20 @@ defmodule RabbitStreamTest.Connection do
     assert match?({:ok, 1}, Connection.declare_publisher(pid, @stream, "publisher-01"))
 
     assert :ok == Connection.delete_publisher(pid, 1)
+
+    :ok = Connection.delete_stream(pid, @stream)
+    Connection.close(pid)
+  end
+
+  @stream "test-store-05"
+  test "should query stream metadata" do
+    {:ok, pid} = Connection.start_link(host: "localhost", vhost: "/")
+    :ok = Connection.connect(pid)
+
+    Connection.delete_stream(pid, @stream)
+    :ok = Connection.create_stream(pid, @stream)
+
+    assert match?({:ok, _}, Connection.query_metadata(pid, [@stream]))
 
     :ok = Connection.delete_stream(pid, @stream)
     Connection.close(pid)

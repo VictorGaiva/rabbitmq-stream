@@ -72,6 +72,13 @@ defmodule RabbitStream.Message.Data do
     ]
   end
 
+  defmodule QueryMetadataData do
+    defstruct [
+      :brokers,
+      :streams
+    ]
+  end
+
   defmodule MetadataUpdateData do
     defstruct [
       :stream_name
@@ -89,6 +96,23 @@ defmodule RabbitStream.Message.Data do
   defmodule DeletePublisherData do
     defstruct [
       :id
+    ]
+  end
+
+  defmodule BrokerData do
+    defstruct [
+      :reference,
+      :host,
+      :port
+    ]
+  end
+
+  defmodule StreamData do
+    defstruct [
+      :code,
+      :name,
+      :leader,
+      :replicas
     ]
   end
 end

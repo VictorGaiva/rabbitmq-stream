@@ -14,7 +14,8 @@ defmodule RabbitStream.Message.Encoder do
     StoreOffset,
     QueryOffset,
     DeclarePublisher,
-    DeletePublisher
+    DeletePublisher,
+    QueryMetadata
   }
 
   alias RabbitStream.Message.Data.{
@@ -25,7 +26,8 @@ defmodule RabbitStream.Message.Encoder do
     StoreOffsetData,
     QueryOffsetData,
     DeclarePublisherData,
-    DeletePublisherData
+    DeletePublisherData,
+    QueryMetadataData
   }
 
   defp encode_string(nil) do
@@ -225,6 +227,22 @@ defmodule RabbitStream.Message.Encoder do
       request.version::unsigned-integer-size(16),
       request.correlation_id::unsigned-integer-size(32),
       data.id::unsigned-integer-size(8)
+    >>
+
+    <<byte_size(data)::unsigned-integer-size(32), data::binary>>
+  end
+
+  def encode!(%Request{command: %QueryMetadata{}, data: %QueryMetadataData{} = data} = request) do
+    streams =
+      data.streams
+      |> Enum.map(&encode_string/1)
+      |> encode_array()
+
+    data = <<
+      request.command.code::unsigned-integer-size(16),
+      request.version::unsigned-integer-size(16),
+      request.correlation_id::unsigned-integer-size(32),
+      streams::binary
     >>
 
     <<byte_size(data)::unsigned-integer-size(32), data::binary>>

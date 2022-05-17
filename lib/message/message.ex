@@ -60,7 +60,7 @@ defmodule RabbitStream.Message do
       # Client, Yes
       0x000E => :delete,
       # Client, Yes
-      0x000F => :metadata,
+      0x000F => :query_metadata,
       # Server, No
       0x0010 => :metadata_update,
       # Client, Yes
