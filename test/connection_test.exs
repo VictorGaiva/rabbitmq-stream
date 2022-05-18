@@ -10,7 +10,7 @@ defmodule RabbitStreamTest.Connection do
   }
 
   test "should open and close the connection" do
-    {:ok, pid} = Connection.start_link(host: "localhost", vhost: "/")
+    {:ok, pid} = Connection.start_link(host: "localhost", vhost: "/", lazy: true)
 
     assert match?(%Connection{state: "closed"}, Connection.get_state(pid))
 
@@ -26,18 +26,17 @@ defmodule RabbitStreamTest.Connection do
   end
 
   test "should fail to connect with expected error messages" do
-    {:ok, pid} = Connection.start_link(host: "localhost", vhost: "/NONEXISTENT")
+    {:ok, pid} = Connection.start_link(host: "localhost", vhost: "/NONEXISTENT", lazy: true)
 
     assert match?({:error, %VirtualHostAccessFailure{}}, Connection.connect(pid))
 
-    {:ok, pid} = Connection.start_link(host: "localhost", vhost: "/", user: "guest", password: "wrong")
+    {:ok, pid} = Connection.start_link(host: "localhost", vhost: "/", user: "guest", password: "wrong", lazy: true)
 
     assert match?({:error, %AuthenticationFailure{}}, Connection.connect(pid))
   end
 
   test "should create and delete a stream" do
     {:ok, pid} = Connection.start_link(host: "localhost", vhost: "/")
-    :ok = Connection.connect(pid)
 
     assert :ok == Connection.create_stream(pid, "test-create-01")
     assert match?({:error, %StreamAlreadyExists{}}, Connection.create_stream(pid, "test-create-01"))
@@ -50,7 +49,6 @@ defmodule RabbitStreamTest.Connection do
   @stream "test-store-03"
   test "should store and query an offset" do
     {:ok, pid} = Connection.start_link(host: "localhost", vhost: "/")
-    :ok = Connection.connect(pid)
 
     # Connection.delete_stream(pid, @stream)
     :ok = Connection.create_stream(pid, @stream)
@@ -68,7 +66,6 @@ defmodule RabbitStreamTest.Connection do
   @stream "test-store-04"
   test "should declare and delete a publisher" do
     {:ok, pid} = Connection.start_link(host: "localhost", vhost: "/")
-    :ok = Connection.connect(pid)
 
     Connection.delete_stream(pid, @stream)
     :ok = Connection.create_stream(pid, @stream)
@@ -85,7 +82,6 @@ defmodule RabbitStreamTest.Connection do
   @stream "test-store-05"
   test "should query stream metadata" do
     {:ok, pid} = Connection.start_link(host: "localhost", vhost: "/")
-    :ok = Connection.connect(pid)
 
     Connection.delete_stream(pid, @stream)
     :ok = Connection.create_stream(pid, @stream)
