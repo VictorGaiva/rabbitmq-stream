@@ -8,18 +8,22 @@ This project is currently under development and missing most of the features a f
 
 ## Overview
 
-### Connection
+### `Connection`
 
-It is responsible for opening and maintaining the socket connection with a single RabbitMQ Server Node, and encoding and decoding messages.
+Responsible for opening and maintaining the socket connection with a single RabbitMQ Server Node, and encoding and decoding messages.
 It connects to the RabbitMQ server using [`:gen_tcp`](https://www.erlang.org/doc/man/gen_tcp.html). It then runs throught the [authentication](https://github.com/rabbitmq/rabbitmq-server/blob/master/deps/rabbitmq_stream/docs/PROTOCOL.adoc#authentication) sequence and mantains the connection open with heartbeats, with the provided `tune` definition.
 
-### Client
+### `Client`
 
-It is responsible for managing multiple connections for a single cluster, routing requests accordingly, and enforcing [_Well-behaved_](https://blog.rabbitmq.com/posts/2021/07/connecting-to-streams/) praticies.
+Responsible for managing multiple connections for a single cluster, routing requests accordingly, and enforcing [_Well-behaved_](https://blog.rabbitmq.com/posts/2021/07/connecting-to-streams/) praticies.
 
-## Supported Authentication Mechanisms
+### `Publisher`
 
-- "PLAIN" - `username` and `password`
+--
+
+### Supported Authentication Mechanisms
+
+- `PLAIN`
 
 ## Progress
 
