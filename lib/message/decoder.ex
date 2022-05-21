@@ -16,7 +16,8 @@ defmodule RabbitStream.Message.Decoder do
     MetadataUpdate,
     DeclarePublisher,
     DeletePublisher,
-    QueryMetadata
+    QueryMetadata,
+    QueryPublisherSequence
   }
 
   alias RabbitStream.Message.Data.{
@@ -35,7 +36,8 @@ defmodule RabbitStream.Message.Decoder do
     DeletePublisherData,
     QueryMetadataData,
     BrokerData,
-    StreamData
+    StreamData,
+    QueryPublisherSequenceData
   }
 
   defp fetch_string(<<size::integer-size(16), text::binary-size(size), rest::binary>>) do
@@ -285,5 +287,19 @@ defmodule RabbitStream.Message.Decoder do
     }
 
     %{response | correlation_id: correlation_id, data: data}
+  end
+
+  def decode!(%Response{command: %QueryPublisherSequence{}} = response, buffer) do
+    <<
+      correlation_id::unsigned-integer-size(32),
+      code::unsigned-integer-size(16),
+      sequence::unsigned-integer-size(64)
+    >> = buffer
+
+    data = %QueryPublisherSequenceData{
+      sequence: sequence
+    }
+
+    %{response | data: data, correlation_id: correlation_id, code: Message.Code.decode(code)}
   end
 end

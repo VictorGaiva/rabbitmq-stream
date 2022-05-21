@@ -18,7 +18,8 @@ defmodule RabbitStream.Message.Request do
     QueryOffset,
     DeclarePublisher,
     DeletePublisher,
-    QueryMetadata
+    QueryMetadata,
+    QueryPublisherSequence
   }
 
   alias RabbitStream.Message.Data.{
@@ -35,7 +36,8 @@ defmodule RabbitStream.Message.Request do
     QueryOffsetData,
     DeclarePublisherData,
     DeletePublisherData,
-    QueryMetadataData
+    QueryMetadataData,
+    QueryPublisherSequenceData
   }
 
   alias __MODULE__, as: Request
@@ -220,6 +222,18 @@ defmodule RabbitStream.Message.Request do
       correlation_id: conn.correlation_sequence,
       data: %QueryMetadataData{
         streams: opts[:streams]
+      }
+    }
+  end
+
+  def new!(%Connection{} = conn, %QueryPublisherSequence{}, opts) do
+    %Request{
+      version: conn.version,
+      command: %QueryPublisherSequence{},
+      correlation_id: conn.correlation_sequence,
+      data: %QueryPublisherSequenceData{
+        stream_name: opts[:stream_name],
+        publisher_reference: opts[:publisher_reference]
       }
     }
   end

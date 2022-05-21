@@ -115,4 +115,12 @@ defmodule RabbitStream.Message.Data do
       :replicas
     ]
   end
+
+  defmodule QueryPublisherSequenceData do
+    defstruct [
+      :publisher_reference,
+      :stream_name,
+      :sequence
+    ]
+  end
 end

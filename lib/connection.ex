@@ -22,7 +22,8 @@ defmodule RabbitStream.Connection do
     DeclarePublisher,
     DeletePublisher,
     MetadataUpdate,
-    QueryMetadata
+    QueryMetadata,
+    QueryPublisherSequence
   }
 
   alias Message.Code.{
@@ -114,6 +115,13 @@ defmodule RabbitStream.Connection do
 
   def query_metadata(pid, streams) do
     GenServer.call(pid, {:query_metadata, streams: streams})
+  end
+
+  def query_publisher_sequence(pid, stream_name, publisher_reference)
+      when is_binary(publisher_reference)
+      when is_binary(stream_name)
+      when length(stream_name) <= 255 do
+    GenServer.call(pid, {:query_publisher_sequence, publisher_reference: publisher_reference, stream_name: stream_name})
   end
 
   def get_state(pid) do
@@ -249,6 +257,15 @@ defmodule RabbitStream.Connection do
       conn
       |> push_tracker(%QueryMetadata{}, from)
       |> send_request(%QueryMetadata{}, opts)
+
+    {:noreply, conn}
+  end
+
+  def handle_call({:query_publisher_sequence, opts}, from, %Connection{} = conn) do
+    conn =
+      conn
+      |> push_tracker(%QueryPublisherSequence{}, from)
+      |> send_request(%QueryPublisherSequence{}, opts)
 
     {:noreply, conn}
   end
@@ -452,6 +469,16 @@ defmodule RabbitStream.Connection do
 
     if pid != nil do
       GenServer.reply(pid, {:ok, id})
+    end
+
+    conn
+  end
+
+  defp handle_message(%Connection{} = conn, %Response{command: %QueryPublisherSequence{}} = response) do
+    {{pid, _data}, conn} = pop_tracker(conn, %QueryPublisherSequence{}, response.correlation_id)
+
+    if pid != nil do
+      GenServer.reply(pid, {:ok, response.data.sequence})
     end
 
     conn

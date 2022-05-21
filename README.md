@@ -37,7 +37,7 @@ An overview of the current status of the project can be estimated by what comman
 | Publish                | ⏳     |
 | PublishConfirm         | ⏳     |
 | PublishError           | ⏳     |
-| QueryPublisherSequence | ⏳     |
+| QueryPublisherSequence | ✅     | --                                        |
 | DeletePublisher        | ✅     | --                                        |
 | Subscribe              | ⏳     |
 | Deliver                | ⏳     |
