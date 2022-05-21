@@ -1,15 +1,16 @@
 defmodule RabbitStream.Publisher do
   use GenServer
-  import RabbitStream.Publisher.Supervisor
 
   alias RabbitStream.Connection
 
   alias __MODULE__
 
   defstruct [
+    :publishing_id,
     :reference_name,
     :connection,
     :stream_name,
+    :sequence,
     :id
   ]
 
@@ -28,12 +29,15 @@ defmodule RabbitStream.Publisher do
     connection = opts[:connection]
     stream_name = opts[:stream_name]
 
-    with {:ok, id} <- Connection.declare_publisher(connection, stream_name, reference_name) do
+    with :ok <- Connection.connect(connection),
+         {:ok, id} <- Connection.declare_publisher(connection, stream_name, reference_name),
+         {:ok, sequence} <- Connection.query_publisher_sequence(connection, stream_name, reference_name) do
       state = %Publisher{
         id: id,
         stream_name: stream_name,
         connection: connection,
-        reference_name: reference_name
+        reference_name: reference_name,
+        sequence: sequence
       }
 
       {:ok, state}
@@ -43,5 +47,10 @@ defmodule RabbitStream.Publisher do
   @impl true
   def handle_call({:get_state}, _from, state) do
     {:reply, state, state}
+  end
+
+  @impl true
+  def terminate(_reason, state) do
+    Connection.delete_publisher(state.connection, state.id)
   end
 end
