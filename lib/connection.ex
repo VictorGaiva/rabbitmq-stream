@@ -46,11 +46,10 @@ defmodule RabbitStream.Connection do
     heartbeat: 60,
     version: 1,
     state: "closed",
-    queued_calls: [],
     peer_properties: [],
     connection_properties: [],
     mechanisms: [],
-    connect_request: nil,
+    connect_requests: [],
     requests: %{},
     correlation_sequence: 1,
     publisher_sequence: 1,
@@ -157,7 +156,7 @@ defmodule RabbitStream.Connection do
       Logger.debug("Connection stablished. Initiating properties exchange.")
 
       conn =
-        %{conn | socket: socket, state: "connecting", connect_request: from}
+        %{conn | socket: socket, state: "connecting", connect_requests: [from]}
         |> send_request(%PeerProperties{})
 
       {:noreply, conn}
@@ -168,20 +167,17 @@ defmodule RabbitStream.Connection do
     end
   end
 
-  def handle_call({:connect}, _from, %Connection{} = conn) do
-    {:reply, {:error, "Can only connect while in the \"closed\" state. Current state: \"#{conn.state}\""}, conn}
+  def handle_call({:connect}, _from, %Connection{state: "open"} = conn) do
+    {:reply, :ok, conn}
   end
 
-  def handle_call(_, _from, %Connection{state: "closed"} = conn) do
-    {:reply, {:error, :closed}, conn}
+  def handle_call({:connect}, from, %Connection{} = conn) do
+    conn = %{conn | connect_requests: conn.connect_requests ++ [from]}
+    {:noreply, conn}
   end
 
-  def handle_call(_, _from, %Connection{state: "closing"} = conn) do
-    {:reply, {:error, :closing}, conn}
-  end
-
-  def handle_call(request, from, %Connection{state: state} = conn) when state in ["connecting", "opening"] do
-    {:noreply, %{conn | queued_calls: conn.queued_calls ++ [{request, from}]}}
+  def handle_call(_, _from, %Connection{state: state} = conn) when state != "open" do
+    {:reply, {:error, String.to_atom(state)}, conn}
   end
 
   def handle_call({:close, reason, code}, from, %Connection{} = conn) do
@@ -280,9 +276,6 @@ defmodule RabbitStream.Connection do
       conn.state == "closed" ->
         {:noreply, conn, :hibernate}
 
-      conn.state == "open" and Enum.count(conn.queued_calls) > 0 ->
-        {:noreply, conn, {:continue, {:process_calls_queue}}}
-
       true ->
         {:noreply, conn}
     end
@@ -315,27 +308,6 @@ defmodule RabbitStream.Connection do
   end
 
   @impl true
-  def handle_continue({:process_calls_queue}, %Connection{state: "open", queued_calls: []} = conn) do
-    {:noreply, conn}
-  end
-
-  def handle_continue({:process_calls_queue}, %Connection{state: "open"} = conn) do
-    [{request, from} | rest] = conn.queued_calls
-
-    conn = %{conn | queued_calls: rest}
-
-    conn =
-      case handle_call(request, from, conn) do
-        {:noreply, conn} ->
-          conn
-
-        {:reply, reply, conn} ->
-          GenServer.reply(from, reply)
-          conn
-      end
-
-    {:noreply, conn, {:continue, {:process_calls_queue}}}
-  end
 
   def handle_continue({:connect}, %Connection{state: "closed"} = conn) do
     Logger.info("Connecting to server: #{conn.host}:#{conn.port}")
@@ -434,11 +406,11 @@ defmodule RabbitStream.Connection do
   defp handle_message(%Connection{} = conn, %Response{command: %Open{}} = response) do
     Logger.debug("Successfully opened connection with vhost: \"#{conn.vhost}\"")
 
-    if conn.connect_request != nil do
-      GenServer.reply(conn.connect_request, :ok)
+    for request <- conn.connect_requests do
+      GenServer.reply(request, :ok)
     end
 
-    %{conn | state: "open", connect_request: nil, connection_properties: response.data.connection_properties}
+    %{conn | state: "open", connect_requests: [], connection_properties: response.data.connection_properties}
   end
 
   defp handle_message(%Connection{} = conn, %Request{command: %Heartbeat{}}) do
@@ -507,11 +479,11 @@ defmodule RabbitStream.Connection do
             ] do
     Logger.error("Failed to connect to #{conn.host}:#{conn.port}. Reason: #{code.__struct__}")
 
-    if conn.connect_request != nil do
-      GenServer.reply(conn.connect_request, {:error, code})
+    for request <- conn.connect_requests do
+      GenServer.reply(request, {:error, code})
     end
 
-    %{conn | state: "closed", socket: nil, connect_request: nil}
+    %{conn | state: "closed", socket: nil, connect_requests: []}
   end
 
   defp handle_error(%Connection{} = conn, %Response{command: command} = response)
@@ -532,11 +504,15 @@ defmodule RabbitStream.Connection do
   end
 
   defp handle_closed(%Connection{} = conn, reason) do
+    for request <- conn.connect_requests do
+      GenServer.reply(request, {:error, :closed})
+    end
+
     for {client, _data} <- Map.values(conn.requests) do
       GenServer.reply(client, {:error, reason})
     end
 
-    %{conn | requests: %{}}
+    %{conn | requests: %{}, connect_requests: []}
   end
 
   defp send_request(%Connection{} = conn, command, opts \\ []) do

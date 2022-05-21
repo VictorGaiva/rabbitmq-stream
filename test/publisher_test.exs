@@ -5,7 +5,7 @@ defmodule RabbitStreamTest.Publisher do
   @stream "test-stream"
   @reference_name "test-stream"
   test "should declare itself" do
-    {:ok, conn} = Connection.start_link(host: "localhost", vhost: "/", lazy: true)
+    {:ok, conn} = Connection.start_link(host: "localhost", vhost: "/")
     :ok = Connection.connect(conn)
 
     Connection.delete_stream(conn, @stream)
@@ -17,6 +17,6 @@ defmodule RabbitStreamTest.Publisher do
 
     {:ok, publisher} = result
 
-    assert match?({:ok, %{connection: ^conn}}, Publisher.get_state(publisher))
+    assert match?(%{connection: ^conn}, Publisher.get_state(publisher))
   end
 end

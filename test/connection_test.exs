@@ -25,6 +25,16 @@ defmodule RabbitStreamTest.Connection do
     assert match?({:error, _}, Connection.close(pid))
   end
 
+  test "should correctly answer to parallel `connect` requests" do
+    {:ok, pid} = Connection.start_link(host: "localhost", vhost: "/", lazy: true)
+
+    result =
+      Task.async_stream(0..10, fn _ -> Connection.connect(pid) end)
+      |> Enum.to_list()
+
+    assert Enum.all?(result, &match?({:ok, :ok}, &1))
+  end
+
   test "should fail to connect with expected error messages" do
     {:ok, pid} = Connection.start_link(host: "localhost", vhost: "/NONEXISTENT", lazy: true)
 
@@ -37,6 +47,7 @@ defmodule RabbitStreamTest.Connection do
 
   test "should create and delete a stream" do
     {:ok, pid} = Connection.start_link(host: "localhost", vhost: "/")
+    :ok = Connection.connect(pid)
 
     assert :ok == Connection.create_stream(pid, "test-create-01")
     assert match?({:error, %StreamAlreadyExists{}}, Connection.create_stream(pid, "test-create-01"))
@@ -49,6 +60,7 @@ defmodule RabbitStreamTest.Connection do
   @stream "test-store-03"
   test "should store and query an offset" do
     {:ok, pid} = Connection.start_link(host: "localhost", vhost: "/")
+    :ok = Connection.connect(pid)
 
     # Connection.delete_stream(pid, @stream)
     :ok = Connection.create_stream(pid, @stream)
@@ -66,6 +78,7 @@ defmodule RabbitStreamTest.Connection do
   @stream "test-store-04"
   test "should declare and delete a publisher" do
     {:ok, pid} = Connection.start_link(host: "localhost", vhost: "/")
+    :ok = Connection.connect(pid)
 
     Connection.delete_stream(pid, @stream)
     :ok = Connection.create_stream(pid, @stream)
@@ -82,6 +95,7 @@ defmodule RabbitStreamTest.Connection do
   @stream "test-store-05"
   test "should query stream metadata" do
     {:ok, pid} = Connection.start_link(host: "localhost", vhost: "/")
+    :ok = Connection.connect(pid)
 
     Connection.delete_stream(pid, @stream)
     :ok = Connection.create_stream(pid, @stream)
