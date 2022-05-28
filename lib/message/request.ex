@@ -1,10 +1,10 @@
-defmodule RabbitStream.Message.Request do
+defmodule RabbitMQStream.Message.Request do
   require Logger
 
-  alias RabbitStream.Connection
-  alias RabbitStream.Message.Encoder
+  alias RabbitMQStream.Connection
+  alias RabbitMQStream.Message.Encoder
 
-  alias RabbitStream.Message.Command.{
+  alias RabbitMQStream.Message.Command.{
     PeerProperties,
     SaslHandshake,
     SaslAuthenticate,
@@ -23,7 +23,7 @@ defmodule RabbitStream.Message.Request do
     Publish
   }
 
-  alias RabbitStream.Message.Data.{
+  alias RabbitMQStream.Message.Data.{
     TuneData,
     OpenData,
     PeerPropertiesData,

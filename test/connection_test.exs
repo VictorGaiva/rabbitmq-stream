@@ -1,8 +1,8 @@
-defmodule RabbitStreamTest.Connection do
+defmodule RabbitMQStreamTest.Connection do
   use ExUnit.Case
-  alias RabbitStream.Connection
+  alias RabbitMQStream.Connection
 
-  alias RabbitStream.Message.Code.{
+  alias RabbitMQStream.Message.Code.{
     VirtualHostAccessFailure,
     AuthenticationFailure,
     StreamAlreadyExists,

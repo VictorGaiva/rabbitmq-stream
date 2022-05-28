@@ -1,9 +1,9 @@
-defmodule RabbitStream.Message do
+defmodule RabbitMQStream.Message do
   require Logger
 
-  alias RabbitStream.Message.{Request, Response, Decoder}
+  alias RabbitMQStream.Message.{Request, Response, Decoder}
 
-  import RabbitStream.Helpers
+  import RabbitMQStream.Helpers
 
   defmodule Code do
     match_codes(%{

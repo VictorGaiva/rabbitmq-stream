@@ -1,7 +1,7 @@
-defmodule RabbitStream.Message.Response do
+defmodule RabbitMQStream.Message.Response do
   require Logger
 
-  alias RabbitStream.{Connection, Message}
+  alias RabbitMQStream.{Connection, Message}
   alias Message.{Response, Encoder}
 
   alias Message.Command.{

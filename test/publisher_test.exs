@@ -1,6 +1,6 @@
-defmodule RabbitStreamTest.Publisher do
+defmodule RabbitMQStreamTest.Publisher do
   use ExUnit.Case
-  alias RabbitStream.{Connection, Publisher}
+  alias RabbitMQStream.{Connection, Publisher}
 
   @stream "stream-01"
   @reference_name "reference-01"

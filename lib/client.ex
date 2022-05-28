@@ -1,2 +1,2 @@
-defmodule RabbitStream.Client do
+defmodule RabbitMQStream.Client do
 end

@@ -1,14 +1,14 @@
-defmodule RabbitStream.Connection do
+defmodule RabbitMQStream.Connection do
   use GenServer
   require Logger
   alias __MODULE__
 
-  alias RabbitStream.Helpers.PublishingTracker
+  alias RabbitMQStream.Helpers.PublishingTracker
 
-  alias RabbitStream.Message
-  alias RabbitStream.Message.{Request, Response}
+  alias RabbitMQStream.Message
+  alias RabbitMQStream.Message.{Request, Response}
 
-  alias RabbitStream.Message.Command.{
+  alias RabbitMQStream.Message.Command.{
     SaslHandshake,
     PeerProperties,
     SaslAuthenticate,

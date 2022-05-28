@@ -1,2 +1,2 @@
-defmodule RabbitStream do
+defmodule RabbitMQStream do
 end

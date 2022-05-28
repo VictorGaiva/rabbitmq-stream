@@ -1,7 +1,7 @@
-defmodule RabbitStream.Helpers.PublishingTracker do
+defmodule RabbitMQStream.Helpers.PublishingTracker do
   alias __MODULE__
 
-  alias RabbitStream.Message.Data.{
+  alias RabbitMQStream.Message.Data.{
     PublishErrorData,
     PublishConfirmData
   }

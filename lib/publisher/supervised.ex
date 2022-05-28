@@ -1,4 +1,4 @@
-defmodule RabbitStream.SupervisedPublisher do
+defmodule RabbitMQStream.SupervisedPublisher do
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts] do
       use Supervisor
@@ -12,14 +12,14 @@ defmodule RabbitStream.SupervisedPublisher do
         children =
           if not is_atom(opts[:connection]) do
             [
-              {RabbitStream.Connection, opts[:connection], name: __MODULE__.Connection},
-              {RabbitStream.Publisher,
+              {RabbitMQStream.Connection, opts[:connection], name: __MODULE__.Connection},
+              {RabbitMQStream.Publisher,
                opts ++ [connection: __MODULE__.Connection, reference_name: __MODULE__.Publisher],
                name: __MODULE__.Publisher}
             ]
           else
             [
-              {RabbitStream.Publisher, opts ++ [reference_name: __MODULE__.Publisher], name: __MODULE__.Publisher}
+              {RabbitMQStream.Publisher, opts ++ [reference_name: __MODULE__.Publisher], name: __MODULE__.Publisher}
             ]
           end
 

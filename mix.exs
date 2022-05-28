@@ -1,9 +1,9 @@
-defmodule RabbitStream.MixProject do
+defmodule RabbitMQStream.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :rabbit_stream,
+      app: :rabbitmq_stream,
       version: "0.1.0",
       elixir: "~> 1.13",
       start_permanent: Mix.env() == :prod,

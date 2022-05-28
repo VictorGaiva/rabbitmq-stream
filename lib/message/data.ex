@@ -1,4 +1,4 @@
-defmodule RabbitStream.Message.Data do
+defmodule RabbitMQStream.Message.Data do
   defmodule TuneData do
     defstruct [
       :frame_max,

@@ -1,8 +1,8 @@
-defmodule RabbitStream.Message.Decoder do
-  alias RabbitStream.Message
-  alias RabbitStream.Message.{Response, Request}
+defmodule RabbitMQStream.Message.Decoder do
+  alias RabbitMQStream.Message
+  alias RabbitMQStream.Message.{Response, Request}
 
-  alias RabbitStream.Message.Command.{
+  alias RabbitMQStream.Message.Command.{
     PeerProperties,
     SaslHandshake,
     SaslAuthenticate,
@@ -22,7 +22,7 @@ defmodule RabbitStream.Message.Decoder do
     PublishError
   }
 
-  alias RabbitStream.Message.Data.{
+  alias RabbitMQStream.Message.Data.{
     TuneData,
     OpenData,
     PeerPropertiesData,

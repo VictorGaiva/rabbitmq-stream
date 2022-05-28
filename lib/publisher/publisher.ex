@@ -1,7 +1,7 @@
-defmodule RabbitStream.Publisher do
+defmodule RabbitMQStream.Publisher do
   use GenServer
 
-  alias RabbitStream.Connection
+  alias RabbitMQStream.Connection
 
   alias __MODULE__
 
