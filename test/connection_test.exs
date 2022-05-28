@@ -12,15 +12,15 @@ defmodule RabbitStreamTest.Connection do
   test "should open and close the connection" do
     {:ok, pid} = Connection.start_link(host: "localhost", vhost: "/", lazy: true)
 
-    assert match?(%Connection{state: "closed"}, Connection.get_state(pid))
+    assert match?(%Connection{state: :closed}, Connection.get_state(pid))
 
     assert :ok == Connection.connect(pid)
 
-    assert match?(%Connection{state: "open", host: "localhost", port: 5552, vhost: "/"}, Connection.get_state(pid))
+    assert match?(%Connection{state: :open, host: "localhost", port: 5552, vhost: "/"}, Connection.get_state(pid))
 
     assert :ok == Connection.close(pid)
 
-    assert match?(%Connection{state: "closed", host: "localhost", port: 5552, vhost: "/"}, Connection.get_state(pid))
+    assert match?(%Connection{state: :closed, host: "localhost", port: 5552, vhost: "/"}, Connection.get_state(pid))
 
     assert match?({:error, _}, Connection.close(pid))
   end

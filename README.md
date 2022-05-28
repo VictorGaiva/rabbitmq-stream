@@ -19,7 +19,7 @@ Responsible for managing multiple connections for a single cluster, routing requ
 
 ### `Publisher`
 
---
+A GenServer module that, using a provided connection, declares itself under given `name`, and provides an interface for publishing messages on `stream_name` stream. It also keeps track of the current publishing id, to avoid message duplication.
 
 ### Supported Authentication Mechanisms
 
@@ -34,9 +34,9 @@ An overview of the current status of the project can be estimated by what comman
 | Command                | Status | Description                               |
 | ---------------------- | ------ | ----------------------------------------- |
 | DeclarePublisher       | ✅     | --                                        |
-| Publish                | ⏳     |
-| PublishConfirm         | ⏳     |
-| PublishError           | ⏳     |
+| Publish                | ✅     |
+| PublishConfirm         | ✅     |
+| PublishError           | ✅     |
 | QueryPublisherSequence | ✅     | --                                        |
 | DeletePublisher        | ✅     | --                                        |
 | Subscribe              | ⏳     |

@@ -30,8 +30,7 @@ defmodule RabbitStreamTest.Publisher do
 
     {:ok, publisher} = Publisher.start_link(connection: conn, reference_name: @reference_name, stream_name: @stream)
 
-    # Should be 0 since it has just been created
-    assert match?(%{sequence: 0}, Publisher.get_state(publisher))
+    assert match?(%{sequence: 1}, Publisher.get_state(publisher))
   end
 
   @stream "stream-03"

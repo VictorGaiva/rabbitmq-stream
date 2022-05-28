@@ -47,29 +47,44 @@ defmodule RabbitStream.Connection do
     :username,
     :password,
     :socket,
-    frame_max: 1_048_576,
-    heartbeat: 60,
+    :frame_max,
+    :heartbeat,
     version: 1,
-    state: "closed",
+    correlation_sequence: 1,
+    publisher_sequence: 1,
+    subscription_sequence: 1,
+    state: :closed,
     peer_properties: [],
     connection_properties: [],
     mechanisms: [],
     connect_requests: [],
     publish_tracker: %PublishingTracker{},
     request_tracker: %{},
-    correlation_sequence: 1,
-    publisher_sequence: 1,
-    subscription_sequence: 1,
     metadata: %{}
   ]
 
-  # @states [
-  #   "connecting",
-  #   "closed",
-  #   "closing",
-  #   "open",
-  #   "opening"
-  # ]
+  @type t() :: %Connection{
+          host: String.t(),
+          vhost: String.t(),
+          port: integer(),
+          username: String.t(),
+          password: String.t(),
+          socket: :gen_tcp.socket(),
+          frame_max: integer(),
+          heartbeat: integer(),
+          version: 1,
+          state: :closed | :connecting | :open | :closing,
+          correlation_sequence: integer(),
+          publisher_sequence: integer(),
+          subscription_sequence: integer(),
+          peer_properties: [[String.t()]],
+          connection_properties: [[String.t()]],
+          mechanisms: [String.t()],
+          connect_requests: [pid()],
+          publish_tracker: %PublishingTracker{},
+          request_tracker: %{{struct(), integer()} => {pid(), any()}},
+          metadata: %{String.t() => any()}
+        }
 
   def start_link(default \\ []) when is_list(default) do
     GenServer.start_link(__MODULE__, default)
@@ -151,13 +166,17 @@ defmodule RabbitStream.Connection do
     host = opts[:host] || "localhost"
     port = opts[:port] || 5552
     vhost = opts[:vhost] || "/"
+    frame_max = opts[:frame_max] || 1_048_576
+    heartbeat = opts[:heartbeat] || 60
 
     conn = %Connection{
       host: host,
       port: port,
       vhost: vhost,
       username: username,
-      password: password
+      password: password,
+      frame_max: frame_max,
+      heartbeat: heartbeat
     }
 
     if opts[:lazy] == true do
@@ -172,7 +191,7 @@ defmodule RabbitStream.Connection do
     {:reply, conn, conn}
   end
 
-  def handle_call({:connect}, from, %Connection{state: "closed"} = conn) do
+  def handle_call({:connect}, from, %Connection{state: :closed} = conn) do
     Logger.info("Connecting to server: #{conn.host}:#{conn.port}")
 
     with {:ok, socket} <- :gen_tcp.connect(String.to_charlist(conn.host), conn.port, [:binary, active: true]),
@@ -180,7 +199,7 @@ defmodule RabbitStream.Connection do
       Logger.debug("Connection stablished. Initiating properties exchange.")
 
       conn =
-        %{conn | socket: socket, state: "connecting", connect_requests: [from]}
+        %{conn | socket: socket, state: :connecting, connect_requests: [from]}
         |> send_request(%PeerProperties{})
 
       {:noreply, conn}
@@ -191,7 +210,7 @@ defmodule RabbitStream.Connection do
     end
   end
 
-  def handle_call({:connect}, _from, %Connection{state: "open"} = conn) do
+  def handle_call({:connect}, _from, %Connection{state: :open} = conn) do
     {:reply, :ok, conn}
   end
 
@@ -200,15 +219,15 @@ defmodule RabbitStream.Connection do
     {:noreply, conn}
   end
 
-  def handle_call(_, _from, %Connection{state: state} = conn) when state != "open" do
-    {:reply, {:error, String.to_atom(state)}, conn}
+  def handle_call(_, _from, %Connection{state: state} = conn) when state != :open do
+    {:reply, {:error, state}, conn}
   end
 
   def handle_call({:close, reason, code}, from, %Connection{} = conn) do
     Logger.info("Connection close requested by client: #{reason} #{code}")
 
     conn =
-      %{conn | state: "closing"}
+      %{conn | state: :closing}
       |> push_request_tracker(%Close{}, from)
       |> send_request(%Close{}, reason: reason, code: code)
 
@@ -326,7 +345,7 @@ defmodule RabbitStream.Connection do
       end)
 
     cond do
-      conn.state == "closed" ->
+      conn.state == :closed ->
         {:noreply, conn, :hibernate}
 
       true ->
@@ -343,25 +362,25 @@ defmodule RabbitStream.Connection do
   end
 
   def handle_info({:tcp_closed, _socket}, conn) do
-    if conn.state == "connecting" do
+    if conn.state == :connecting do
       Logger.warn(
         "The connection was closed by the host, after the socket was already open, while running the authentication sequence. This could be caused by the server not having Stream Plugin active"
       )
     end
 
-    conn = %{conn | socket: nil, state: "closed"} |> handle_closed(:tcp_closed)
+    conn = %{conn | socket: nil, state: :closed} |> handle_closed(:tcp_closed)
 
     {:noreply, conn, :hibernate}
   end
 
   def handle_info({:tcp_error, _socket, reason}, conn) do
-    conn = %{conn | socket: nil, state: "closed"} |> handle_closed(reason)
+    conn = %{conn | socket: nil, state: :closed} |> handle_closed(reason)
 
     {:noreply, conn}
   end
 
   @impl true
-  def handle_continue({:connect}, %Connection{state: "closed"} = conn) do
+  def handle_continue({:connect}, %Connection{state: :closed} = conn) do
     Logger.info("Connecting to server: #{conn.host}:#{conn.port}")
 
     with {:ok, socket} <- :gen_tcp.connect(String.to_charlist(conn.host), conn.port, [:binary, active: true]),
@@ -369,7 +388,7 @@ defmodule RabbitStream.Connection do
       Logger.debug("Connection stablished. Initiating properties exchange.")
 
       conn =
-        %{conn | socket: socket, state: "connecting"}
+        %{conn | socket: socket, state: :connecting}
         |> send_request(%PeerProperties{})
 
       {:noreply, conn}
@@ -385,7 +404,7 @@ defmodule RabbitStream.Connection do
 
     {{pid, _data}, conn} = pop_request_tracker(conn, %Close{}, response.correlation_id)
 
-    conn = %{conn | state: "closed", socket: nil}
+    conn = %{conn | state: :closed, socket: nil}
 
     GenServer.reply(pid, :ok)
 
@@ -396,12 +415,12 @@ defmodule RabbitStream.Connection do
     Logger.debug("Connection close requested by server: #{request.data.code} #{request.data.reason}")
     Logger.debug("Connection closed")
 
-    %{conn | state: "closing"}
+    %{conn | state: :closing}
     |> send_response(:close, correlation_id: request.correlation_id, code: %Ok{})
     |> handle_closed(request.data.reason)
   end
 
-  defp handle_message(%Connection{state: "closed"} = conn, _) do
+  defp handle_message(%Connection{state: :closed} = conn, _) do
     Logger.error("Message received on a closed connection")
 
     conn
@@ -434,7 +453,7 @@ defmodule RabbitStream.Connection do
 
     conn
     |> send_request(%Open{})
-    |> Map.put(:state, "opening")
+    |> Map.put(:state, :opening)
   end
 
   defp handle_message(%Connection{} = conn, %Response{command: %Tune{}} = response) do
@@ -451,7 +470,7 @@ defmodule RabbitStream.Connection do
 
     %{conn | frame_max: request.data.frame_max, heartbeat: request.data.heartbeat}
     |> send_response(:tune, correlation_id: request.correlation_id)
-    |> Map.put(:state, "opening")
+    |> Map.put(:state, :opening)
     |> send_request(%Open{})
   end
 
@@ -462,7 +481,7 @@ defmodule RabbitStream.Connection do
       GenServer.reply(request, :ok)
     end
 
-    %{conn | state: "open", connect_requests: [], connection_properties: response.data.connection_properties}
+    %{conn | state: :open, connect_requests: [], connection_properties: response.data.connection_properties}
   end
 
   defp handle_message(%Connection{} = conn, %Request{command: %Heartbeat{}}) do
@@ -550,7 +569,7 @@ defmodule RabbitStream.Connection do
       GenServer.reply(request, {:error, code})
     end
 
-    %{conn | state: "closed", socket: nil, connect_requests: []}
+    %{conn | state: :closed, socket: nil, connect_requests: []}
   end
 
   defp handle_error(%Connection{} = conn, %Response{command: command} = response)
