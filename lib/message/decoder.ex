@@ -17,7 +17,9 @@ defmodule RabbitStream.Message.Decoder do
     DeclarePublisher,
     DeletePublisher,
     QueryMetadata,
-    QueryPublisherSequence
+    QueryPublisherSequence,
+    PublishConfirm,
+    PublishError
   }
 
   alias RabbitStream.Message.Data.{
@@ -37,7 +39,9 @@ defmodule RabbitStream.Message.Decoder do
     QueryMetadataData,
     BrokerData,
     StreamData,
-    QueryPublisherSequenceData
+    QueryPublisherSequenceData,
+    PublishConfirmData,
+    PublishErrorData
   }
 
   defp fetch_string(<<size::integer-size(16), text::binary-size(size), rest::binary>>) do
@@ -301,5 +305,49 @@ defmodule RabbitStream.Message.Decoder do
     }
 
     %{response | data: data, correlation_id: correlation_id, code: Message.Code.decode(code)}
+  end
+
+  def decode!(%Request{command: %PublishConfirm{}} = response, buffer) do
+    <<publisher_id::unsigned-integer-size(8), buffer::binary>> = buffer
+
+    {"", publishing_ids} =
+      decode_array(buffer, fn buffer, acc ->
+        <<publishing_id::unsigned-integer-size(64), buffer::binary>> = buffer
+        {buffer, [publishing_id] ++ acc}
+      end)
+
+    data = %PublishConfirmData{
+      publisher_id: publisher_id,
+      publishing_ids: publishing_ids
+    }
+
+    %{response | data: data}
+  end
+
+  def decode!(%Request{command: %PublishError{}} = response, buffer) do
+    <<publisher_id::unsigned-integer-size(8), buffer::binary>> = buffer
+
+    {"", errors} =
+      decode_array(buffer, fn buffer, acc ->
+        <<
+          publishing_id::unsigned-integer-size(64),
+          code::unsigned-integer-size(16),
+          buffer::binary
+        >> = buffer
+
+        entry = %PublishErrorData.Error{
+          code: Message.Code.decode(code),
+          publishing_id: publishing_id
+        }
+
+        {buffer, [entry] ++ acc}
+      end)
+
+    data = %PublishErrorData{
+      publisher_id: publisher_id,
+      errors: errors
+    }
+
+    %{response | data: data}
   end
 end

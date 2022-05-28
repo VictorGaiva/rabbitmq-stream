@@ -16,7 +16,8 @@ defmodule RabbitStream.Message.Encoder do
     DeclarePublisher,
     DeletePublisher,
     QueryMetadata,
-    QueryPublisherSequence
+    QueryPublisherSequence,
+    Publish
   }
 
   alias RabbitStream.Message.Data.{
@@ -29,7 +30,8 @@ defmodule RabbitStream.Message.Encoder do
     DeclarePublisherData,
     DeletePublisherData,
     QueryMetadataData,
-    QueryPublisherSequenceData
+    QueryPublisherSequenceData,
+    PublishData
   }
 
   defp encode_string(nil) do
@@ -260,6 +262,27 @@ defmodule RabbitStream.Message.Encoder do
       request.correlation_id::unsigned-integer-size(32),
       publisher_reference::binary,
       stream_name::binary
+    >>
+
+    <<byte_size(data)::unsigned-integer-size(32), data::binary>>
+  end
+
+  def encode!(%Request{command: %Publish{}, data: %PublishData{} = data} = request) do
+    messages =
+      encode_array(
+        for {publishing_id, message} <- data.published_messages do
+          <<
+            publishing_id::unsigned-integer-size(64),
+            encode_bytes(message)::binary
+          >>
+        end
+      )
+
+    data = <<
+      request.command.code::unsigned-integer-size(16),
+      request.version::unsigned-integer-size(16),
+      data.publisher_id::unsigned-integer-size(8),
+      messages::binary
     >>
 
     <<byte_size(data)::unsigned-integer-size(32), data::binary>>

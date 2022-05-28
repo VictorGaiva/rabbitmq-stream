@@ -18,6 +18,10 @@ defmodule RabbitStream.Publisher do
     GenServer.call(pid, {:get_state})
   end
 
+  def publish(pid, message, sequence \\ nil) when is_binary(message) do
+    GenServer.cast(pid, {:publish, message, sequence})
+  end
+
   def start_link(args, opts \\ []) do
     GenServer.start_link(__MODULE__, args, opts)
   end
@@ -37,7 +41,7 @@ defmodule RabbitStream.Publisher do
         stream_name: stream_name,
         connection: connection,
         reference_name: reference_name,
-        sequence: sequence
+        sequence: sequence + 1
       }
 
       {:ok, state}
@@ -47,6 +51,15 @@ defmodule RabbitStream.Publisher do
   @impl true
   def handle_call({:get_state}, _from, state) do
     {:reply, state, state}
+  end
+
+  @impl true
+  def handle_cast({:publish, message, nil}, %Publisher{} = publisher) do
+    Connection.publish(publisher.connection, publisher.id, message, publisher.sequence)
+
+    publisher = %{publisher | sequence: publisher.sequence + 1}
+
+    {:noreply, publisher}
   end
 
   @impl true

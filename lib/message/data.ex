@@ -123,4 +123,32 @@ defmodule RabbitStream.Message.Data do
       :sequence
     ]
   end
+
+  defmodule PublishData do
+    defstruct [
+      :publisher_id,
+      :published_messages
+    ]
+  end
+
+  defmodule PublishErrorData do
+    defmodule Error do
+      defstruct [
+        :publishing_id,
+        :code
+      ]
+    end
+
+    defstruct [
+      :publisher_id,
+      :errors
+    ]
+  end
+
+  defmodule PublishConfirmData do
+    defstruct [
+      :publisher_id,
+      :publishing_ids
+    ]
+  end
 end

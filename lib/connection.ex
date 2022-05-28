@@ -1,8 +1,9 @@
 defmodule RabbitStream.Connection do
   use GenServer
   require Logger
+  alias __MODULE__
 
-  alias __MODULE__, as: Connection
+  alias RabbitStream.Helpers.PublishingTracker
 
   alias RabbitStream.Message
   alias RabbitStream.Message.{Request, Response}
@@ -23,7 +24,10 @@ defmodule RabbitStream.Connection do
     DeletePublisher,
     MetadataUpdate,
     QueryMetadata,
-    QueryPublisherSequence
+    QueryPublisherSequence,
+    Publish,
+    PublishConfirm,
+    PublishError
   }
 
   alias Message.Code.{
@@ -51,7 +55,8 @@ defmodule RabbitStream.Connection do
     connection_properties: [],
     mechanisms: [],
     connect_requests: [],
-    requests: %{},
+    publish_tracker: %PublishingTracker{},
+    request_tracker: %{},
     correlation_sequence: 1,
     publisher_sequence: 1,
     subscription_sequence: 1,
@@ -124,6 +129,17 @@ defmodule RabbitStream.Connection do
     GenServer.call(pid, {:query_publisher_sequence, publisher_reference: publisher_reference, stream_name: stream_name})
   end
 
+  def publish(pid, publisher_id, message, publishing_id)
+      when is_integer(publisher_id)
+      when is_binary(message)
+      when is_integer(publishing_id)
+      when publisher_id <= 255 do
+    GenServer.cast(
+      pid,
+      {:publish, publisher_id: publisher_id, published_messages: [{publishing_id, message}], wait: true}
+    )
+  end
+
   def get_state(pid) do
     GenServer.call(pid, {:get_state})
   end
@@ -193,7 +209,7 @@ defmodule RabbitStream.Connection do
 
     conn =
       %{conn | state: "closing"}
-      |> push_tracker(%Close{}, from)
+      |> push_request_tracker(%Close{}, from)
       |> send_request(%Close{}, reason: reason, code: code)
 
     {:noreply, conn}
@@ -202,7 +218,7 @@ defmodule RabbitStream.Connection do
   def handle_call({:create, name, opts}, from, %Connection{} = conn) do
     conn =
       conn
-      |> push_tracker(%Create{}, from)
+      |> push_request_tracker(%Create{}, from)
       |> send_request(%Create{}, name: name, arguments: opts)
 
     {:noreply, conn}
@@ -211,7 +227,7 @@ defmodule RabbitStream.Connection do
   def handle_call({:delete, name}, from, %Connection{} = conn) do
     conn =
       conn
-      |> push_tracker(%Delete{}, from)
+      |> push_request_tracker(%Delete{}, from)
       |> send_request(%Delete{}, name: name)
 
     {:noreply, conn}
@@ -228,7 +244,7 @@ defmodule RabbitStream.Connection do
   def handle_call({:query_offset, opts}, from, %Connection{} = conn) do
     conn =
       conn
-      |> push_tracker(%QueryOffset{}, from)
+      |> push_request_tracker(%QueryOffset{}, from)
       |> send_request(%QueryOffset{}, opts)
 
     {:noreply, conn}
@@ -237,7 +253,7 @@ defmodule RabbitStream.Connection do
   def handle_call({:declare_publisher, opts}, from, %Connection{} = conn) do
     conn =
       conn
-      |> push_tracker(%DeclarePublisher{}, from, conn.publisher_sequence)
+      |> push_request_tracker(%DeclarePublisher{}, from, conn.publisher_sequence)
       |> send_request(%DeclarePublisher{}, opts ++ [publisher_sum: 1])
 
     {:noreply, conn}
@@ -246,7 +262,7 @@ defmodule RabbitStream.Connection do
   def handle_call({:delete_publisher, opts}, from, %Connection{} = conn) do
     conn =
       conn
-      |> push_tracker(%DeletePublisher{}, from)
+      |> push_request_tracker(%DeletePublisher{}, from)
       |> send_request(%DeletePublisher{}, opts)
 
     {:noreply, conn}
@@ -255,7 +271,7 @@ defmodule RabbitStream.Connection do
   def handle_call({:query_metadata, opts}, from, %Connection{} = conn) do
     conn =
       conn
-      |> push_tracker(%QueryMetadata{}, from)
+      |> push_request_tracker(%QueryMetadata{}, from)
       |> send_request(%QueryMetadata{}, opts)
 
     {:noreply, conn}
@@ -264,8 +280,28 @@ defmodule RabbitStream.Connection do
   def handle_call({:query_publisher_sequence, opts}, from, %Connection{} = conn) do
     conn =
       conn
-      |> push_tracker(%QueryPublisherSequence{}, from)
+      |> push_request_tracker(%QueryPublisherSequence{}, from)
       |> send_request(%QueryPublisherSequence{}, opts)
+
+    {:noreply, conn}
+  end
+
+  @impl true
+  def handle_cast({:publish, opts}, %Connection{} = conn) do
+    {_wait, opts} = Keyword.pop(opts, :wait, false)
+
+    # conn =
+    #   if wait do
+    #     publishing_ids = Enum.map(opts[:published_messages], fn {id, _} -> id end)
+    #     publish_tracker = PublishingTracker.push(conn.publish_tracker, opts[:publisher_id], publishing_ids, from)
+    #     %{conn | publish_tracker: publish_tracker}
+    #   else
+    #     conn
+    #   end
+
+    conn =
+      conn
+      |> send_request(%Publish{}, opts ++ [correlation_sum: 0])
 
     {:noreply, conn}
   end
@@ -325,7 +361,6 @@ defmodule RabbitStream.Connection do
   end
 
   @impl true
-
   def handle_continue({:connect}, %Connection{state: "closed"} = conn) do
     Logger.info("Connecting to server: #{conn.host}:#{conn.port}")
 
@@ -348,7 +383,7 @@ defmodule RabbitStream.Connection do
   defp handle_message(%Connection{} = conn, %Response{command: %Close{}} = response) do
     Logger.debug("Connection closed: #{conn.host}:#{conn.port}")
 
-    {{pid, _data}, conn} = pop_tracker(conn, %Close{}, response.correlation_id)
+    {{pid, _data}, conn} = pop_request_tracker(conn, %Close{}, response.correlation_id)
 
     conn = %{conn | state: "closed", socket: nil}
 
@@ -445,7 +480,7 @@ defmodule RabbitStream.Connection do
       |> Enum.map(&{&1.name, &1})
       |> Map.new()
 
-    {{pid, _data}, conn} = pop_tracker(conn, %QueryMetadata{}, response.correlation_id)
+    {{pid, _data}, conn} = pop_request_tracker(conn, %QueryMetadata{}, response.correlation_id)
 
     if pid != nil do
       GenServer.reply(pid, {:ok, response.data})
@@ -455,7 +490,7 @@ defmodule RabbitStream.Connection do
   end
 
   defp handle_message(%Connection{} = conn, %Response{command: %QueryOffset{}} = response) do
-    {{pid, _data}, conn} = pop_tracker(conn, %QueryOffset{}, response.correlation_id)
+    {{pid, _data}, conn} = pop_request_tracker(conn, %QueryOffset{}, response.correlation_id)
 
     if pid != nil do
       GenServer.reply(pid, {:ok, response.data.offset})
@@ -465,7 +500,7 @@ defmodule RabbitStream.Connection do
   end
 
   defp handle_message(%Connection{} = conn, %Response{command: %DeclarePublisher{}} = response) do
-    {{pid, id}, conn} = pop_tracker(conn, %DeclarePublisher{}, response.correlation_id)
+    {{pid, id}, conn} = pop_request_tracker(conn, %DeclarePublisher{}, response.correlation_id)
 
     if pid != nil do
       GenServer.reply(pid, {:ok, id})
@@ -475,7 +510,7 @@ defmodule RabbitStream.Connection do
   end
 
   defp handle_message(%Connection{} = conn, %Response{command: %QueryPublisherSequence{}} = response) do
-    {{pid, _data}, conn} = pop_tracker(conn, %QueryPublisherSequence{}, response.correlation_id)
+    {{pid, _data}, conn} = pop_request_tracker(conn, %QueryPublisherSequence{}, response.correlation_id)
 
     if pid != nil do
       GenServer.reply(pid, {:ok, response.data.sequence})
@@ -486,12 +521,17 @@ defmodule RabbitStream.Connection do
 
   defp handle_message(%Connection{} = conn, %Response{command: command} = response)
        when command in [%Create{}, %Delete{}, %DeletePublisher{}] do
-    {{pid, _data}, conn} = pop_tracker(conn, command, response.correlation_id)
+    {{pid, _data}, conn} = pop_request_tracker(conn, command, response.correlation_id)
 
     if pid != nil do
       GenServer.reply(pid, :ok)
     end
 
+    conn
+  end
+
+  defp handle_message(%Connection{} = conn, %Request{command: command} = _response)
+       when command in [%PublishConfirm{}, %PublishError{}] do
     conn
   end
 
@@ -521,7 +561,7 @@ defmodule RabbitStream.Connection do
               %DeclarePublisher{},
               %DeletePublisher{}
             ] do
-    {{pid, _data}, conn} = pop_tracker(conn, command, response.correlation_id)
+    {{pid, _data}, conn} = pop_request_tracker(conn, command, response.correlation_id)
 
     if pid != nil do
       GenServer.reply(pid, {:error, response.code})
@@ -535,11 +575,11 @@ defmodule RabbitStream.Connection do
       GenServer.reply(request, {:error, :closed})
     end
 
-    for {client, _data} <- Map.values(conn.requests) do
+    for {client, _data} <- Map.values(conn.request_tracker) do
       GenServer.reply(client, {:error, reason})
     end
 
-    %{conn | requests: %{}, connect_requests: []}
+    %{conn | request_tracker: %{}, connect_requests: []}
   end
 
   defp send_request(%Connection{} = conn, command, opts \\ []) do
@@ -562,15 +602,15 @@ defmodule RabbitStream.Connection do
     conn
   end
 
-  defp push_tracker(%Connection{} = conn, type, from, data \\ nil) when is_struct(type) when is_pid(from) do
-    requests = Map.put(conn.requests, {type, conn.correlation_sequence}, {from, data})
+  defp push_request_tracker(%Connection{} = conn, type, from, data \\ nil) when is_struct(type) when is_pid(from) do
+    request_tracker = Map.put(conn.request_tracker, {type, conn.correlation_sequence}, {from, data})
 
-    %{conn | requests: requests}
+    %{conn | request_tracker: request_tracker}
   end
 
-  defp pop_tracker(%Connection{} = conn, type, correlation) when is_struct(type) do
-    {entry, requests} = Map.pop(conn.requests, {type, correlation}, {nil, nil})
+  defp pop_request_tracker(%Connection{} = conn, type, correlation) when is_struct(type) do
+    {entry, request_tracker} = Map.pop(conn.request_tracker, {type, correlation}, {nil, nil})
 
-    {entry, %{conn | requests: requests}}
+    {entry, %{conn | request_tracker: request_tracker}}
   end
 end

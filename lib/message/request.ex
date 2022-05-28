@@ -19,7 +19,8 @@ defmodule RabbitStream.Message.Request do
     DeclarePublisher,
     DeletePublisher,
     QueryMetadata,
-    QueryPublisherSequence
+    QueryPublisherSequence,
+    Publish
   }
 
   alias RabbitStream.Message.Data.{
@@ -37,7 +38,8 @@ defmodule RabbitStream.Message.Request do
     DeclarePublisherData,
     DeletePublisherData,
     QueryMetadataData,
-    QueryPublisherSequenceData
+    QueryPublisherSequenceData,
+    PublishData
   }
 
   alias __MODULE__, as: Request
@@ -234,6 +236,17 @@ defmodule RabbitStream.Message.Request do
       data: %QueryPublisherSequenceData{
         stream_name: opts[:stream_name],
         publisher_reference: opts[:publisher_reference]
+      }
+    }
+  end
+
+  def new!(%Connection{} = conn, %Publish{}, opts) do
+    %Request{
+      version: conn.version,
+      command: %Publish{},
+      data: %PublishData{
+        publisher_id: opts[:publisher_id],
+        published_messages: opts[:published_messages]
       }
     }
   end
