@@ -1,8 +1,10 @@
 defmodule RabbitMQStream.Message.Response do
+  @moduledoc false
   require Logger
 
+  alias __MODULE__
+
   alias RabbitMQStream.{Connection, Message}
-  alias Message.{Response, Encoder}
 
   alias Message.Command.{
     Tune,
@@ -45,10 +47,7 @@ defmodule RabbitMQStream.Message.Response do
     }
   end
 
-  def new!(%Connection{} = conn, :close,
-        correlation_id: correlation_id,
-        code: code
-      ) do
+  def new!(%Connection{} = conn, :close, correlation_id: correlation_id, code: code) do
     %Response{
       version: conn.version,
       correlation_id: correlation_id,
@@ -56,11 +55,5 @@ defmodule RabbitMQStream.Message.Response do
       data: %CloseData{},
       code: code
     }
-  end
-
-  def new_encoded!(%Connection{} = conn, command, opts) do
-    conn
-    |> new!(command, opts)
-    |> Encoder.encode!()
   end
 end

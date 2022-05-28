@@ -611,7 +611,8 @@ defmodule RabbitMQStream.Connection do
     {correlation_sum, opts} = Keyword.pop(opts, :correlation_sum, 1)
     {publisher_sum, opts} = Keyword.pop(opts, :publisher_sum, 0)
 
-    frame = Request.new_encoded!(conn, command, opts)
+    frame = Message.encode_request!(conn, command, opts)
+
     :ok = :gen_tcp.send(conn.socket, frame)
 
     correlation_sequence = conn.correlation_sequence + correlation_sum
@@ -621,7 +622,8 @@ defmodule RabbitMQStream.Connection do
   end
 
   defp send_response(%Connection{} = conn, command, opts) do
-    frame = Response.new_encoded!(conn, command, opts)
+    frame = Message.encode_response!(conn, command, opts)
+
     :ok = :gen_tcp.send(conn.socket, frame)
 
     conn

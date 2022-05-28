@@ -1,8 +1,9 @@
 defmodule RabbitMQStream.Message.Request do
+  @moduledoc false
   require Logger
+  alias __MODULE__
 
   alias RabbitMQStream.Connection
-  alias RabbitMQStream.Message.Encoder
 
   alias RabbitMQStream.Message.Command.{
     PeerProperties,
@@ -41,8 +42,6 @@ defmodule RabbitMQStream.Message.Request do
     QueryPublisherSequenceData,
     PublishData
   }
-
-  alias __MODULE__, as: Request
 
   defstruct [
     :version,
@@ -249,11 +248,5 @@ defmodule RabbitMQStream.Message.Request do
         published_messages: opts[:published_messages]
       }
     }
-  end
-
-  def new_encoded!(%Connection{} = conn, command, opts) do
-    conn
-    |> new!(command, opts)
-    |> Encoder.encode!()
   end
 end

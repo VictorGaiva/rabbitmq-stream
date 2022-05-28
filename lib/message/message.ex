@@ -1,7 +1,11 @@
 defmodule RabbitMQStream.Message do
+  @moduledoc """
+  Module for creating and encoding new Messages, and decoding frames.
+  """
+
   require Logger
 
-  alias RabbitMQStream.Message.{Request, Response, Decoder}
+  alias RabbitMQStream.Message.{Request, Response, Decoder, Encoder}
 
   import RabbitMQStream.Helpers
 
@@ -82,6 +86,18 @@ defmodule RabbitMQStream.Message do
       # Client & Server, No
       0x0017 => :heartbeat
     })
+  end
+
+  def encode_request!(conn, command, opts) do
+    conn
+    |> Request.new!(command, opts)
+    |> Encoder.encode!()
+  end
+
+  def encode_response!(conn, command, opts) do
+    conn
+    |> Response.new!(command, opts)
+    |> Encoder.encode!()
   end
 
   def decode!(buffer) when is_binary(buffer) do

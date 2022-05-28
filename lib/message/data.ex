@@ -1,7 +1,6 @@
 defmodule RabbitMQStream.Message.Data do
+  @moduledoc false
   defmodule TuneData do
-    @moduledoc false
-
     defstruct [
       :frame_max,
       :heartbeat
@@ -9,24 +8,18 @@ defmodule RabbitMQStream.Message.Data do
   end
 
   defmodule PeerPropertiesData do
-    @moduledoc false
-
     defstruct [
       :peer_properties
     ]
   end
 
   defmodule SaslHandshakeData do
-    @moduledoc false
-
     defstruct [
       :mechanisms
     ]
   end
 
   defmodule SaslAuthenticateData do
-    @moduledoc false
-
     defstruct [
       :mechanism,
       :sasl_opaque_data
@@ -34,8 +27,6 @@ defmodule RabbitMQStream.Message.Data do
   end
 
   defmodule OpenData do
-    @moduledoc false
-
     defstruct [
       :vhost,
       :connection_properties
@@ -43,14 +34,10 @@ defmodule RabbitMQStream.Message.Data do
   end
 
   defmodule HeartbeatData do
-    @moduledoc false
-
     defstruct []
   end
 
   defmodule CloseData do
-    @moduledoc false
-
     defstruct [
       :code,
       :reason
@@ -58,8 +45,6 @@ defmodule RabbitMQStream.Message.Data do
   end
 
   defmodule CreateData do
-    @moduledoc false
-
     defstruct [
       :stream_name,
       :arguments
@@ -67,16 +52,12 @@ defmodule RabbitMQStream.Message.Data do
   end
 
   defmodule DeleteData do
-    @moduledoc false
-
     defstruct [
       :stream_name
     ]
   end
 
   defmodule StoreOffsetData do
-    @moduledoc false
-
     defstruct [
       :offset_reference,
       :stream_name,
@@ -85,8 +66,6 @@ defmodule RabbitMQStream.Message.Data do
   end
 
   defmodule QueryOffsetData do
-    @moduledoc false
-
     defstruct [
       :offset_reference,
       :stream_name,
@@ -95,8 +74,6 @@ defmodule RabbitMQStream.Message.Data do
   end
 
   defmodule QueryMetadataData do
-    @moduledoc false
-
     defstruct [
       :brokers,
       :streams
@@ -104,16 +81,12 @@ defmodule RabbitMQStream.Message.Data do
   end
 
   defmodule MetadataUpdateData do
-    @moduledoc false
-
     defstruct [
       :stream_name
     ]
   end
 
   defmodule DeclarePublisherData do
-    @moduledoc false
-
     defstruct [
       :id,
       :publisher_reference,
@@ -122,16 +95,12 @@ defmodule RabbitMQStream.Message.Data do
   end
 
   defmodule DeletePublisherData do
-    @moduledoc false
-
     defstruct [
       :id
     ]
   end
 
   defmodule BrokerData do
-    @moduledoc false
-
     defstruct [
       :reference,
       :host,
@@ -140,8 +109,6 @@ defmodule RabbitMQStream.Message.Data do
   end
 
   defmodule StreamData do
-    @moduledoc false
-
     defstruct [
       :code,
       :name,
@@ -151,8 +118,6 @@ defmodule RabbitMQStream.Message.Data do
   end
 
   defmodule QueryPublisherSequenceData do
-    @moduledoc false
-
     defstruct [
       :publisher_reference,
       :stream_name,
@@ -161,8 +126,6 @@ defmodule RabbitMQStream.Message.Data do
   end
 
   defmodule PublishData do
-    @moduledoc false
-
     defstruct [
       :publisher_id,
       :published_messages
@@ -170,11 +133,7 @@ defmodule RabbitMQStream.Message.Data do
   end
 
   defmodule PublishErrorData do
-    @moduledoc false
-
     defmodule Error do
-      @moduledoc false
-
       defstruct [
         :publishing_id,
         :code
@@ -188,8 +147,6 @@ defmodule RabbitMQStream.Message.Data do
   end
 
   defmodule PublishConfirmData do
-    @moduledoc false
-
     defstruct [
       :publisher_id,
       :publishing_ids

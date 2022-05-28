@@ -1,4 +1,6 @@
 defmodule RabbitMQStream.Message.Encoder do
+  @moduledoc false
+
   alias RabbitMQStream.Message.{Response, Request}
 
   alias RabbitMQStream.Message.Command.{
