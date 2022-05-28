@@ -86,17 +86,13 @@ defmodule RabbitMQStream.MixProject do
 
     [
       Client: [
-        RabbitMQStream.Client,
+        RabbitMQStream,
+        RabbitMQStream.Connection,
         RabbitMQStream.Publisher,
         RabbitMQStream.SupervisedPublisher
       ],
-      Connection: [
-        RabbitMQStream.Connection,
-        RabbitMQStream.Message,
-        RabbitMQStream.Message.Request,
-        RabbitMQStream.Message.Response,
-        RabbitMQStream.Message.Encoder,
-        RabbitMQStream.Message.Decoder
+      Internal: [
+        RabbitMQStream.Message
       ]
     ]
   end
