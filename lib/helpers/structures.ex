@@ -1,4 +1,6 @@
 defmodule RabbitMQStream.Helpers.PublishingTracker do
+  @moduledoc false
+
   alias __MODULE__
 
   alias RabbitMQStream.Message.Data.{
@@ -28,9 +30,6 @@ defmodule RabbitMQStream.Helpers.PublishingTracker do
 
     %{tracker | sequence: tracker.sequence + 1, entries: entries, table: table}
   end
-
-  # def match(%PublishingTracker{} = tracker, %PublishErrorData{} = response) do
-  # end
 
   def match(%PublishingTracker{} = tracker, %PublishConfirmData{} = response) do
     for publishing_id <- response.publishing_ids do

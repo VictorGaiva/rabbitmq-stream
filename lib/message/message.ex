@@ -6,6 +6,8 @@ defmodule RabbitMQStream.Message do
   import RabbitMQStream.Helpers
 
   defmodule Code do
+    @moduledoc false
+
     match_codes(%{
       0x01 => :ok,
       0x02 => :stream_does_not_exist,
@@ -30,6 +32,8 @@ defmodule RabbitMQStream.Message do
   end
 
   defmodule Command do
+    @moduledoc false
+
     match_codes(%{
       # Client, Yes
       0x0001 => :declare_publisher,

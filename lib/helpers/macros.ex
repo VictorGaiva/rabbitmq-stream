@@ -1,4 +1,6 @@
 defmodule RabbitMQStream.Helpers do
+  @moduledoc false
+
   defmacro match_codes({:%{}, _, codes}) do
     Enum.map(codes, fn {code, name} ->
       module = "#{Atom.to_string(name)}" |> Macro.camelize()
@@ -9,6 +11,8 @@ defmodule RabbitMQStream.Helpers do
           |> String.to_atom()
 
         defmodule name do
+          @moduledoc false
+
           defstruct(code: unquote(code))
 
           def code() do

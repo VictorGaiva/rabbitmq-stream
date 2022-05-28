@@ -1,0 +1,29 @@
+name: Publish to Hex.pm
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "24"
+          elixir-version: "1.13"
+      - uses: actions/checkout@v2
+
+      - name: Install Dependencies
+        run: |
+          mix local.rebar --force
+          mix local.hex --force
+          mix deps.get
+          mix deps.compile --skip-umbrella-children --skip-local-deps
+
+      - name: Compile app
+        run: mix hex.publish --yes --replace
