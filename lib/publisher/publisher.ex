@@ -1,4 +1,10 @@
 defmodule RabbitMQStream.Publisher do
+  @moduledoc """
+  A GenServer module that, using a provided connection, declares itself under given `name`,
+  and provides an interface for publishing messages on `stream_name` stream.
+  It also keeps track of the current publishing id, to avoid message duplication.
+  """
+
   use GenServer
 
   alias RabbitMQStream.Connection

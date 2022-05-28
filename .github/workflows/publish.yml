@@ -9,7 +9,7 @@ env:
   HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
 
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
     steps:
       - uses: erlef/setup-beam@v1

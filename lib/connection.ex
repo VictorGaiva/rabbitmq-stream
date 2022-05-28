@@ -1,4 +1,10 @@
 defmodule RabbitMQStream.Connection do
+  @moduledoc """
+  Responsible for encoding and decoding messages, opening and maintaining a socket connection to a single node.
+  It connects to the RabbitMQ server using [`:gen_tcp`](https://www.erlang.org/doc/man/gen_tcp.html).
+  It then runs throught the [authentication](https://github.com/rabbitmq/rabbitmq-server/blob/master/deps/rabbitmq_stream/docs/PROTOCOL.adoc#authentication) sequence and mantains the connection open with heartbeats, with the provided `tune` definition.
+  """
+
   use GenServer
   require Logger
   alias __MODULE__

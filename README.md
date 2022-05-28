@@ -1,35 +1,21 @@
 # RabbitMQStream - WIP
 
+[![Version](https://img.shields.io/hexpm/v/rabbitmq_stream.svg)](https://hex.pm/packages/rabbitmq_stream)
+[![Hex Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/rabbitmq_stream/)
+[![Download](https://img.shields.io/hexpm/dt/rabbitmq_stream.svg)](https://hex.pm/packages/rabbitmq_stream)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+
 Elixir Client for [RabbitMQ Streams Protocol](https://www.rabbitmq.com/streams.html).
 
 ## Getting started
 
 This project is currently under development and missing most of the features a full client needs. The current aim is to make it feature complete before writting a _Getting started_ documentation.
 
-## Overview
-
-### `Connection`
-
-Responsible for encoding and decoding messages, opening and maintaining a socket connection to a single node.
-It connects to the RabbitMQ server using [`:gen_tcp`](https://www.erlang.org/doc/man/gen_tcp.html). It then runs throught the [authentication](https://github.com/rabbitmq/rabbitmq-server/blob/master/deps/rabbitmq_stream/docs/PROTOCOL.adoc#authentication) sequence and mantains the connection open with heartbeats, with the provided `tune` definition.
-
-### `Client`
-
-Responsible for managing multiple connections for a single cluster, routing requests accordingly, and enforcing [_Well-behaved_](https://blog.rabbitmq.com/posts/2021/07/connecting-to-streams/) praticies.
-
-### `Publisher`
-
-A GenServer module that, using a provided connection, declares itself under given `name`, and provides an interface for publishing messages on `stream_name` stream. It also keeps track of the current publishing id, to avoid message duplication.
-
-### Supported Authentication Mechanisms
-
-- `PLAIN`
-
 ## Progress
 
 This implementation is following the protocol defined in the RabbitMQ's repository, seen [here](https://github.com/rabbitmq/rabbitmq-server/blob/master/deps/rabbitmq_stream/docs/PROTOCOL.adoc).
 
-An overview of the current status of the project can be estimated by what commands it is able to process, so here is a list of the current progress of the implementation.
+Here is the set of messages with handlers currently implemented:
 
 | Command                | Status | Description                               |
 | ---------------------- | ------ | ----------------------------------------- |
@@ -57,11 +43,11 @@ An overview of the current status of the project can be estimated by what comman
 | Close                  | ✅     | --                                        |
 | Heartbeat              | ✅     | --                                        |
 
-## Nexts steps
-
-After being feature complete, the next step would be to create a Broadway Producer implementation using this client.
-
-## Requirements for final release
+## Roadmap
 
 - [_Well-behaved_](https://blog.rabbitmq.com/posts/2021/07/connecting-to-streams/#:~:text=Well%2Dbehaved%20Clients) Cluster connection
 - Workaround for connecting throught [load balancers](https://blog.rabbitmq.com/posts/2021/07/connecting-to-streams#:~:text=Client%20Workaround%20With%20a%20Load%20Balancer)
+
+## Future Plans
+
+- Broadway Producer implementation using this client.

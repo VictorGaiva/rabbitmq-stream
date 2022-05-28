@@ -1,4 +1,8 @@
 defmodule RabbitMQStream.SupervisedPublisher do
+  @moduledoc """
+  Provides an interface for declaring a standalone Publisher, that supervises its own `RabbitMQStream.Connection`
+  """
+
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts] do
       use Supervisor
@@ -9,19 +13,11 @@ defmodule RabbitMQStream.SupervisedPublisher do
 
       @impl true
       def init(_) do
-        children =
-          if not is_atom(opts[:connection]) do
-            [
-              {RabbitMQStream.Connection, opts[:connection], name: __MODULE__.Connection},
-              {RabbitMQStream.Publisher,
-               opts ++ [connection: __MODULE__.Connection, reference_name: __MODULE__.Publisher],
-               name: __MODULE__.Publisher}
-            ]
-          else
-            [
-              {RabbitMQStream.Publisher, opts ++ [reference_name: __MODULE__.Publisher], name: __MODULE__.Publisher}
-            ]
-          end
+        children = [
+          {RabbitMQStream.Connection, opts[:connection], name: __MODULE__.Connection},
+          {RabbitMQStream.Publisher, opts ++ [connection: __MODULE__.Connection, reference_name: __MODULE__.Publisher],
+           name: __MODULE__.Publisher}
+        ]
 
         Supervisor.init(children, strategy: :one_for_all)
       end
