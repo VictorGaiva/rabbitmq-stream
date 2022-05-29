@@ -211,7 +211,7 @@ defmodule RabbitMQStream.Message.Request do
       command: %DeletePublisher{},
       correlation_id: conn.correlation_sequence,
       data: %DeletePublisherData{
-        id: opts[:id]
+        publisher_id: opts[:publisher_id]
       }
     }
   end

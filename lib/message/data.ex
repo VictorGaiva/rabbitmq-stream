@@ -126,7 +126,7 @@ defmodule RabbitMQStream.Message.Data do
     @moduledoc false
 
     defstruct [
-      :id
+      :publisher_id
     ]
   end
 

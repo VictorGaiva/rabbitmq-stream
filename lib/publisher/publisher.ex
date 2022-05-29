@@ -20,12 +20,12 @@ defmodule RabbitMQStream.Publisher do
     :id
   ]
 
-  def get_state(pid) do
-    GenServer.call(pid, {:get_state})
-  end
-
   def publish(pid, message, sequence \\ nil) when is_binary(message) do
     GenServer.cast(pid, {:publish, message, sequence})
+  end
+
+  def stop(pid) do
+    GenServer.stop(pid)
   end
 
   def start_link(args, opts \\ []) do
@@ -61,7 +61,7 @@ defmodule RabbitMQStream.Publisher do
 
   @impl true
   def handle_cast({:publish, message, nil}, %Publisher{} = publisher) do
-    Connection.publish(publisher.connection, publisher.id, message, publisher.sequence)
+    Connection.publish(publisher.connection, publisher.id, publisher.sequence, message)
 
     publisher = %{publisher | sequence: publisher.sequence + 1}
 
@@ -71,5 +71,11 @@ defmodule RabbitMQStream.Publisher do
   @impl true
   def terminate(_reason, state) do
     Connection.delete_publisher(state.connection, state.id)
+  end
+
+  if Mix.env() == :test do
+    def get_state(pid) do
+      GenServer.call(pid, {:get_state})
+    end
   end
 end

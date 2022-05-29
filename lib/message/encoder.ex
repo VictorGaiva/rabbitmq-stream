@@ -154,7 +154,7 @@ defmodule RabbitMQStream.Message.Encoder do
 
     arguments =
       data.arguments
-      |> Enum.map(fn {key, value} -> encode_string(key) <> encode_string(value) end)
+      |> Enum.map(fn {key, value} -> encode_string(Atom.to_string(key)) <> encode_string(value) end)
       |> encode_array()
 
     data = <<
@@ -232,7 +232,7 @@ defmodule RabbitMQStream.Message.Encoder do
       request.command.code::unsigned-integer-size(16),
       request.version::unsigned-integer-size(16),
       request.correlation_id::unsigned-integer-size(32),
-      data.id::unsigned-integer-size(8)
+      data.publisher_id::unsigned-integer-size(8)
     >>
 
     <<byte_size(data)::unsigned-integer-size(32), data::binary>>

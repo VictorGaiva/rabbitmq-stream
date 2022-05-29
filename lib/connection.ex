@@ -96,22 +96,27 @@ defmodule RabbitMQStream.Connection do
     GenServer.start_link(__MODULE__, default)
   end
 
+  @spec connect(GenServer.server()) :: :ok | {:error, reason :: any()}
   def connect(pid) do
     GenServer.call(pid, {:connect})
   end
 
+  @spec close(GenServer.server(), reason :: String.t(), code :: integer()) :: :ok | {:error, reason :: any()}
   def close(pid, reason \\ "", code \\ 0x00) do
     GenServer.call(pid, {:close, reason, code})
   end
 
-  def create_stream(pid, name, opts \\ []) when is_binary(name) do
-    GenServer.call(pid, {:create, name, opts})
+  @spec create_stream(GenServer.server(), String.t(), keyword(String.t())) :: :ok | {:error, reason :: any()}
+  def create_stream(pid, name, arguments \\ []) when is_binary(name) do
+    GenServer.call(pid, {:create, name, arguments})
   end
 
+  @spec delete_stream(GenServer.server(), String.t()) :: :ok | {:error, reason :: any()}
   def delete_stream(pid, name) when is_binary(name) do
     GenServer.call(pid, {:delete, name})
   end
 
+  @spec store_offset(GenServer.server(), String.t(), String.t(), integer()) :: :ok
   def store_offset(pid, stream_name, offset_reference, offset)
       when is_binary(stream_name)
       when is_binary(offset_reference)
@@ -120,12 +125,17 @@ defmodule RabbitMQStream.Connection do
     GenServer.call(pid, {:store_offset, stream_name: stream_name, offset_reference: offset_reference, offset: offset})
   end
 
+  @spec query_offset(GenServer.server(), String.t(), String.t()) ::
+          {:ok, offset :: integer()} | {:error, reason :: any()}
   def query_offset(pid, stream_name, offset_reference)
+      when is_binary(offset_reference)
       when is_binary(stream_name)
-      when is_binary(offset_reference) do
+      when length(stream_name) <= 255 do
     GenServer.call(pid, {:query_offset, stream_name: stream_name, offset_reference: offset_reference})
   end
 
+  @spec declare_publisher(GenServer.server(), String.t(), String.t()) ::
+          {:ok, publisher_id :: integer()} | {:error, any()}
   def declare_publisher(pid, stream_name, publisher_reference)
       when is_binary(publisher_reference)
       when is_binary(stream_name)
@@ -133,16 +143,24 @@ defmodule RabbitMQStream.Connection do
     GenServer.call(pid, {:declare_publisher, stream_name: stream_name, publisher_reference: publisher_reference})
   end
 
-  def delete_publisher(pid, id)
-      when is_integer(id)
-      when id <= 255 do
-    GenServer.call(pid, {:delete_publisher, id: id})
+  @spec delete_publisher(GenServer.server(), publisher_id :: integer()) ::
+          :ok | {:error, reason :: any()}
+  def delete_publisher(pid, publisher_id)
+      when is_integer(publisher_id)
+      when publisher_id <= 255 do
+    GenServer.call(pid, {:delete_publisher, publisher_id: publisher_id})
   end
 
-  def query_metadata(pid, streams) do
+  @spec query_metadata(GenServer.server(), [String.t(), ...]) ::
+          {:ok, metadata :: %{String.t() => String.t()}} | {:error, reason :: any()}
+  def query_metadata(pid, streams)
+      when is_list(streams)
+      when length(streams) > 0 do
     GenServer.call(pid, {:query_metadata, streams: streams})
   end
 
+  @spec query_publisher_sequence(GenServer.server(), String.t(), String.t()) ::
+          {:ok, sequence :: integer()} | {:error, reason :: any()}
   def query_publisher_sequence(pid, stream_name, publisher_reference)
       when is_binary(publisher_reference)
       when is_binary(stream_name)
@@ -150,7 +168,8 @@ defmodule RabbitMQStream.Connection do
     GenServer.call(pid, {:query_publisher_sequence, publisher_reference: publisher_reference, stream_name: stream_name})
   end
 
-  def publish(pid, publisher_id, message, publishing_id)
+  @spec publish(GenServer.server(), integer(), integer(), binary()) :: :ok
+  def publish(pid, publisher_id, publishing_id, message)
       when is_integer(publisher_id)
       when is_binary(message)
       when is_integer(publishing_id)
@@ -159,10 +178,6 @@ defmodule RabbitMQStream.Connection do
       pid,
       {:publish, publisher_id: publisher_id, published_messages: [{publishing_id, message}], wait: true}
     )
-  end
-
-  def get_state(pid) do
-    GenServer.call(pid, {:get_state})
   end
 
   @impl true
@@ -639,5 +654,11 @@ defmodule RabbitMQStream.Connection do
     {entry, request_tracker} = Map.pop(conn.request_tracker, {type, correlation}, {nil, nil})
 
     {entry, %{conn | request_tracker: request_tracker}}
+  end
+
+  if Mix.env() == :test do
+    def get_state(pid) do
+      GenServer.call(pid, {:get_state})
+    end
   end
 end
