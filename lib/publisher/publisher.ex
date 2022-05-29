@@ -28,8 +28,8 @@ defmodule RabbitMQStream.Publisher do
     GenServer.stop(pid)
   end
 
-  def start_link(args, opts \\ []) do
-    GenServer.start_link(__MODULE__, args, opts)
+  def start_link(args) do
+    GenServer.start_link(__MODULE__, args, name: args[:name])
   end
 
   ## Callbacks
@@ -51,6 +51,21 @@ defmodule RabbitMQStream.Publisher do
       }
 
       {:ok, state}
+    else
+      {:error, :stream_does_not_exist} ->
+        with :ok <- Connection.create_stream(connection, stream_name),
+             {:ok, id} <- Connection.declare_publisher(connection, stream_name, reference_name),
+             {:ok, sequence} <- Connection.query_publisher_sequence(connection, stream_name, reference_name) do
+          state = %Publisher{
+            id: id,
+            stream_name: stream_name,
+            connection: connection,
+            reference_name: reference_name,
+            sequence: sequence + 1
+          }
+
+          {:ok, state}
+        end
     end
   end
 
@@ -61,16 +76,19 @@ defmodule RabbitMQStream.Publisher do
 
   @impl true
   def handle_cast({:publish, message, nil}, %Publisher{} = publisher) do
-    Connection.publish(publisher.connection, publisher.id, publisher.sequence, message)
+    with :ok <- Connection.connect(publisher.connection) do
+      Connection.publish(publisher.connection, publisher.id, publisher.sequence, message)
 
-    publisher = %{publisher | sequence: publisher.sequence + 1}
-
-    {:noreply, publisher}
+      {:noreply, %{publisher | sequence: publisher.sequence + 1}}
+    else
+      _ -> {:reply, {:error, :closed}, publisher}
+    end
   end
 
   @impl true
   def terminate(_reason, state) do
     Connection.delete_publisher(state.connection, state.id)
+    :ok
   end
 
   if Mix.env() == :test do

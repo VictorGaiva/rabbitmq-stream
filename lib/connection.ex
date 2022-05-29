@@ -60,8 +60,8 @@ defmodule RabbitMQStream.Connection do
           metadata: %{String.t() => any()}
         }
 
-  def start_link(default \\ []) when is_list(default) do
-    GenServer.start_link(__MODULE__, default)
+  def start_link(args \\ []) when is_list(args) do
+    GenServer.start_link(__MODULE__, args, name: args[:name])
   end
 
   @spec connect(GenServer.server()) :: :ok | {:error, reason :: atom()}

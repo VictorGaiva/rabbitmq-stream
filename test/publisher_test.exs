@@ -4,12 +4,9 @@ defmodule RabbitMQStreamTest.Publisher do
 
   @stream "stream-01"
   @reference_name "reference-01"
-  test "should declare itself" do
+  test "should declare itself and its stream" do
     {:ok, conn} = Connection.start_link(host: "localhost", vhost: "/")
     :ok = Connection.connect(conn)
-
-    Connection.delete_stream(conn, @stream)
-    :ok = Connection.create_stream(conn, @stream)
 
     result = Publisher.start_link(connection: conn, reference_name: @reference_name, stream_name: @stream)
 
@@ -17,6 +14,7 @@ defmodule RabbitMQStreamTest.Publisher do
 
     {:ok, publisher} = result
 
+    Connection.delete_stream(conn, @stream)
     assert match?(%{connection: ^conn}, Publisher.get_state(publisher))
   end
 
@@ -25,11 +23,10 @@ defmodule RabbitMQStreamTest.Publisher do
   test "should query its sequence when declaring" do
     {:ok, conn} = Connection.start_link(host: "localhost", vhost: "/")
     :ok = Connection.connect(conn)
-    Connection.delete_stream(conn, @stream)
-    :ok = Connection.create_stream(conn, @stream)
 
     {:ok, publisher} = Publisher.start_link(connection: conn, reference_name: @reference_name, stream_name: @stream)
 
+    Connection.delete_stream(conn, @stream)
     assert match?(%{sequence: 1}, Publisher.get_state(publisher))
   end
 
@@ -38,8 +35,6 @@ defmodule RabbitMQStreamTest.Publisher do
   test "should publish a message" do
     {:ok, conn} = Connection.start_link(host: "localhost", vhost: "/")
     :ok = Connection.connect(conn)
-    Connection.delete_stream(conn, @stream)
-    Connection.create_stream(conn, @stream)
 
     {:ok, publisher} = Publisher.start_link(connection: conn, reference_name: @reference_name, stream_name: @stream)
 
@@ -66,8 +61,6 @@ defmodule RabbitMQStreamTest.Publisher do
   test "should keep track of sequence across startups" do
     {:ok, conn} = Connection.start_link(host: "localhost", vhost: "/")
     :ok = Connection.connect(conn)
-    Connection.delete_stream(conn, @stream)
-    Connection.create_stream(conn, @stream)
 
     {:ok, publisher} = Publisher.start_link(connection: conn, reference_name: @reference_name, stream_name: @stream)
 
