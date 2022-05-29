@@ -124,7 +124,7 @@ defmodule RabbitMQStream.Message do
     >> = buffer
 
     <<key::unsigned-integer-size(16)>> = <<0b0::1, key::bits>>
-    command = Command.decode(key)
+    command = Command.to_atom(key)
 
     case flag do
       0b1 ->

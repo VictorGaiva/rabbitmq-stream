@@ -5,25 +5,6 @@ defmodule RabbitMQStream.Message.Request do
 
   alias RabbitMQStream.Connection
 
-  alias RabbitMQStream.Message.Command.{
-    PeerProperties,
-    SaslHandshake,
-    SaslAuthenticate,
-    Tune,
-    Open,
-    Heartbeat,
-    Close,
-    Create,
-    Delete,
-    StoreOffset,
-    QueryOffset,
-    DeclarePublisher,
-    DeletePublisher,
-    QueryMetadata,
-    QueryPublisherSequence,
-    Publish
-  }
-
   alias RabbitMQStream.Message.Data.{
     TuneData,
     OpenData,
@@ -51,11 +32,11 @@ defmodule RabbitMQStream.Message.Request do
     :code
   ]
 
-  def new!(%Connection{} = conn, %PeerProperties{}, _) do
+  def new!(%Connection{} = conn, :peer_properties, _) do
     %Request{
       version: conn.version,
       correlation_id: conn.correlation_sequence,
-      command: %PeerProperties{},
+      command: :peer_properties,
       data: %PeerPropertiesData{
         peer_properties: [
           {"product", "RabbitMQ Stream Client"},
@@ -67,11 +48,11 @@ defmodule RabbitMQStream.Message.Request do
     }
   end
 
-  def new!(%Connection{} = conn, %SaslHandshake{}, _) do
+  def new!(%Connection{} = conn, :sasl_handshake, _) do
     %Request{
       version: conn.version,
       correlation_id: conn.correlation_sequence,
-      command: %SaslHandshake{},
+      command: :sasl_handshake,
       data: %SaslHandshakeData{
         mechanisms: [
           # "PLAIN"
@@ -80,13 +61,13 @@ defmodule RabbitMQStream.Message.Request do
     }
   end
 
-  def new!(%Connection{} = conn, %SaslAuthenticate{}, _) do
+  def new!(%Connection{} = conn, :sasl_authenticate, _) do
     cond do
       Enum.member?(conn.mechanisms, "PLAIN") ->
         %Request{
           version: conn.version,
           correlation_id: conn.correlation_sequence,
-          command: %SaslAuthenticate{},
+          command: :sasl_authenticate,
           data: %SaslAuthenticateData{
             mechanism: "PLAIN",
             sasl_opaque_data: [
@@ -101,11 +82,11 @@ defmodule RabbitMQStream.Message.Request do
     end
   end
 
-  def new!(%Connection{} = conn, %Tune{}, _) do
+  def new!(%Connection{} = conn, :tune, _) do
     %Request{
       version: conn.version,
       correlation_id: conn.correlation_sequence,
-      command: %Tune{},
+      command: :tune,
       data: %TuneData{
         frame_max: conn.frame_max,
         heartbeat: conn.heartbeat
@@ -113,29 +94,29 @@ defmodule RabbitMQStream.Message.Request do
     }
   end
 
-  def new!(%Connection{} = conn, %Open{}, _) do
+  def new!(%Connection{} = conn, :open, _) do
     %Request{
       version: conn.version,
       correlation_id: conn.correlation_sequence,
-      command: %Open{},
+      command: :open,
       data: %OpenData{
         vhost: conn.vhost
       }
     }
   end
 
-  def new!(%Connection{} = conn, %Heartbeat{}, _) do
+  def new!(%Connection{} = conn, :heartbeat, _) do
     %Request{
       version: conn.version,
-      command: %Heartbeat{},
+      command: :heartbeat,
       data: %HeartbeatData{}
     }
   end
 
-  def new!(%Connection{} = conn, %Close{}, opts) do
+  def new!(%Connection{} = conn, :close, opts) do
     %Request{
       version: conn.version,
-      command: %Close{},
+      command: :close,
       correlation_id: conn.correlation_sequence,
       data: %CloseData{
         code: opts[:code],
@@ -144,10 +125,10 @@ defmodule RabbitMQStream.Message.Request do
     }
   end
 
-  def new!(%Connection{} = conn, %Create{}, opts) do
+  def new!(%Connection{} = conn, :create, opts) do
     %Request{
       version: conn.version,
-      command: %Create{},
+      command: :create,
       correlation_id: conn.correlation_sequence,
       data: %CreateData{
         stream_name: opts[:name],
@@ -156,10 +137,10 @@ defmodule RabbitMQStream.Message.Request do
     }
   end
 
-  def new!(%Connection{} = conn, %Delete{}, opts) do
+  def new!(%Connection{} = conn, :delete, opts) do
     %Request{
       version: conn.version,
-      command: %Delete{},
+      command: :delete,
       correlation_id: conn.correlation_sequence,
       data: %DeleteData{
         stream_name: opts[:name]
@@ -167,10 +148,10 @@ defmodule RabbitMQStream.Message.Request do
     }
   end
 
-  def new!(%Connection{} = conn, %StoreOffset{}, opts) do
+  def new!(%Connection{} = conn, :store_offset, opts) do
     %Request{
       version: conn.version,
-      command: %StoreOffset{},
+      command: :store_offset,
       correlation_id: conn.correlation_sequence,
       data: %StoreOffsetData{
         stream_name: opts[:stream_name],
@@ -180,10 +161,10 @@ defmodule RabbitMQStream.Message.Request do
     }
   end
 
-  def new!(%Connection{} = conn, %QueryOffset{}, opts) do
+  def new!(%Connection{} = conn, :query_offset, opts) do
     %Request{
       version: conn.version,
-      command: %QueryOffset{},
+      command: :query_offset,
       correlation_id: conn.correlation_sequence,
       data: %QueryOffsetData{
         stream_name: opts[:stream_name],
@@ -192,10 +173,10 @@ defmodule RabbitMQStream.Message.Request do
     }
   end
 
-  def new!(%Connection{} = conn, %DeclarePublisher{}, opts) do
+  def new!(%Connection{} = conn, :declare_publisher, opts) do
     %Request{
       version: conn.version,
-      command: %DeclarePublisher{},
+      command: :declare_publisher,
       correlation_id: conn.correlation_sequence,
       data: %DeclarePublisherData{
         id: conn.publisher_sequence,
@@ -205,10 +186,10 @@ defmodule RabbitMQStream.Message.Request do
     }
   end
 
-  def new!(%Connection{} = conn, %DeletePublisher{}, opts) do
+  def new!(%Connection{} = conn, :delete_publisher, opts) do
     %Request{
       version: conn.version,
-      command: %DeletePublisher{},
+      command: :delete_publisher,
       correlation_id: conn.correlation_sequence,
       data: %DeletePublisherData{
         publisher_id: opts[:publisher_id]
@@ -216,10 +197,10 @@ defmodule RabbitMQStream.Message.Request do
     }
   end
 
-  def new!(%Connection{} = conn, %QueryMetadata{}, opts) do
+  def new!(%Connection{} = conn, :query_metadata, opts) do
     %Request{
       version: conn.version,
-      command: %QueryMetadata{},
+      command: :query_metadata,
       correlation_id: conn.correlation_sequence,
       data: %QueryMetadataData{
         streams: opts[:streams]
@@ -227,10 +208,10 @@ defmodule RabbitMQStream.Message.Request do
     }
   end
 
-  def new!(%Connection{} = conn, %QueryPublisherSequence{}, opts) do
+  def new!(%Connection{} = conn, :query_publisher_sequence, opts) do
     %Request{
       version: conn.version,
-      command: %QueryPublisherSequence{},
+      command: :query_publisher_sequence,
       correlation_id: conn.correlation_sequence,
       data: %QueryPublisherSequenceData{
         stream_name: opts[:stream_name],
@@ -239,10 +220,10 @@ defmodule RabbitMQStream.Message.Request do
     }
   end
 
-  def new!(%Connection{} = conn, %Publish{}, opts) do
+  def new!(%Connection{} = conn, :publish, opts) do
     %Request{
       version: conn.version,
-      command: %Publish{},
+      command: :publish,
       data: %PublishData{
         publisher_id: opts[:publisher_id],
         published_messages: opts[:published_messages]

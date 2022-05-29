@@ -12,39 +12,7 @@ defmodule RabbitMQStream.Connection do
   alias RabbitMQStream.Helpers.PublishingTracker
 
   alias RabbitMQStream.Message
-  alias RabbitMQStream.Message.{Request, Response}
-
-  alias RabbitMQStream.Message.Command.{
-    SaslHandshake,
-    PeerProperties,
-    SaslAuthenticate,
-    Close,
-    Tune,
-    Open,
-    Heartbeat,
-    Create,
-    Delete,
-    StoreOffset,
-    QueryOffset,
-    DeclarePublisher,
-    DeletePublisher,
-    MetadataUpdate,
-    QueryMetadata,
-    QueryPublisherSequence,
-    Publish,
-    PublishConfirm,
-    PublishError
-  }
-
-  alias Message.Code.{
-    Ok,
-    SaslMechanismNotSupported,
-    AuthenticationFailure,
-    SaslError,
-    SaslChallenge,
-    SaslAuthenticationFailureLoopback,
-    VirtualHostAccessFailure
-  }
+  alias Message.{Request, Response}
 
   defstruct [
     :host,
@@ -96,22 +64,22 @@ defmodule RabbitMQStream.Connection do
     GenServer.start_link(__MODULE__, default)
   end
 
-  @spec connect(GenServer.server()) :: :ok | {:error, reason :: any()}
+  @spec connect(GenServer.server()) :: :ok | {:error, reason :: atom()}
   def connect(pid) do
     GenServer.call(pid, {:connect})
   end
 
-  @spec close(GenServer.server(), reason :: String.t(), code :: integer()) :: :ok | {:error, reason :: any()}
+  @spec close(GenServer.server(), reason :: String.t(), code :: integer()) :: :ok | {:error, reason :: atom()}
   def close(pid, reason \\ "", code \\ 0x00) do
     GenServer.call(pid, {:close, reason, code})
   end
 
-  @spec create_stream(GenServer.server(), String.t(), keyword(String.t())) :: :ok | {:error, reason :: any()}
+  @spec create_stream(GenServer.server(), String.t(), keyword(String.t())) :: :ok | {:error, reason :: atom()}
   def create_stream(pid, name, arguments \\ []) when is_binary(name) do
     GenServer.call(pid, {:create, name, arguments})
   end
 
-  @spec delete_stream(GenServer.server(), String.t()) :: :ok | {:error, reason :: any()}
+  @spec delete_stream(GenServer.server(), String.t()) :: :ok | {:error, reason :: atom()}
   def delete_stream(pid, name) when is_binary(name) do
     GenServer.call(pid, {:delete, name})
   end
@@ -126,7 +94,7 @@ defmodule RabbitMQStream.Connection do
   end
 
   @spec query_offset(GenServer.server(), String.t(), String.t()) ::
-          {:ok, offset :: integer()} | {:error, reason :: any()}
+          {:ok, offset :: integer()} | {:error, reason :: atom()}
   def query_offset(pid, stream_name, offset_reference)
       when is_binary(offset_reference)
       when is_binary(stream_name)
@@ -144,7 +112,7 @@ defmodule RabbitMQStream.Connection do
   end
 
   @spec delete_publisher(GenServer.server(), publisher_id :: integer()) ::
-          :ok | {:error, reason :: any()}
+          :ok | {:error, reason :: atom()}
   def delete_publisher(pid, publisher_id)
       when is_integer(publisher_id)
       when publisher_id <= 255 do
@@ -152,7 +120,7 @@ defmodule RabbitMQStream.Connection do
   end
 
   @spec query_metadata(GenServer.server(), [String.t(), ...]) ::
-          {:ok, metadata :: %{String.t() => String.t()}} | {:error, reason :: any()}
+          {:ok, metadata :: %{String.t() => String.t()}} | {:error, reason :: atom()}
   def query_metadata(pid, streams)
       when is_list(streams)
       when length(streams) > 0 do
@@ -160,7 +128,7 @@ defmodule RabbitMQStream.Connection do
   end
 
   @spec query_publisher_sequence(GenServer.server(), String.t(), String.t()) ::
-          {:ok, sequence :: integer()} | {:error, reason :: any()}
+          {:ok, sequence :: integer()} | {:error, reason :: atom()}
   def query_publisher_sequence(pid, stream_name, publisher_reference)
       when is_binary(publisher_reference)
       when is_binary(stream_name)
@@ -221,7 +189,7 @@ defmodule RabbitMQStream.Connection do
 
       conn =
         %{conn | socket: socket, state: :connecting, connect_requests: [from]}
-        |> send_request(%PeerProperties{})
+        |> send_request(:peer_properties)
 
       {:noreply, conn}
     else
@@ -249,8 +217,8 @@ defmodule RabbitMQStream.Connection do
 
     conn =
       %{conn | state: :closing}
-      |> push_request_tracker(%Close{}, from)
-      |> send_request(%Close{}, reason: reason, code: code)
+      |> push_request_tracker(:close, from)
+      |> send_request(:close, reason: reason, code: code)
 
     {:noreply, conn}
   end
@@ -258,8 +226,8 @@ defmodule RabbitMQStream.Connection do
   def handle_call({:create, name, opts}, from, %Connection{} = conn) do
     conn =
       conn
-      |> push_request_tracker(%Create{}, from)
-      |> send_request(%Create{}, name: name, arguments: opts)
+      |> push_request_tracker(:create, from)
+      |> send_request(:create, name: name, arguments: opts)
 
     {:noreply, conn}
   end
@@ -267,8 +235,8 @@ defmodule RabbitMQStream.Connection do
   def handle_call({:delete, name}, from, %Connection{} = conn) do
     conn =
       conn
-      |> push_request_tracker(%Delete{}, from)
-      |> send_request(%Delete{}, name: name)
+      |> push_request_tracker(:delete, from)
+      |> send_request(:delete, name: name)
 
     {:noreply, conn}
   end
@@ -276,7 +244,7 @@ defmodule RabbitMQStream.Connection do
   def handle_call({:store_offset, opts}, _from, %Connection{} = conn) do
     conn =
       conn
-      |> send_request(%StoreOffset{}, opts)
+      |> send_request(:store_offset, opts)
 
     {:reply, :ok, conn}
   end
@@ -284,8 +252,8 @@ defmodule RabbitMQStream.Connection do
   def handle_call({:query_offset, opts}, from, %Connection{} = conn) do
     conn =
       conn
-      |> push_request_tracker(%QueryOffset{}, from)
-      |> send_request(%QueryOffset{}, opts)
+      |> push_request_tracker(:query_offset, from)
+      |> send_request(:query_offset, opts)
 
     {:noreply, conn}
   end
@@ -293,8 +261,8 @@ defmodule RabbitMQStream.Connection do
   def handle_call({:declare_publisher, opts}, from, %Connection{} = conn) do
     conn =
       conn
-      |> push_request_tracker(%DeclarePublisher{}, from, conn.publisher_sequence)
-      |> send_request(%DeclarePublisher{}, opts ++ [publisher_sum: 1])
+      |> push_request_tracker(:declare_publisher, from, conn.publisher_sequence)
+      |> send_request(:declare_publisher, opts ++ [publisher_sum: 1])
 
     {:noreply, conn}
   end
@@ -302,8 +270,8 @@ defmodule RabbitMQStream.Connection do
   def handle_call({:delete_publisher, opts}, from, %Connection{} = conn) do
     conn =
       conn
-      |> push_request_tracker(%DeletePublisher{}, from)
-      |> send_request(%DeletePublisher{}, opts)
+      |> push_request_tracker(:delete_publisher, from)
+      |> send_request(:delete_publisher, opts)
 
     {:noreply, conn}
   end
@@ -311,8 +279,8 @@ defmodule RabbitMQStream.Connection do
   def handle_call({:query_metadata, opts}, from, %Connection{} = conn) do
     conn =
       conn
-      |> push_request_tracker(%QueryMetadata{}, from)
-      |> send_request(%QueryMetadata{}, opts)
+      |> push_request_tracker(:query_metadata, from)
+      |> send_request(:query_metadata, opts)
 
     {:noreply, conn}
   end
@@ -320,8 +288,8 @@ defmodule RabbitMQStream.Connection do
   def handle_call({:query_publisher_sequence, opts}, from, %Connection{} = conn) do
     conn =
       conn
-      |> push_request_tracker(%QueryPublisherSequence{}, from)
-      |> send_request(%QueryPublisherSequence{}, opts)
+      |> push_request_tracker(:query_publisher_sequence, from)
+      |> send_request(:query_publisher_sequence, opts)
 
     {:noreply, conn}
   end
@@ -341,7 +309,7 @@ defmodule RabbitMQStream.Connection do
 
     conn =
       conn
-      |> send_request(%Publish{}, opts ++ [correlation_sum: 0])
+      |> send_request(:publish, opts ++ [correlation_sum: 0])
 
     {:noreply, conn}
   end
@@ -355,7 +323,7 @@ defmodule RabbitMQStream.Connection do
         %Request{} = decoded, conn ->
           handle_message(conn, decoded)
 
-        %Response{code: %Ok{}} = decoded, conn ->
+        %Response{code: :ok} = decoded, conn ->
           handle_message(conn, decoded)
 
         %Response{code: nil} = decoded, conn ->
@@ -375,7 +343,7 @@ defmodule RabbitMQStream.Connection do
   end
 
   def handle_info({:heartbeat}, conn) do
-    conn = send_request(conn, %Heartbeat{}, correlation_sum: 0)
+    conn = send_request(conn, :heartbeat, correlation_sum: 0)
 
     Process.send_after(self(), {:heartbeat}, conn.heartbeat * 1000)
 
@@ -410,7 +378,7 @@ defmodule RabbitMQStream.Connection do
 
       conn =
         %{conn | socket: socket, state: :connecting}
-        |> send_request(%PeerProperties{})
+        |> send_request(:peer_properties)
 
       {:noreply, conn}
     else
@@ -420,10 +388,10 @@ defmodule RabbitMQStream.Connection do
     end
   end
 
-  defp handle_message(%Connection{} = conn, %Response{command: %Close{}} = response) do
+  defp handle_message(%Connection{} = conn, %Response{command: :close} = response) do
     Logger.debug("Connection closed: #{conn.host}:#{conn.port}")
 
-    {{pid, _data}, conn} = pop_request_tracker(conn, %Close{}, response.correlation_id)
+    {{pid, _data}, conn} = pop_request_tracker(conn, :close, response.correlation_id)
 
     conn = %{conn | state: :closed, socket: nil}
 
@@ -432,12 +400,12 @@ defmodule RabbitMQStream.Connection do
     conn
   end
 
-  defp handle_message(%Connection{} = conn, %Request{command: %Close{}} = request) do
+  defp handle_message(%Connection{} = conn, %Request{command: :close} = request) do
     Logger.debug("Connection close requested by server: #{request.data.code} #{request.data.reason}")
     Logger.debug("Connection closed")
 
     %{conn | state: :closing}
-    |> send_response(:close, correlation_id: request.correlation_id, code: %Ok{})
+    |> send_response(:close, correlation_id: request.correlation_id, code: :ok)
     |> handle_closed(request.data.reason)
   end
 
@@ -447,37 +415,37 @@ defmodule RabbitMQStream.Connection do
     conn
   end
 
-  defp handle_message(%Connection{} = conn, %Response{command: %PeerProperties{}} = request) do
+  defp handle_message(%Connection{} = conn, %Response{command: :peer_properties} = request) do
     Logger.debug("Exchange successful.")
     Logger.debug("Initiating SASL handshake.")
 
     %{conn | peer_properties: request.data.peer_properties}
-    |> send_request(%SaslHandshake{})
+    |> send_request(:sasl_handshake)
   end
 
-  defp handle_message(%Connection{} = conn, %Response{command: %SaslHandshake{}} = request) do
+  defp handle_message(%Connection{} = conn, %Response{command: :sasl_handshake} = request) do
     Logger.debug("SASL handshake successful. Initiating authentication.")
 
     %{conn | mechanisms: request.data.mechanisms}
-    |> send_request(%SaslAuthenticate{})
+    |> send_request(:sasl_authenticate)
   end
 
-  defp handle_message(%Connection{} = conn, %Response{command: %SaslAuthenticate{}, data: %{sasl_opaque_data: ""}}) do
+  defp handle_message(%Connection{} = conn, %Response{command: :sasl_authenticate, data: %{sasl_opaque_data: ""}}) do
     Logger.debug("Authentication successful. Initiating connection tuning.")
 
     conn
   end
 
-  defp handle_message(%Connection{} = conn, %Response{command: %SaslAuthenticate{}}) do
+  defp handle_message(%Connection{} = conn, %Response{command: :sasl_authenticate}) do
     Logger.debug("Authentication successful. Skipping connection tuning.")
     Logger.debug("Opening connection to vhost: \"#{conn.vhost}\"")
 
     conn
-    |> send_request(%Open{})
+    |> send_request(:open)
     |> Map.put(:state, :opening)
   end
 
-  defp handle_message(%Connection{} = conn, %Response{command: %Tune{}} = response) do
+  defp handle_message(%Connection{} = conn, %Response{command: :tune} = response) do
     Logger.debug("Tunning complete. Starting heartbeat timer.")
 
     Process.send_after(self(), {:heartbeat}, conn.heartbeat * 1000)
@@ -485,17 +453,17 @@ defmodule RabbitMQStream.Connection do
     %{conn | frame_max: response.data.frame_max, heartbeat: response.data.heartbeat}
   end
 
-  defp handle_message(%Connection{} = conn, %Request{command: %Tune{}} = request) do
+  defp handle_message(%Connection{} = conn, %Request{command: :tune} = request) do
     Logger.debug("Tunning data received. Starting heartbeat timer.")
     Logger.debug("Opening connection to vhost: \"#{conn.vhost}\"")
 
     %{conn | frame_max: request.data.frame_max, heartbeat: request.data.heartbeat}
     |> send_response(:tune, correlation_id: request.correlation_id)
     |> Map.put(:state, :opening)
-    |> send_request(%Open{})
+    |> send_request(:open)
   end
 
-  defp handle_message(%Connection{} = conn, %Response{command: %Open{}} = response) do
+  defp handle_message(%Connection{} = conn, %Response{command: :open} = response) do
     Logger.debug("Successfully opened connection with vhost: \"#{conn.vhost}\"")
 
     for request <- conn.connect_requests do
@@ -505,22 +473,22 @@ defmodule RabbitMQStream.Connection do
     %{conn | state: :open, connect_requests: [], connection_properties: response.data.connection_properties}
   end
 
-  defp handle_message(%Connection{} = conn, %Request{command: %Heartbeat{}}) do
+  defp handle_message(%Connection{} = conn, %Request{command: :heartbeat}) do
     conn
   end
 
-  defp handle_message(%Connection{} = conn, %Request{command: %MetadataUpdate{}} = request) do
+  defp handle_message(%Connection{} = conn, %Request{command: :metadata_update} = request) do
     conn
-    |> send_request(%QueryMetadata{}, streams: [request.data.stream_name])
+    |> send_request(:query_metadata, streams: [request.data.stream_name])
   end
 
-  defp handle_message(%Connection{} = conn, %Response{command: %QueryMetadata{}} = response) do
+  defp handle_message(%Connection{} = conn, %Response{command: :query_metadata} = response) do
     metadata =
       response.data.streams
       |> Enum.map(&{&1.name, &1})
       |> Map.new()
 
-    {{pid, _data}, conn} = pop_request_tracker(conn, %QueryMetadata{}, response.correlation_id)
+    {{pid, _data}, conn} = pop_request_tracker(conn, :query_metadata, response.correlation_id)
 
     if pid != nil do
       GenServer.reply(pid, {:ok, response.data})
@@ -529,8 +497,8 @@ defmodule RabbitMQStream.Connection do
     %{conn | metadata: Map.merge(conn.metadata, metadata)}
   end
 
-  defp handle_message(%Connection{} = conn, %Response{command: %QueryOffset{}} = response) do
-    {{pid, _data}, conn} = pop_request_tracker(conn, %QueryOffset{}, response.correlation_id)
+  defp handle_message(%Connection{} = conn, %Response{command: :query_offset} = response) do
+    {{pid, _data}, conn} = pop_request_tracker(conn, :query_offset, response.correlation_id)
 
     if pid != nil do
       GenServer.reply(pid, {:ok, response.data.offset})
@@ -539,8 +507,8 @@ defmodule RabbitMQStream.Connection do
     conn
   end
 
-  defp handle_message(%Connection{} = conn, %Response{command: %DeclarePublisher{}} = response) do
-    {{pid, id}, conn} = pop_request_tracker(conn, %DeclarePublisher{}, response.correlation_id)
+  defp handle_message(%Connection{} = conn, %Response{command: :declare_publisher} = response) do
+    {{pid, id}, conn} = pop_request_tracker(conn, :declare_publisher, response.correlation_id)
 
     if pid != nil do
       GenServer.reply(pid, {:ok, id})
@@ -549,8 +517,8 @@ defmodule RabbitMQStream.Connection do
     conn
   end
 
-  defp handle_message(%Connection{} = conn, %Response{command: %QueryPublisherSequence{}} = response) do
-    {{pid, _data}, conn} = pop_request_tracker(conn, %QueryPublisherSequence{}, response.correlation_id)
+  defp handle_message(%Connection{} = conn, %Response{command: :query_publisher_sequence} = response) do
+    {{pid, _data}, conn} = pop_request_tracker(conn, :query_publisher_sequence, response.correlation_id)
 
     if pid != nil do
       GenServer.reply(pid, {:ok, response.data.sequence})
@@ -560,7 +528,7 @@ defmodule RabbitMQStream.Connection do
   end
 
   defp handle_message(%Connection{} = conn, %Response{command: command} = response)
-       when command in [%Create{}, %Delete{}, %DeletePublisher{}] do
+       when command in [:create, :delete, :delete_publisher] do
     {{pid, _data}, conn} = pop_request_tracker(conn, command, response.correlation_id)
 
     if pid != nil do
@@ -571,20 +539,20 @@ defmodule RabbitMQStream.Connection do
   end
 
   defp handle_message(%Connection{} = conn, %Request{command: command} = _response)
-       when command in [%PublishConfirm{}, %PublishError{}] do
+       when command in [:publish_confirm, :publish_error] do
     conn
   end
 
   defp handle_error(%Connection{} = conn, %Response{code: code})
        when code in [
-              %SaslMechanismNotSupported{},
-              %AuthenticationFailure{},
-              %SaslError{},
-              %SaslChallenge{},
-              %SaslAuthenticationFailureLoopback{},
-              %VirtualHostAccessFailure{}
+              :sasl_mechanism_not_supported,
+              :authentication_failure,
+              :sasl_error,
+              :sasl_challenge,
+              :sasl_authentication_failure_loopback,
+              :virtual_host_access_failure
             ] do
-    Logger.error("Failed to connect to #{conn.host}:#{conn.port}. Reason: #{code.__struct__}")
+    Logger.error("Failed to connect to #{conn.host}:#{conn.port}. Reason: #{code}")
 
     for request <- conn.connect_requests do
       GenServer.reply(request, {:error, code})
@@ -595,11 +563,11 @@ defmodule RabbitMQStream.Connection do
 
   defp handle_error(%Connection{} = conn, %Response{command: command} = response)
        when command in [
-              %Create{},
-              %Delete{},
-              %QueryOffset{},
-              %DeclarePublisher{},
-              %DeletePublisher{}
+              :create,
+              :delete,
+              :query_offset,
+              :declare_publisher,
+              :delete_publisher
             ] do
     {{pid, _data}, conn} = pop_request_tracker(conn, command, response.correlation_id)
 
@@ -644,13 +612,13 @@ defmodule RabbitMQStream.Connection do
     conn
   end
 
-  defp push_request_tracker(%Connection{} = conn, type, from, data \\ nil) when is_struct(type) when is_pid(from) do
+  defp push_request_tracker(%Connection{} = conn, type, from, data \\ nil) when is_atom(type) when is_pid(from) do
     request_tracker = Map.put(conn.request_tracker, {type, conn.correlation_sequence}, {from, data})
 
     %{conn | request_tracker: request_tracker}
   end
 
-  defp pop_request_tracker(%Connection{} = conn, type, correlation) when is_struct(type) do
+  defp pop_request_tracker(%Connection{} = conn, type, correlation) when is_atom(type) do
     {entry, request_tracker} = Map.pop(conn.request_tracker, {type, correlation}, {nil, nil})
 
     {entry, %{conn | request_tracker: request_tracker}}

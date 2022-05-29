@@ -2,13 +2,6 @@ defmodule RabbitMQStreamTest.Connection do
   use ExUnit.Case
   alias RabbitMQStream.Connection
 
-  alias RabbitMQStream.Message.Code.{
-    VirtualHostAccessFailure,
-    AuthenticationFailure,
-    StreamAlreadyExists,
-    StreamDoesNotExist
-  }
-
   test "should open and close the connection" do
     {:ok, pid} = Connection.start_link(host: "localhost", vhost: "/", lazy: true)
 
@@ -38,11 +31,11 @@ defmodule RabbitMQStreamTest.Connection do
   test "should fail to connect with expected error messages" do
     {:ok, pid} = Connection.start_link(host: "localhost", vhost: "/NONEXISTENT", lazy: true)
 
-    assert match?({:error, %VirtualHostAccessFailure{}}, Connection.connect(pid))
+    assert match?({:error, :virtual_host_access_failure}, Connection.connect(pid))
 
     {:ok, pid} = Connection.start_link(host: "localhost", vhost: "/", user: "guest", password: "wrong", lazy: true)
 
-    assert match?({:error, %AuthenticationFailure{}}, Connection.connect(pid))
+    assert match?({:error, :authentication_failure}, Connection.connect(pid))
   end
 
   test "should create and delete a stream" do
@@ -50,10 +43,10 @@ defmodule RabbitMQStreamTest.Connection do
     :ok = Connection.connect(pid)
 
     assert :ok == Connection.create_stream(pid, "test-create-01")
-    assert match?({:error, %StreamAlreadyExists{}}, Connection.create_stream(pid, "test-create-01"))
+    assert match?({:error, :stream_already_exists}, Connection.create_stream(pid, "test-create-01"))
 
     assert :ok == Connection.delete_stream(pid, "test-create-01")
-    assert match?({:error, %StreamDoesNotExist{}}, Connection.delete_stream(pid, "test-create-01"))
+    assert match?({:error, :stream_does_not_exist}, Connection.delete_stream(pid, "test-create-01"))
     Connection.close(pid)
   end
 
