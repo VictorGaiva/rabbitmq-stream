@@ -7,9 +7,9 @@
 
 Elixir Client for [RabbitMQ Streams Protocol](https://www.rabbitmq.com/streams.html).
 
-## Getting started
+## Status
 
-This project is currently under development and missing most of the features a full client needs. The current aim is to make it feature complete before writting a _Getting started_ documentation.
+The current aim is to fully document the already implemented features, which are the `RabbitMQStream.Connection`, `RabbitMQStream.Publisher` and `RabbitMQStream.SupervisedPublisher`. Then the next step will be to implement the `RabbitMQStream.Subscriber` and `RabbitMQStream` Integerated Client.
 
 ## Progress
 
