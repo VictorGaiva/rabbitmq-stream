@@ -26,8 +26,8 @@ defmodule RabbitMQStream.Message.Response do
       command: :tune,
       correlation_id: correlation_id,
       data: %TuneData{
-        frame_max: conn.frame_max,
-        heartbeat: conn.heartbeat
+        frame_max: conn.options[:frame_max],
+        heartbeat: conn.options[:heartbeat]
       }
     }
   end

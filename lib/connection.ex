@@ -14,38 +14,19 @@ defmodule RabbitMQStream.Connection do
   alias RabbitMQStream.Message
   alias Message.{Request, Response}
 
-  defstruct [
-    :host,
-    :vhost,
-    :port,
-    :username,
-    :password,
-    :socket,
-    :frame_max,
-    :heartbeat,
-    version: 1,
-    correlation_sequence: 1,
-    publisher_sequence: 1,
-    subscription_sequence: 1,
-    state: :closed,
-    peer_properties: [],
-    connection_properties: [],
-    mechanisms: [],
-    connect_requests: [],
-    publish_tracker: %PublishingTracker{},
-    request_tracker: %{},
-    metadata: %{}
-  ]
+  @type connection_options :: [connection_option]
+  @type connection_option ::
+          {:username, String.t()}
+          | {:password, String.t()}
+          | {:host, String.t()}
+          | {:port, non_neg_integer()}
+          | {:vhost, String.t()}
+          | {:frame_max, non_neg_integer()}
+          | {:heartbeat, non_neg_integer()}
 
   @type t() :: %Connection{
-          host: String.t(),
-          vhost: String.t(),
-          port: integer(),
-          username: String.t(),
-          password: String.t(),
+          options: connection_options,
           socket: :gen_tcp.socket(),
-          frame_max: integer(),
-          heartbeat: integer(),
           version: 1,
           state: :closed | :connecting | :open | :closing,
           correlation_sequence: integer(),
@@ -60,6 +41,24 @@ defmodule RabbitMQStream.Connection do
           metadata: %{String.t() => any()}
         }
 
+  defstruct [
+    :socket,
+    options: [],
+    version: 1,
+    correlation_sequence: 1,
+    publisher_sequence: 1,
+    subscription_sequence: 1,
+    state: :closed,
+    peer_properties: [],
+    connection_properties: [],
+    mechanisms: [],
+    connect_requests: [],
+    publish_tracker: %PublishingTracker{},
+    request_tracker: %{},
+    metadata: %{}
+  ]
+
+  @spec start_link([connection_option | {:name, atom()}]) :: :ignore | {:error, any} | {:ok, pid}
   def start_link(args \\ []) when is_list(args) do
     GenServer.start_link(__MODULE__, args, name: args[:name])
   end
@@ -150,22 +149,16 @@ defmodule RabbitMQStream.Connection do
 
   @impl true
   def init(opts \\ []) do
-    username = opts[:username] || "guest"
-    password = opts[:password] || "guest"
-    host = opts[:host] || "localhost"
-    port = opts[:port] || 5552
-    vhost = opts[:vhost] || "/"
-    frame_max = opts[:frame_max] || 1_048_576
-    heartbeat = opts[:heartbeat] || 60
-
     conn = %Connection{
-      host: host,
-      port: port,
-      vhost: vhost,
-      username: username,
-      password: password,
-      frame_max: frame_max,
-      heartbeat: heartbeat
+      options: [
+        host: opts[:host] || "localhost",
+        port: opts[:port] || 5552,
+        vhost: opts[:vhost] || "/",
+        username: opts[:username] || "guest",
+        password: opts[:password] || "guest",
+        frame_max: opts[:frame_max] || 1_048_576,
+        heartbeat: opts[:heartbeat] || 60
+      ]
     }
 
     if opts[:lazy] == true do
@@ -181,9 +174,10 @@ defmodule RabbitMQStream.Connection do
   end
 
   def handle_call({:connect}, from, %Connection{state: :closed} = conn) do
-    Logger.info("Connecting to server: #{conn.host}:#{conn.port}")
+    Logger.info("Connecting to server: #{conn.options[:host]}:#{conn.options[:port]}")
 
-    with {:ok, socket} <- :gen_tcp.connect(String.to_charlist(conn.host), conn.port, [:binary, active: true]),
+    with {:ok, socket} <-
+           :gen_tcp.connect(String.to_charlist(conn.options[:host]), conn.options[:port], [:binary, active: true]),
          :ok <- :gen_tcp.controlling_process(socket, self()) do
       Logger.debug("Connection stablished. Initiating properties exchange.")
 
@@ -194,7 +188,7 @@ defmodule RabbitMQStream.Connection do
       {:noreply, conn}
     else
       err ->
-        Logger.error("Failed to connect to #{conn.host}:#{conn.port}")
+        Logger.error("Failed to connect to #{conn.options[:host]}:#{conn.options[:port]}")
         {:reply, {:error, err}, conn}
     end
   end
@@ -345,7 +339,7 @@ defmodule RabbitMQStream.Connection do
   def handle_info({:heartbeat}, conn) do
     conn = send_request(conn, :heartbeat, correlation_sum: 0)
 
-    Process.send_after(self(), {:heartbeat}, conn.heartbeat * 1000)
+    Process.send_after(self(), {:heartbeat}, conn.options[:heartbeat] * 1000)
 
     {:noreply, conn}
   end
@@ -370,9 +364,10 @@ defmodule RabbitMQStream.Connection do
 
   @impl true
   def handle_continue({:connect}, %Connection{state: :closed} = conn) do
-    Logger.info("Connecting to server: #{conn.host}:#{conn.port}")
+    Logger.info("Connecting to server: #{conn.options[:host]}:#{conn.options[:port]}")
 
-    with {:ok, socket} <- :gen_tcp.connect(String.to_charlist(conn.host), conn.port, [:binary, active: true]),
+    with {:ok, socket} <-
+           :gen_tcp.connect(String.to_charlist(conn.options[:host]), conn.options[:port], [:binary, active: true]),
          :ok <- :gen_tcp.controlling_process(socket, self()) do
       Logger.debug("Connection stablished. Initiating properties exchange.")
 
@@ -383,13 +378,13 @@ defmodule RabbitMQStream.Connection do
       {:noreply, conn}
     else
       _ ->
-        Logger.error("Failed to connect to #{conn.host}:#{conn.port}")
+        Logger.error("Failed to connect to #{conn.options[:host]}:#{conn.options[:port]}")
         {:noreply, conn}
     end
   end
 
   defp handle_message(%Connection{} = conn, %Response{command: :close} = response) do
-    Logger.debug("Connection closed: #{conn.host}:#{conn.port}")
+    Logger.debug("Connection closed: #{conn.options[:host]}:#{conn.options[:port]}")
 
     {{pid, _data}, conn} = pop_request_tracker(conn, :close, response.correlation_id)
 
@@ -438,7 +433,7 @@ defmodule RabbitMQStream.Connection do
 
   defp handle_message(%Connection{} = conn, %Response{command: :sasl_authenticate}) do
     Logger.debug("Authentication successful. Skipping connection tuning.")
-    Logger.debug("Opening connection to vhost: \"#{conn.vhost}\"")
+    Logger.debug("Opening connection to vhost: \"#{conn.options[:vhost]}\"")
 
     conn
     |> send_request(:open)
@@ -448,23 +443,27 @@ defmodule RabbitMQStream.Connection do
   defp handle_message(%Connection{} = conn, %Response{command: :tune} = response) do
     Logger.debug("Tunning complete. Starting heartbeat timer.")
 
-    Process.send_after(self(), {:heartbeat}, conn.heartbeat * 1000)
+    Process.send_after(self(), {:heartbeat}, conn.options[:heartbeat] * 1000)
 
-    %{conn | frame_max: response.data.frame_max, heartbeat: response.data.heartbeat}
+    options = Keyword.merge(conn.options, frame_max: response.data.frame_max, heartbeat: response.data.heartbeat)
+
+    %{conn | options: options}
   end
 
   defp handle_message(%Connection{} = conn, %Request{command: :tune} = request) do
     Logger.debug("Tunning data received. Starting heartbeat timer.")
-    Logger.debug("Opening connection to vhost: \"#{conn.vhost}\"")
+    Logger.debug("Opening connection to vhost: \"#{conn.options[:vhost]}\"")
 
-    %{conn | frame_max: request.data.frame_max, heartbeat: request.data.heartbeat}
+    options = Keyword.merge(conn.options, frame_max: request.data.frame_max, heartbeat: request.data.heartbeat)
+
+    %{conn | options: options}
     |> send_response(:tune, correlation_id: request.correlation_id)
     |> Map.put(:state, :opening)
     |> send_request(:open)
   end
 
   defp handle_message(%Connection{} = conn, %Response{command: :open} = response) do
-    Logger.debug("Successfully opened connection with vhost: \"#{conn.vhost}\"")
+    Logger.debug("Successfully opened connection with vhost: \"#{conn.options[:vhost]}\"")
 
     for request <- conn.connect_requests do
       GenServer.reply(request, :ok)
@@ -552,7 +551,7 @@ defmodule RabbitMQStream.Connection do
               :sasl_authentication_failure_loopback,
               :virtual_host_access_failure
             ] do
-    Logger.error("Failed to connect to #{conn.host}:#{conn.port}. Reason: #{code}")
+    Logger.error("Failed to connect to #{conn.options[:host]}:#{conn.options[:port]}. Reason: #{code}")
 
     for request <- conn.connect_requests do
       GenServer.reply(request, {:error, code})

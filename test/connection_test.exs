@@ -9,11 +9,11 @@ defmodule RabbitMQStreamTest.Connection do
 
     assert :ok == Connection.connect(pid)
 
-    assert match?(%Connection{state: :open, host: "localhost", port: 5552, vhost: "/"}, Connection.get_state(pid))
+    assert match?(%Connection{state: :open}, Connection.get_state(pid))
 
     assert :ok == Connection.close(pid)
 
-    assert match?(%Connection{state: :closed, host: "localhost", port: 5552, vhost: "/"}, Connection.get_state(pid))
+    assert match?(%Connection{state: :closed}, Connection.get_state(pid))
 
     assert match?({:error, _}, Connection.close(pid))
   end

@@ -71,8 +71,8 @@ defmodule RabbitMQStream.Message.Request do
           data: %SaslAuthenticateData{
             mechanism: "PLAIN",
             sasl_opaque_data: [
-              username: conn.username,
-              password: conn.password
+              username: conn.options[:username],
+              password: conn.options[:password]
             ]
           }
         }
@@ -88,8 +88,8 @@ defmodule RabbitMQStream.Message.Request do
       correlation_id: conn.correlation_sequence,
       command: :tune,
       data: %TuneData{
-        frame_max: conn.frame_max,
-        heartbeat: conn.heartbeat
+        frame_max: conn.options[:frame_max],
+        heartbeat: conn.options[:heartbeat]
       }
     }
   end
@@ -100,7 +100,7 @@ defmodule RabbitMQStream.Message.Request do
       correlation_id: conn.correlation_sequence,
       command: :open,
       data: %OpenData{
-        vhost: conn.vhost
+        vhost: conn.options[:vhost]
       }
     }
   end
