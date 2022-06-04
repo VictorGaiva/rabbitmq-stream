@@ -1,14 +1,60 @@
 defmodule RabbitMQStream.Publisher do
   @moduledoc """
-  A GenServer module that, using a provided connection, declares itself under given `name`,
-  and provides an interface for publishing messages on `stream_name` stream.
-  It also keeps track of the current publishing id, to avoid message duplication.
+  `RabbitMQStream.Publisher` allows you to define modules or processes that publish messages to a single stream.
+
+
+  ## Defining a publisher Module
+
+  A publisher module can be defined in your applcation as follows:
+
+      defmodule MyApp.MyPublisher do
+        use RabbitMQStream.Publisher,
+          stream_name: "my-stream"
+      end
   """
+
+  defmacro __using__(opts) do
+    quote bind_quoted: [opts: opts] do
+      use Supervisor
+      @stream_name Keyword.get(opts, :stream_name) || raise("Stream Name is required")
+      @connection Keyword.get(opts, :connection) || []
+      @reference_name Keyword.get(opts, :reference_name) || __MODULE__.Publisher |> Atom.to_string()
+
+      def start_link(init_arg) do
+        Supervisor.start_link(__MODULE__, init_arg, name: __MODULE__)
+      end
+
+      @impl true
+      def init(_) do
+        children = [
+          {RabbitMQStream.Connection, @connection ++ [name: __MODULE__.Connection]},
+          {RabbitMQStream.Publisher,
+           [
+             connection: __MODULE__.Connection,
+             reference_name: @reference_name,
+             stream_name: @stream_name,
+             name: __MODULE__.Publisher
+           ]}
+        ]
+
+        Supervisor.init(children, strategy: :one_for_all)
+      end
+
+      def publish(message, opts \\ nil) do
+        RabbitMQStream.Publisher.publish(__MODULE__.Publisher, message, opts)
+      end
+
+      if Mix.env() == :test do
+        def get_publisher_state() do
+          RabbitMQStream.Publisher.get_state(__MODULE__.Publisher)
+        end
+      end
+    end
+  end
 
   use GenServer
 
   alias RabbitMQStream.Connection
-
   alias __MODULE__
 
   defstruct [

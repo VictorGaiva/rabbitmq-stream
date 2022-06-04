@@ -2,6 +2,11 @@ defmodule RabbitMQStreamTest.Publisher do
   use ExUnit.Case
   alias RabbitMQStream.{Connection, Publisher}
 
+  defmodule SupervisorTest do
+    use Publisher,
+      stream_name: "stream-00"
+  end
+
   @stream "stream-01"
   @reference_name "reference-01"
   test "should declare itself and its stream" do
@@ -77,5 +82,17 @@ defmodule RabbitMQStreamTest.Publisher do
 
     Connection.delete_stream(conn, @stream)
     Connection.close(conn, @stream)
+  end
+
+  test "should start itself and publish a message" do
+    {:ok, _supervised} = SupervisorTest.start_link(host: "localhost", vhost: "/")
+
+    %{sequence: sequence} = SupervisorTest.get_publisher_state()
+
+    assert :ok == SupervisorTest.publish("Hello, world!")
+
+    sequence = sequence + 1
+
+    assert match?(%{sequence: ^sequence}, SupervisorTest.get_publisher_state())
   end
 end
