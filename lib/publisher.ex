@@ -2,7 +2,6 @@ defmodule RabbitMQStream.Publisher do
   @moduledoc """
   `RabbitMQStream.Publisher` allows you to define modules or processes that publish messages to a single stream.
 
-
   ## Defining a publisher Module
 
   A publisher module can be defined in your applcation as follows:
@@ -11,6 +10,33 @@ defmodule RabbitMQStream.Publisher do
         use RabbitMQStream.Publisher,
           stream_name: "my-stream"
       end
+
+  This defined a `Supervisor` process which controls a `RabbitMQStream.Publisher` and a `RabbitMQStream.Connection`.
+
+  You can add it to the supervision tree of your application as follows:
+
+      defmodule MyApp do
+        use Application
+
+        def start(_, _) do
+          children = [
+            # ...
+            MyApp.MyPublisher
+          ]
+
+          opts = [strategy: :one_for_one, name: MyApp.Supervisor]
+          Supervisor.start_link(children, opts)
+        end
+      end
+
+
+  When a publisher module starts, it creates a `RabbitMQStream.Connection`, and starts its connection with the RabbitMQ server.
+  It then declares the Publisher under the specified `stream_name`, fetching the most recent `publishing_id`. It also creates the
+  stream in the RabbitMQ server if it doesn't exist.
+
+
+  ## Dynamically starting publishers
+
   """
 
   defmacro __using__(opts) do
@@ -81,7 +107,7 @@ defmodule RabbitMQStream.Publisher do
   ## Callbacks
   @impl true
   def init(opts) do
-    reference_name = opts[:reference_name] || Atom.to_string(__MODULE__)
+    reference_name = opts[:reference_name]
     connection = opts[:connection]
     stream_name = opts[:stream_name]
 
