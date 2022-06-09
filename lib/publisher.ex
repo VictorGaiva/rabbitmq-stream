@@ -34,8 +34,47 @@ defmodule RabbitMQStream.Publisher do
   It then declares the Publisher under the specified `stream_name`, fetching the most recent `publishing_id`. It also creates the
   stream in the RabbitMQ server if it doesn't exist.
 
-
   ## Dynamically starting publishers
+
+  If you want to share a single `RabbitMQStream.Connection` with multiple publishers, you should start the `RabbitMQStream.Publisher` as a
+  GenServer process, passsing the `connection` option. You can attach it to your supervision tree.
+
+      defmodule MyApp do
+        use Supervisor
+
+        def init(_) do
+          children = [
+            {RabbitMQStream.Connection,
+            [
+              host: "localhost",
+              username: "guest",
+              password: "guest",
+              vhost: "/"
+              name: __MODULE__.Connection,
+            ]},
+            {RabbitMQStream.Publisher,
+            [
+              connection: __MODULE__.Connection,
+              reference_name: "MyEmailsPublisher",
+              stream_name: "my-emails",
+              name: MyApp.MyEmailsPublisher
+            ]},
+            {RabbitMQStream.Publisher,
+            [
+              connection: __MODULE__.Connection,
+              reference_name: "MyMessagesPublisher",
+              stream_name: "my-messages",
+              name: MyApp.MyMessagesPublisher
+            ]}
+            # ...
+          ]
+
+          Supervisor.init(children, strategy: :one_for_all)
+        end
+      end
+
+
+  The API will be heavily imporoved in future versions.
 
   """
 

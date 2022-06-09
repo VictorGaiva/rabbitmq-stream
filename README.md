@@ -7,6 +7,27 @@
 
 Elixir Client for [RabbitMQ Streams Protocol](https://www.rabbitmq.com/streams.html).
 
+## Usage
+
+### RabbitMQStream.Publisher
+
+A publisher module can be defined like this:
+
+```elixir
+defmodule MyApp.MyPublisher do
+  use RabbitMQStream.Publisher,
+    stream_name: "my-stream"
+end
+```
+
+After adding it to your supervision tree, you can publish messages with:
+
+```elixir
+MyApp.MyPublisher.publish("Hello, world!")
+```
+
+For more information, check the [documentation](https://hexdocs.pm/rabbitmq_stream/)
+
 ## Status
 
 The current aim is to fully document the already implemented features, which are the `RabbitMQStream.Connection`, `RabbitMQStream.Publisher` and `RabbitMQStream.SupervisedPublisher`. Then the next step will be to implement the `RabbitMQStream.Subscriber` and `RabbitMQStream` Integerated Client.
