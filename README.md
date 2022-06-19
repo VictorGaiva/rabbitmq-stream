@@ -26,7 +26,9 @@ After adding it to your supervision tree, you can publish messages with:
 MyApp.MyPublisher.publish("Hello, world!")
 ```
 
-For more information, check the [documentation](https://hexdocs.pm/rabbitmq_stream/)
+For more information, check the [documentation](https://hexdocs.pm/rabbitmq_stream/).
+
+You can also check the roadmap [here](/ROADMAP.md)
 
 ## Status
 
@@ -46,12 +48,12 @@ Here is the set of messages with handlers currently implemented:
 | PublishError           | ✅     |
 | QueryPublisherSequence | ✅     | --                                        |
 | DeletePublisher        | ✅     | --                                        |
-| Subscribe              | ⏳     |
+| Subscribe              | ✅     |
 | Deliver                | ⏳     |
 | Credit                 | ⏳     |
 | StoreOffset            | ✅     | Stores a stream offset under given `name` |
 | QueryOffset            | ✅     | Retrieves a stored offset                 |
-| Unsubscribe            | ⏳     |
+| Unsubscribe            | ✅     |
 | Create                 | ✅     | Create a Stream                           |
 | Delete                 | ✅     | Delete a Stream                           |
 | Metadata               | ✅     | --                                        |
@@ -63,11 +65,6 @@ Here is the set of messages with handlers currently implemented:
 | Open                   | ✅     | --                                        |
 | Close                  | ✅     | --                                        |
 | Heartbeat              | ✅     | --                                        |
-
-## Roadmap
-
-- [_Well-behaved_](https://blog.rabbitmq.com/posts/2021/07/connecting-to-streams/#:~:text=Well%2Dbehaved%20Clients) Cluster connection
-- Workaround for connecting throught [load balancers](https://blog.rabbitmq.com/posts/2021/07/connecting-to-streams#:~:text=Client%20Workaround%20With%20a%20Load%20Balancer)
 
 ## Future Plans
 
