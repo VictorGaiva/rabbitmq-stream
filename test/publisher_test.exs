@@ -13,14 +13,11 @@ defmodule RabbitMQStreamTest.Publisher do
     {:ok, conn} = Connection.start_link(host: "localhost", vhost: "/")
     :ok = Connection.connect(conn)
 
-    result = Publisher.start_link(connection: conn, reference_name: @reference_name, stream_name: @stream)
-
-    assert match?({:ok, _}, result)
-
-    {:ok, publisher} = result
+    assert {:ok, publisher} =
+             Publisher.start_link(connection: conn, reference_name: @reference_name, stream_name: @stream)
 
     Connection.delete_stream(conn, @stream)
-    assert match?(%{connection: ^conn}, Publisher.get_state(publisher))
+    assert %{connection: ^conn} = Publisher.get_state(publisher)
   end
 
   @stream "stream-02"
@@ -32,7 +29,7 @@ defmodule RabbitMQStreamTest.Publisher do
     {:ok, publisher} = Publisher.start_link(connection: conn, reference_name: @reference_name, stream_name: @stream)
 
     Connection.delete_stream(conn, @stream)
-    assert match?(%{sequence: 1}, Publisher.get_state(publisher))
+    assert %{sequence: 1} = Publisher.get_state(publisher)
   end
 
   @stream "stream-03"
@@ -49,13 +46,13 @@ defmodule RabbitMQStreamTest.Publisher do
 
     sequence = sequence + 1
 
-    assert match?(%{sequence: ^sequence}, Publisher.get_state(publisher))
+    assert %{sequence: ^sequence} = Publisher.get_state(publisher)
 
     Publisher.publish(publisher, inspect(%{message: "Hello, world2!"}))
 
     sequence = sequence + 1
 
-    assert match?(%{sequence: ^sequence}, Publisher.get_state(publisher))
+    assert %{sequence: ^sequence} = Publisher.get_state(publisher)
 
     Connection.delete_stream(conn, @stream)
     Connection.close(conn, @stream)
@@ -74,11 +71,11 @@ defmodule RabbitMQStreamTest.Publisher do
 
     %{sequence: sequence} = Publisher.get_state(publisher)
 
-    assert :ok == Publisher.stop(publisher)
+    assert :ok = Publisher.stop(publisher)
 
     {:ok, publisher} = Publisher.start_link(connection: conn, reference_name: @reference_name, stream_name: @stream)
 
-    assert match?(%{sequence: ^sequence}, Publisher.get_state(publisher))
+    assert %{sequence: ^sequence} = Publisher.get_state(publisher)
 
     Connection.delete_stream(conn, @stream)
     Connection.close(conn, @stream)
@@ -89,10 +86,10 @@ defmodule RabbitMQStreamTest.Publisher do
 
     %{sequence: sequence} = SupervisorTest.get_publisher_state()
 
-    assert :ok == SupervisorTest.publish("Hello, world!")
+    assert :ok = SupervisorTest.publish("Hello, world!")
 
     sequence = sequence + 1
 
-    assert match?(%{sequence: ^sequence}, SupervisorTest.get_publisher_state())
+    assert %{sequence: ^sequence} = SupervisorTest.get_publisher_state()
   end
 end
