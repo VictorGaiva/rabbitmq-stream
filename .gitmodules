@@ -1,0 +1,3 @@
+[submodule "rabbitmq-server"]
+	path = rabbitmq-server
+	url = git@github.com:rabbitmq/rabbitmq-server.git
