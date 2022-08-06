@@ -16,7 +16,9 @@ defmodule RabbitMQStream.Message.Encoder do
     DeletePublisherData,
     QueryMetadataData,
     QueryPublisherSequenceData,
-    PublishData
+    PublishData,
+    SubscribeRequestData,
+    UnsubscribeRequestData
   }
 
   defp encode_string(nil) do
@@ -273,6 +275,65 @@ defmodule RabbitMQStream.Message.Encoder do
     <<byte_size(data)::unsigned-integer-size(32), data::binary>>
   end
 
+  def encode!(%Request{command: :subscribe, data: %SubscribeRequestData{} = data} = request) do
+    stream_name = encode_string(data.stream_name)
+
+    offset =
+      case data.offset do
+        :first ->
+          <<1::unsigned-integer-size(16)>>
+
+        :last ->
+          <<2::unsigned-integer-size(16)>>
+
+        :next ->
+          <<3::unsigned-integer-size(16)>>
+
+        {:offset, offset} ->
+          <<4::unsigned-integer-size(16), offset::unsigned-integer-size(64)>>
+
+        {:timestamp, timestamp} ->
+          <<5::unsigned-integer-size(16), timestamp::integer-size(64)>>
+
+        _ ->
+          raise "Unknown offset type: #{data.offset}"
+      end
+
+    properties =
+      encode_array(
+        for {name, value} <- data.properties do
+          <<
+            encode_string(name)::binary,
+            encode_bytes(value)::binary
+          >>
+        end
+      )
+
+    data = <<
+      Command.from_atom(request.command)::unsigned-integer-size(16),
+      request.version::unsigned-integer-size(16),
+      request.correlation_id::unsigned-integer-size(32),
+      data.subscription_id::unsigned-integer-size(8),
+      stream_name::binary,
+      offset::binary,
+      data.credit::unsigned-integer-size(16),
+      properties::binary
+    >>
+
+    <<byte_size(data)::unsigned-integer-size(32), data::binary>>
+  end
+
+  def encode!(%Request{command: :unsubscribe, data: %UnsubscribeRequestData{} = data} = request) do
+    data = <<
+      Command.from_atom(request.command)::unsigned-integer-size(16),
+      request.version::unsigned-integer-size(16),
+      request.correlation_id::unsigned-integer-size(32),
+      data.subscription_id::unsigned-integer-size(8)
+    >>
+
+    <<byte_size(data)::unsigned-integer-size(32), data::binary>>
+  end
+
   def encode!(%Response{command: :tune, data: %TuneData{} = data} = response) do
     data = <<
       0b1::1,
@@ -301,7 +362,7 @@ defmodule RabbitMQStream.Message.Encoder do
       Command.from_atom(response.command)::unsigned-integer-size(15),
       response.version::unsigned-integer-size(16),
       response.correlation_id::unsigned-integer-size(32),
-      response.code.code::unsigned-integer-size(16)
+      response.code::unsigned-integer-size(16)
     >>
 
     <<byte_size(data)::unsigned-integer-size(32), data::binary>>

@@ -23,7 +23,10 @@ defmodule RabbitMQStream.Message.Decoder do
     StreamData,
     QueryPublisherSequenceData,
     PublishConfirmData,
-    PublishErrorData
+    PublishErrorData,
+    SubscribeResponseData,
+    UnsubscribeResponseData,
+    DeliverData
   }
 
   defp fetch_string(<<size::integer-size(16), text::binary-size(size), rest::binary>>) do
@@ -331,5 +334,39 @@ defmodule RabbitMQStream.Message.Decoder do
     }
 
     %{response | data: data}
+  end
+
+  def decode!(%Response{command: :subscribe} = response, buffer) do
+    <<correlation_id::unsigned-integer-size(32), code::unsigned-integer-size(16)>> = buffer
+
+    data = %SubscribeResponseData{}
+
+    %{response | data: data, correlation_id: correlation_id, code: Message.Code.to_atom(code)}
+  end
+
+  def decode!(%Response{command: :unsubscribe} = response, buffer) do
+    <<correlation_id::unsigned-integer-size(32), code::unsigned-integer-size(16)>> = buffer
+
+    data = %UnsubscribeResponseData{}
+
+    %{response | data: data, correlation_id: correlation_id, code: Message.Code.to_atom(code)}
+  end
+
+  def decode!(%Request{command: :deliver} = request, buffer) do
+    <<subscription_id::unsigned-integer-size(8), rest::binary>> = buffer
+
+    osiris_chunk =
+      if rest != "" do
+        Helpers.OsirisChunk.decode!(rest)
+      else
+        nil
+      end
+
+    data = %DeliverData{
+      subscription_id: subscription_id,
+      osiris_chunk: osiris_chunk
+    }
+
+    %{request | data: data}
   end
 end

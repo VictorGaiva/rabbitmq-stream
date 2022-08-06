@@ -196,4 +196,60 @@ defmodule RabbitMQStream.Message.Data do
       :publishing_ids
     ]
   end
+
+  defmodule SubscribeRequestData do
+    @moduledoc false
+
+    @type t :: %{
+            subscription_id: non_neg_integer(),
+            stream_name: String.t(),
+            offset: RabbitMQStream.Connection.offset(),
+            credit: non_neg_integer(),
+            properties: %{String.t() => String.t()}
+          }
+
+    defstruct [
+      :subscription_id,
+      :stream_name,
+      :offset,
+      :credit,
+      :properties
+    ]
+  end
+
+  defmodule UnsubscribeRequestData do
+    @moduledoc false
+
+    @type t :: %{
+            subscription_id: non_neg_integer()
+          }
+
+    defstruct [
+      :subscription_id
+    ]
+  end
+
+  defmodule SubscribeResponseData do
+    @moduledoc false
+    @type t :: %{}
+    defstruct []
+  end
+
+  defmodule UnsubscribeResponseData do
+    @moduledoc false
+    @type t :: %{}
+    defstruct []
+  end
+
+  defmodule DeliverData do
+    @moduledoc false
+    @type t :: %{
+            subscription_id: non_neg_integer(),
+            osiris_chunk: Helpers.OsirisChunk.t() | nil
+          }
+    defstruct [
+      :subscription_id,
+      :osiris_chunk
+    ]
+  end
 end

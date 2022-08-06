@@ -21,7 +21,9 @@ defmodule RabbitMQStream.Message.Request do
     DeletePublisherData,
     QueryMetadataData,
     QueryPublisherSequenceData,
-    PublishData
+    PublishData,
+    SubscribeRequestData,
+    UnsubscribeRequestData
   }
 
   defstruct [
@@ -132,7 +134,7 @@ defmodule RabbitMQStream.Message.Request do
       correlation_id: conn.correlation_sequence,
       data: %CreateData{
         stream_name: opts[:name],
-        arguments: opts[:arguments]
+        arguments: Keyword.drop(opts, [:name])
       }
     }
   end
@@ -227,6 +229,32 @@ defmodule RabbitMQStream.Message.Request do
       data: %PublishData{
         publisher_id: opts[:publisher_id],
         published_messages: opts[:published_messages]
+      }
+    }
+  end
+
+  def new!(%Connection{} = conn, :subscribe, opts) do
+    %Request{
+      version: conn.version,
+      command: :subscribe,
+      correlation_id: conn.correlation_sequence,
+      data: %SubscribeRequestData{
+        credit: opts[:credit],
+        offset: opts[:offset],
+        stream_name: opts[:stream_name],
+        properties: opts[:properties],
+        subscription_id: opts[:subscription_id]
+      }
+    }
+  end
+
+  def new!(%Connection{} = conn, :unsubscribe, opts) do
+    %Request{
+      version: conn.version,
+      command: :unsubscribe,
+      correlation_id: conn.correlation_sequence,
+      data: %UnsubscribeRequestData{
+        subscription_id: opts[:subscription_id]
       }
     }
   end
