@@ -1,4 +1,4 @@
-defmodule RabbitMQStream.Message.Handler do
+defmodule RabbitMQStream.Connection.Handler do
   @moduledoc false
 
   require Logger
@@ -199,7 +199,6 @@ defmodule RabbitMQStream.Message.Handler do
     conn
   end
 
-
   def send_request(%Connection{} = conn, command, opts \\ []) do
     {correlation_sum, opts} = Keyword.pop(opts, :correlation_sum, 1)
     {publisher_sum, opts} = Keyword.pop(opts, :publisher_sum, 0)
@@ -229,16 +228,15 @@ defmodule RabbitMQStream.Message.Handler do
     conn
   end
 
-
   def handle_error(%Connection{} = conn, %Response{code: code})
-       when code in [
-              :sasl_mechanism_not_supported,
-              :authentication_failure,
-              :sasl_error,
-              :sasl_challenge,
-              :sasl_authentication_failure_loopback,
-              :virtual_host_access_failure
-            ] do
+      when code in [
+             :sasl_mechanism_not_supported,
+             :authentication_failure,
+             :sasl_error,
+             :sasl_challenge,
+             :sasl_authentication_failure_loopback,
+             :virtual_host_access_failure
+           ] do
     Logger.error("Failed to connect to #{conn.options[:host]}:#{conn.options[:port]}. Reason: #{code}")
 
     for request <- conn.connect_requests do
@@ -249,15 +247,15 @@ defmodule RabbitMQStream.Message.Handler do
   end
 
   def handle_error(%Connection{} = conn, %Response{command: command} = response)
-       when command in [
-              :create,
-              :delete,
-              :query_offset,
-              :declare_publisher,
-              :delete_publisher,
-              :subscribe,
-              :unsubscribe
-            ] do
+      when command in [
+             :create,
+             :delete,
+             :query_offset,
+             :declare_publisher,
+             :delete_publisher,
+             :subscribe,
+             :unsubscribe
+           ] do
     {{pid, _data}, conn} = pop_request_tracker(conn, command, response.correlation_id)
 
     if pid != nil do
@@ -266,7 +264,6 @@ defmodule RabbitMQStream.Message.Handler do
 
     conn
   end
-
 
   def handle_closed(%Connection{} = conn, reason) do
     for request <- conn.connect_requests do
@@ -279,6 +276,4 @@ defmodule RabbitMQStream.Message.Handler do
 
     %{conn | request_tracker: %{}, connect_requests: []}
   end
-
-
 end

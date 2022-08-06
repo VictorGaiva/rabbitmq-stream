@@ -12,7 +12,8 @@ defmodule RabbitMQStream.Connection do
   alias RabbitMQStream.Helpers.PublishingTracker
 
   alias RabbitMQStream.Message
-  alias RabbitMQStream.Message.{Handler,Request, Response}
+  alias RabbitMQStream.Message.{Request, Response}
+  alias RabbitMQStream.Connection.Handler
 
   @type offset :: :first | :last | :next | {:offset, non_neg_integer()} | {:timestamp, integer()}
 
@@ -407,7 +408,6 @@ defmodule RabbitMQStream.Connection do
         {:noreply, conn}
     end
   end
-
 
   if Mix.env() == :test do
     def get_state(pid) do
