@@ -1,4 +1,4 @@
-# RabbitMQStream - WIP
+# RabbitMQStream - (Work In Progress)
 
 [![Version](https://img.shields.io/hexpm/v/rabbitmq_stream.svg)](https://hex.pm/packages/rabbitmq_stream)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/rabbitmq_stream/)
