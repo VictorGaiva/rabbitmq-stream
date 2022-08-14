@@ -42,6 +42,7 @@ defmodule RabbitMQStreamTest.Connection do
     {:ok, pid} = Connection.start_link(host: "localhost", vhost: "/")
     :ok = Connection.connect(pid)
 
+    Connection.delete_stream(pid, "test-create-01")
     assert :ok = Connection.create_stream(pid, "test-create-01")
     assert {:error, :stream_already_exists} = Connection.create_stream(pid, "test-create-01")
 
@@ -55,7 +56,7 @@ defmodule RabbitMQStreamTest.Connection do
     {:ok, pid} = Connection.start_link(host: "localhost", vhost: "/")
     :ok = Connection.connect(pid)
 
-    # Connection.delete_stream(pid, @stream)
+    Connection.delete_stream(pid, @stream)
     :ok = Connection.create_stream(pid, @stream)
 
     offset = :os.system_time(:millisecond)

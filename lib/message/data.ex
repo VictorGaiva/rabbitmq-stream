@@ -133,6 +133,12 @@ defmodule RabbitMQStream.Message.Data do
   defmodule BrokerData do
     @moduledoc false
 
+    @type t :: %{
+            reference: non_neg_integer(),
+            host: String.t(),
+            port: non_neg_integer()
+          }
+
     defstruct [
       :reference,
       :host,
@@ -142,6 +148,13 @@ defmodule RabbitMQStream.Message.Data do
 
   defmodule StreamData do
     @moduledoc false
+
+    @type t :: %{
+            code: non_neg_integer(),
+            name: String.t(),
+            leader: non_neg_integer(),
+            replicas: [any()]
+          }
 
     defstruct [
       :code,
@@ -245,7 +258,7 @@ defmodule RabbitMQStream.Message.Data do
     @moduledoc false
     @type t :: %{
             subscription_id: non_neg_integer(),
-            osiris_chunk: Helpers.OsirisChunk.t() | nil
+            osiris_chunk: nil
           }
     defstruct [
       :subscription_id,
@@ -272,8 +285,8 @@ defmodule RabbitMQStream.Message.Data do
   end
 
   def decode_data(:close, ""), do: %CloseData{}
-  def decode_data(:create, ""), do: %CreateData{}
-  def decode_data(:delete, ""), do: %DeleteData{}
+  def decode_data(:create_stream, ""), do: %CreateData{}
+  def decode_data(:delete_stream, ""), do: %DeleteData{}
   def decode_data(:declare_publisher, ""), do: %DeclarePublisherData{}
   def decode_data(:delete_publisher, ""), do: %DeletePublisherData{}
   def decode_data(:subscribe, ""), do: %SubscribeResponseData{}
@@ -328,7 +341,7 @@ defmodule RabbitMQStream.Message.Data do
             {buffer, [{key, value} | acc]}
           end)
 
-        connection_properties
+        Map.new(connection_properties)
       else
         []
       end

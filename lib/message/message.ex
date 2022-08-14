@@ -64,9 +64,9 @@ defmodule RabbitMQStream.Message do
       # Client, Yes
       0x000C => :unsubscribe,
       # Client, Yes
-      0x000D => :create,
+      0x000D => :create_stream,
       # Client, Yes
-      0x000E => :delete,
+      0x000E => :delete_stream,
       # Client, Yes
       0x000F => :query_metadata,
       # Server, No

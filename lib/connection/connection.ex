@@ -11,7 +11,8 @@ defmodule RabbitMQStream.Connection do
 
   alias RabbitMQStream.Helpers.PublishingTracker
 
-  alias RabbitMQStream.Connection.{Handler, Buffer}
+  alias RabbitMQStream.Connection.Handler
+  alias RabbitMQStream.Message.Data.QueryMetadataData
 
   @type offset :: :first | :last | :next | {:offset, non_neg_integer()} | {:timestamp, integer()}
 
@@ -34,12 +35,13 @@ defmodule RabbitMQStream.Connection do
           publisher_sequence: non_neg_integer(),
           subscriber_sequence: non_neg_integer(),
           peer_properties: [[String.t()]],
-          connection_properties: [[String.t()]],
+          connection_properties: %{String.t() => String.t() | integer()},
           mechanisms: [String.t()],
           connect_requests: [pid()],
           publish_tracker: %PublishingTracker{},
           request_tracker: %{{atom(), integer()} => {pid(), any()}},
-          metadata: %{String.t() => any()},
+          brokers: %{integer() => BrokerData.t()},
+          streams: %{String.t() => StreamData.t()},
           subscriptions: %{non_neg_integer() => pid()},
           buffer: :rabbit_stream_core.state()
         }
@@ -66,7 +68,8 @@ defmodule RabbitMQStream.Connection do
           :ok | {:error, reason :: atom()}
 
   @spec query_metadata(conn :: GenServer.server(), [String.t(), ...]) ::
-          {:ok, metadata :: %{String.t() => String.t()}} | {:error, reason :: atom()}
+          {:ok, metadata :: QueryMetadataData.t()}
+          | {:error, reason :: atom()}
 
   @spec query_publisher_sequence(conn :: GenServer.server(), String.t(), String.t()) ::
           {:ok, sequence :: integer()} | {:error, reason :: atom()}
@@ -100,7 +103,8 @@ defmodule RabbitMQStream.Connection do
     connect_requests: [],
     publish_tracker: %PublishingTracker{},
     request_tracker: %{},
-    metadata: %{},
+    brokers: %{},
+    streams: %{},
     buffer: :rabbit_stream_core.init("")
   ]
 
@@ -117,11 +121,11 @@ defmodule RabbitMQStream.Connection do
   end
 
   def create_stream(conn, name, arguments \\ []) when is_binary(name) do
-    GenServer.call(conn, {:create, arguments ++ [name: name]})
+    GenServer.call(conn, {:create_stream, arguments ++ [name: name]})
   end
 
   def delete_stream(conn, name) when is_binary(name) do
-    GenServer.call(conn, {:delete, name: name})
+    GenServer.call(conn, {:delete_stream, name: name})
   end
 
   def store_offset(conn, stream_name, offset_reference, offset)
@@ -285,8 +289,8 @@ defmodule RabbitMQStream.Connection do
              :delete_publisher,
              :query_metadata,
              :query_publisher_sequence,
-             :delete,
-             :create,
+             :delete_stream,
+             :create_stream,
              :unsubscribe
            ] do
     conn =
@@ -336,10 +340,14 @@ defmodule RabbitMQStream.Connection do
 
   @impl true
   def handle_info({:tcp, _socket, data}, conn) do
-    conn =
+    {commands, buffer} =
       data
-      |> Buffer.decode!()
-      |> Enum.reduce(conn, &Handler.handle/2)
+      |> :rabbit_stream_core.incoming_data(conn.buffer)
+      |> :rabbit_stream_core.all_commands()
+
+    conn = %{conn | buffer: buffer}
+
+    conn = Enum.reduce(commands, conn, &Handler.handle_message/2)
 
     cond do
       conn.state == :closed ->

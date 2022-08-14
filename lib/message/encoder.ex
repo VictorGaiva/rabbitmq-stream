@@ -134,7 +134,7 @@ defmodule RabbitMQStream.Message.Encoder do
     <<byte_size(data)::unsigned-integer-size(32), data::binary>>
   end
 
-  def encode!(%Request{command: :create, data: %CreateData{} = data} = request) do
+  def encode!(%Request{command: :create_stream, data: %CreateData{} = data} = request) do
     stream_name = encode_string(data.stream_name)
 
     arguments =
@@ -153,7 +153,7 @@ defmodule RabbitMQStream.Message.Encoder do
     <<byte_size(data)::unsigned-integer-size(32), data::binary>>
   end
 
-  def encode!(%Request{command: :delete, data: %DeleteData{} = data} = request) do
+  def encode!(%Request{command: :delete_stream, data: %DeleteData{} = data} = request) do
     stream_name = encode_string(data.stream_name)
 
     data = <<

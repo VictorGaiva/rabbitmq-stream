@@ -127,10 +127,10 @@ defmodule RabbitMQStream.Message.Request do
     }
   end
 
-  def new!(%Connection{} = conn, :create, opts) do
+  def new!(%Connection{} = conn, :create_stream, opts) do
     %Request{
       version: conn.version,
-      command: :create,
+      command: :create_stream,
       correlation_id: conn.correlation_sequence,
       data: %CreateData{
         stream_name: opts[:name],
@@ -139,10 +139,10 @@ defmodule RabbitMQStream.Message.Request do
     }
   end
 
-  def new!(%Connection{} = conn, :delete, opts) do
+  def new!(%Connection{} = conn, :delete_stream, opts) do
     %Request{
       version: conn.version,
-      command: :delete,
+      command: :delete_stream,
       correlation_id: conn.correlation_sequence,
       data: %DeleteData{
         stream_name: opts[:name]
