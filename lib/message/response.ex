@@ -6,12 +6,6 @@ defmodule RabbitMQStream.Message.Response do
 
   alias RabbitMQStream.{Connection, Message}
 
-  alias Message.Data.{
-    TuneData,
-    CloseData,
-    HeartbeatData
-  }
-
   defstruct([
     :version,
     :command,
@@ -21,33 +15,29 @@ defmodule RabbitMQStream.Message.Response do
   ])
 
   def new!(%Connection{} = conn, :tune, correlation_id: correlation_id) do
-    %Response{
-      version: conn.version,
-      command: :tune,
-      correlation_id: correlation_id,
-      data: %TuneData{
-        frame_max: conn.options[:frame_max],
-        heartbeat: conn.options[:heartbeat]
+    :rabbit_stream_core.frame({
+      :response,
+      correlation_id,
+      {
+        :tune,
+        conn.options[:frame_max],
+        conn.options[:heartbeat]
       }
-    }
+    })
   end
 
-  def new!(%Connection{} = conn, :heartbeat, correlation_id: correlation_id) do
-    %Response{
-      version: conn.version,
-      command: :heartbeat,
-      correlation_id: correlation_id,
-      data: %HeartbeatData{}
-    }
+  def new!(%Connection{} = conn, :heartbeat, _) do
+    :rabbit_stream_core.frame({:heartbeat})
   end
 
   def new!(%Connection{} = conn, :close, correlation_id: correlation_id, code: code) do
-    %Response{
-      version: conn.version,
-      correlation_id: correlation_id,
-      command: :close,
-      data: %CloseData{},
-      code: code
-    }
+    :rabbit_stream_core.frame({
+      :response,
+      correlation_id,
+      {
+        :close,
+        code
+      }
+    })
   end
 end

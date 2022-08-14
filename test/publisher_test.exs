@@ -58,8 +58,8 @@ defmodule RabbitMQStreamTest.Publisher do
     Connection.close(conn, @stream)
   end
 
-  @stream "stream-03"
-  @reference_name "reference-03"
+  @stream "stream-04"
+  @reference_name "reference-04"
   test "should keep track of sequence across startups" do
     {:ok, conn} = Connection.start_link(host: "localhost", vhost: "/")
     :ok = Connection.connect(conn)

@@ -3,7 +3,6 @@ defmodule RabbitMQStream.Connection.Handler do
 
   require Logger
   alias RabbitMQStream.Connection
-  alias RabbitMQStream.Message.Response
   alias RabbitMQStream.Message
 
   @ok 0x01
@@ -27,25 +26,25 @@ defmodule RabbitMQStream.Connection.Handler do
   @no_offset 0x13
 
   @mapper %{
-    0x01 => :ok,
-    0x02 => :stream_does_not_exist,
-    0x03 => :subscription_id_already_exists,
-    0x04 => :subscription_id_does_not_exist,
-    0x05 => :stream_already_exists,
-    0x06 => :stream_not_available,
-    0x07 => :sasl_mechanism_not_supported,
-    0x08 => :authentication_failure,
-    0x09 => :sasl_error,
-    0x0A => :sasl_challenge,
-    0x0B => :sasl_authentication_failure_loopback,
-    0x0C => :virtual_host_access_failure,
-    0x0D => :unknown_frame,
-    0x0E => :frame_too_large,
-    0x0F => :internal_error,
-    0x10 => :access_refused,
-    0x11 => :precondition_failed,
-    0x12 => :publisher_does_not_exist,
-    0x13 => :no_offset
+    @ok => :ok,
+    @stream_does_not_exist => :stream_does_not_exist,
+    @subscription_id_already_exists => :subscription_id_already_exists,
+    @subscription_id_does_not_exist => :subscription_id_does_not_exist,
+    @stream_already_exists => :stream_already_exists,
+    @stream_not_available => :stream_not_available,
+    @sasl_mechanism_not_supported => :sasl_mechanism_not_supported,
+    @authentication_failure => :authentication_failure,
+    @sasl_error => :sasl_error,
+    @sasl_challenge => :sasl_challenge,
+    @sasl_authentication_failure_loopback => :sasl_authentication_failure_loopback,
+    @virtual_host_access_failure => :virtual_host_access_failure,
+    @unknown_frame => :unknown_frame,
+    @frame_too_large => :frame_too_large,
+    @internal_error => :internal_error,
+    @access_refused => :access_refused,
+    @precondition_failed => :precondition_failed,
+    @publisher_does_not_exist => :publisher_does_not_exist,
+    @no_offset => :no_offset
   }
 
   def handle_message({:request, correlation_id, {:close, code, reason}}, conn) do

@@ -91,12 +91,10 @@ defmodule RabbitMQStream.Message do
   def encode_request!(conn, command, opts) do
     conn
     |> Request.new!(command, opts)
-    |> Encoder.encode!()
   end
 
   def encode_response!(conn, command, opts) do
     conn
     |> Response.new!(command, opts)
-    |> Encoder.encode!()
   end
 end
