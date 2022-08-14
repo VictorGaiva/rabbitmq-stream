@@ -11,9 +11,8 @@ defmodule RabbitMQStream.Connection do
 
   alias RabbitMQStream.Helpers.PublishingTracker
 
-  alias RabbitMQStream.Message
   alias RabbitMQStream.Message.{Request, Response}
-  alias RabbitMQStream.Connection.Handler
+  alias RabbitMQStream.Connection.{Handler, Buffer}
 
   @type offset :: :first | :last | :next | {:offset, non_neg_integer()} | {:timestamp, integer()}
 
@@ -336,22 +335,25 @@ defmodule RabbitMQStream.Connection do
 
   @impl true
   def handle_info({:tcp, _socket, data}, conn) do
+    conn = Buffer.handle_decode(conn, data)
+    {:noreply, conn}
+  end
+
+  def handle_info({:message, message}, conn) do
     conn =
-      data
-      |> Message.decode!()
-      |> Enum.reduce(conn, fn
-        %Request{} = decoded, conn ->
+      case message do
+        %Request{} = decoded ->
           Handler.handle_message(conn, decoded)
 
-        %Response{code: :ok} = decoded, conn ->
+        %Response{code: :ok} = decoded ->
           Handler.handle_message(conn, decoded)
 
-        %Response{code: nil} = decoded, conn ->
+        %Response{code: nil} = decoded ->
           Handler.handle_message(conn, decoded)
 
-        decoded, conn ->
+        decoded ->
           Handler.handle_error(conn, decoded)
-      end)
+      end
 
     cond do
       conn.state == :closed ->
