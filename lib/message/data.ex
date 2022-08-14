@@ -252,4 +252,87 @@ defmodule RabbitMQStream.Message.Data do
       :osiris_chunk
     ]
   end
+
+  def fetch_string(<<size::integer-size(16), text::binary-size(size), rest::binary>>) do
+    {rest, to_string(text)}
+  end
+
+  def decode_array("", _) do
+    {"", []}
+  end
+
+  def decode_array(<<0::integer-size(32), buffer::binary>>, _) do
+    {buffer, []}
+  end
+
+  def decode_array(<<size::integer-size(32), buffer::binary>>, foo) do
+    Enum.reduce(0..(size - 1), {buffer, []}, fn _, {buffer, acc} ->
+      foo.(buffer, acc)
+    end)
+  end
+
+  def decode_data(:close, ""), do: %CloseData{}
+  def decode_data(:create, ""), do: %CreateData{}
+  def decode_data(:delete, ""), do: %DeleteData{}
+  def decode_data(:declare_publisher, ""), do: %DeclarePublisherData{}
+  def decode_data(:delete_publisher, ""), do: %DeletePublisherData{}
+  def decode_data(:subscribe, ""), do: %SubscribeResponseData{}
+  def decode_data(:unsubscribe, ""), do: %UnsubscribeResponseData{}
+
+  def decode_data(:query_offset, <<offset::unsigned-integer-size(64)>>) do
+    %QueryOffsetData{offset: offset}
+  end
+
+  def decode_data(:query_publisher_sequence, <<sequence::unsigned-integer-size(64)>>) do
+    %QueryPublisherSequenceData{sequence: sequence}
+  end
+
+  def decode_data(:peer_properties, buffer) do
+    {"", peer_properties} =
+      decode_array(buffer, fn buffer, acc ->
+        {buffer, key} = fetch_string(buffer)
+        {buffer, value} = fetch_string(buffer)
+
+        {buffer, [{key, value} | acc]}
+      end)
+
+    %PeerPropertiesData{peer_properties: peer_properties}
+  end
+
+  def decode_data(:sasl_handshake, buffer) do
+    {"", mechanisms} =
+      decode_array(buffer, fn buffer, acc ->
+        {buffer, value} = fetch_string(buffer)
+        {buffer, [value | acc]}
+      end)
+
+    %SaslHandshakeData{mechanisms: mechanisms}
+  end
+
+  def decode_data(:sasl_authenticate, buffer) do
+    %SaslAuthenticateData{sasl_opaque_data: buffer}
+  end
+
+  def decode_data(:tune, <<frame_max::unsigned-integer-size(32), heartbeat::unsigned-integer-size(32)>>) do
+    %TuneData{frame_max: frame_max, heartbeat: heartbeat}
+  end
+
+  def decode_data(:open, buffer) do
+    connection_properties =
+      if buffer != "" do
+        {"", connection_properties} =
+          decode_array(buffer, fn buffer, acc ->
+            {buffer, key} = fetch_string(buffer)
+            {buffer, value} = fetch_string(buffer)
+
+            {buffer, [{key, value} | acc]}
+          end)
+
+        connection_properties
+      else
+        []
+      end
+
+    %OpenData{connection_properties: connection_properties}
+  end
 end

@@ -6,228 +6,92 @@ defmodule RabbitMQStream.Message.Decoder do
 
   alias RabbitMQStream.Message.Data.{
     TuneData,
-    OpenData,
-    PeerPropertiesData,
-    SaslAuthenticateData,
-    SaslHandshakeData,
     HeartbeatData,
     CloseData,
-    CreateData,
-    DeleteData,
-    QueryOffsetData,
     MetadataUpdateData,
-    DeclarePublisherData,
-    DeletePublisherData,
     QueryMetadataData,
     BrokerData,
     StreamData,
-    QueryPublisherSequenceData,
     PublishConfirmData,
     PublishErrorData,
-    SubscribeResponseData,
-    UnsubscribeResponseData,
     DeliverData
   }
 
-  defp fetch_string(<<size::integer-size(16), text::binary-size(size), rest::binary>>) do
-    {rest, to_string(text)}
+  def decode!(<<key::integer-size(16), version::unsigned-integer-size(16), buffer::binary>>) do
+    if Bitwise.band(key, 32768) > 0 do
+      %Response{version: version, command: Message.Command.to_atom(Bitwise.band(key, 32767))}
+    else
+      %Request{version: version, command: Message.Command.to_atom(Bitwise.band(key, 32767))}
+    end
+    |> decode!(buffer)
   end
 
-  defp decode_array("", _) do
-    {"", []}
-  end
+  def decode!(%Response{command: command} = response, buffer)
+      when command in [
+             :close,
+             :create,
+             :delete,
+             :declare_publisher,
+             :delete_publisher,
+             :subscribe,
+             :unsubscribe,
+             :query_offset,
+             :query_publisher_sequence,
+             :peer_properties,
+             :sasl_handshake,
+             :sasl_authenticate,
+             :tune,
+             :open
+           ] do
+    <<correlation_id::unsigned-integer-size(32), code::unsigned-integer-size(16), buffer::binary>> = buffer
 
-  defp decode_array(<<0::integer-size(32), buffer::binary>>, _) do
-    {buffer, []}
-  end
-
-  defp decode_array(<<size::integer-size(32), buffer::binary>>, foo) do
-    Enum.reduce(0..(size - 1), {buffer, []}, fn _, {buffer, acc} ->
-      foo.(buffer, acc)
-    end)
-  end
-
-  def decode!(%Request{command: :tune} = response, buffer) do
-    <<
-      frame_max::unsigned-integer-size(32),
-      heartbeat::unsigned-integer-size(32)
-    >> = buffer
-
-    data = %TuneData{
-      frame_max: frame_max,
-      heartbeat: heartbeat
+    %{
+      response
+      | data: Message.Data.decode_data(command, buffer),
+        correlation_id: correlation_id,
+        code: Message.Code.to_atom(code)
     }
-
-    %{response | data: data}
   end
 
-  def decode!(%Request{command: :heartbeat} = response, "") do
-    %{response | data: %HeartbeatData{}}
-  end
-
-  def decode!(%Request{command: :close} = response, buffer) do
+  def decode!(%Request{command: :close} = request, buffer) do
     <<correlation_id::unsigned-integer-size(32), buffer::binary>> = buffer
 
     <<code::unsigned-integer-size(16), buffer::binary>> = buffer
 
-    {"", reason} = fetch_string(buffer)
+    {"", reason} = Message.Data.fetch_string(buffer)
 
-    data = %CloseData{
-      code: code,
-      reason: reason
-    }
+    data = %CloseData{code: code, reason: reason}
 
-    %{response | data: data, correlation_id: correlation_id}
+    %{request | data: data, correlation_id: correlation_id}
   end
 
-  def decode!(%Request{command: :metadata_update} = response, buffer) do
-    <<code::unsigned-integer-size(16), buffer::binary>> = buffer
-
-    {"", stream_name} = fetch_string(buffer)
-
-    data = %MetadataUpdateData{
-      stream_name: stream_name
-    }
-
-    %{response | data: data, code: Message.Code.to_atom(code)}
-  end
-
-  def decode!(%Response{command: :peer_properties} = response, buffer) do
-    <<correlation_id::unsigned-integer-size(32), code::unsigned-integer-size(16), buffer::binary>> = buffer
-
-    {"", peer_properties} =
-      decode_array(buffer, fn buffer, acc ->
-        {buffer, key} = fetch_string(buffer)
-        {buffer, value} = fetch_string(buffer)
-
-        {buffer, [{key, value} | acc]}
-      end)
-
-    data = %PeerPropertiesData{
-      peer_properties: peer_properties
-    }
-
-    %{response | data: data, correlation_id: correlation_id, code: Message.Code.to_atom(code)}
-  end
-
-  def decode!(%Response{command: :sasl_handshake} = response, buffer) do
-    <<correlation_id::unsigned-integer-size(32), code::unsigned-integer-size(16), buffer::binary>> = buffer
-
-    {"", mechanisms} =
-      decode_array(buffer, fn buffer, acc ->
-        {buffer, value} = fetch_string(buffer)
-        {buffer, [value | acc]}
-      end)
-
-    data = %SaslHandshakeData{
-      mechanisms: mechanisms
-    }
-
-    %{response | data: data, correlation_id: correlation_id, code: Message.Code.to_atom(code)}
-  end
-
-  def decode!(%Response{command: :sasl_authenticate} = response, buffer) do
-    <<correlation_id::unsigned-integer-size(32), code::unsigned-integer-size(16), buffer::binary>> = buffer
-
-    data = %SaslAuthenticateData{
-      sasl_opaque_data: buffer
-    }
-
-    %{response | data: data, correlation_id: correlation_id, code: Message.Code.to_atom(code)}
-  end
-
-  def decode!(%Response{command: :tune} = response, buffer) do
-    <<correlation_id::unsigned-integer-size(32), code::unsigned-integer-size(16), buffer::binary>> = buffer
-
+  def decode!(%Request{command: :tune} = request, buffer) do
     <<frame_max::unsigned-integer-size(32), heartbeat::unsigned-integer-size(32)>> = buffer
 
-    data = %TuneData{
-      frame_max: frame_max,
-      heartbeat: heartbeat
-    }
+    data = %TuneData{frame_max: frame_max, heartbeat: heartbeat}
 
-    %{response | data: data, correlation_id: correlation_id, code: Message.Code.to_atom(code)}
+    %{request | data: data}
   end
 
-  def decode!(%Response{command: :open} = response, buffer) do
-    <<correlation_id::unsigned-integer-size(32), code::unsigned-integer-size(16), buffer::binary>> = buffer
-
-    connection_properties =
-      if buffer != "" do
-        {"", connection_properties} =
-          decode_array(buffer, fn buffer, acc ->
-            {buffer, key} = fetch_string(buffer)
-            {buffer, value} = fetch_string(buffer)
-
-            {buffer, [{key, value} | acc]}
-          end)
-
-        connection_properties
-      else
-        []
-      end
-
-    data = %OpenData{
-      connection_properties: connection_properties
-    }
-
-    %{response | data: data, correlation_id: correlation_id, code: Message.Code.to_atom(code)}
+  def decode!(%Request{command: :heartbeat} = request, "") do
+    %{request | data: %HeartbeatData{}}
   end
 
-  def decode!(%Response{command: :close} = response, buffer) do
-    <<correlation_id::unsigned-integer-size(32), code::unsigned-integer-size(16)>> = buffer
-    data = %CloseData{}
+  def decode!(%Request{command: :metadata_update} = request, buffer) do
+    <<code::unsigned-integer-size(16), buffer::binary>> = buffer
 
-    %{response | data: data, correlation_id: correlation_id, code: Message.Code.to_atom(code)}
-  end
+    {"", stream_name} = Message.Data.fetch_string(buffer)
 
-  def decode!(%Response{command: :create} = response, buffer) do
-    <<correlation_id::unsigned-integer-size(32), code::unsigned-integer-size(16)>> = buffer
+    data = %MetadataUpdateData{stream_name: stream_name}
 
-    data = %CreateData{}
-
-    %{response | data: data, correlation_id: correlation_id, code: Message.Code.to_atom(code)}
-  end
-
-  def decode!(%Response{command: :delete} = response, buffer) do
-    <<correlation_id::unsigned-integer-size(32), code::unsigned-integer-size(16)>> = buffer
-    data = %DeleteData{}
-
-    %{response | data: data, correlation_id: correlation_id, code: Message.Code.to_atom(code)}
-  end
-
-  def decode!(%Response{command: :query_offset} = response, buffer) do
-    <<correlation_id::unsigned-integer-size(32), code::unsigned-integer-size(16), buffer::binary>> = buffer
-    <<offset::unsigned-integer-size(64)>> = buffer
-
-    data = %QueryOffsetData{
-      offset: offset
-    }
-
-    %{response | data: data, correlation_id: correlation_id, code: Message.Code.to_atom(code)}
-  end
-
-  def decode!(%Response{command: :declare_publisher} = response, buffer) do
-    <<correlation_id::unsigned-integer-size(32), code::unsigned-integer-size(16)>> = buffer
-
-    data = %DeclarePublisherData{}
-
-    %{response | data: data, correlation_id: correlation_id, code: Message.Code.to_atom(code)}
-  end
-
-  def decode!(%Response{command: :delete_publisher} = response, buffer) do
-    <<correlation_id::unsigned-integer-size(32), code::unsigned-integer-size(16)>> = buffer
-
-    data = %DeletePublisherData{}
-
-    %{response | data: data, correlation_id: correlation_id, code: Message.Code.to_atom(code)}
+    %{request | data: data, code: Message.Code.to_atom(code)}
   end
 
   def decode!(%Response{command: :query_metadata} = response, buffer) do
     <<correlation_id::unsigned-integer-size(32), buffer::binary>> = buffer
 
     {buffer, brokers} =
-      decode_array(buffer, fn buffer, acc ->
+      Message.Data.decode_array(buffer, fn buffer, acc ->
         <<reference::unsigned-integer-size(16), buffer::binary>> = buffer
 
         <<size::integer-size(16), host::binary-size(size), buffer::binary>> = buffer
@@ -244,7 +108,7 @@ defmodule RabbitMQStream.Message.Decoder do
       end)
 
     {"", streams} =
-      decode_array(buffer, fn buffer, acc ->
+      Message.Data.decode_array(buffer, fn buffer, acc ->
         <<
           size::integer-size(16),
           name::binary-size(size),
@@ -254,7 +118,7 @@ defmodule RabbitMQStream.Message.Decoder do
         >> = buffer
 
         {buffer, replicas} =
-          decode_array(buffer, fn buffer, acc ->
+          Message.Data.decode_array(buffer, fn buffer, acc ->
             <<replica::unsigned-integer-size(16), buffer::binary>> = buffer
 
             {buffer, [replica] ++ acc}
@@ -270,50 +134,30 @@ defmodule RabbitMQStream.Message.Decoder do
         {buffer, [data] ++ acc}
       end)
 
-    data = %QueryMetadataData{
-      brokers: brokers,
-      streams: streams
-    }
+    data = %QueryMetadataData{brokers: brokers, streams: streams}
 
     %{response | correlation_id: correlation_id, data: data}
   end
 
-  def decode!(%Response{command: :query_publisher_sequence} = response, buffer) do
-    <<
-      correlation_id::unsigned-integer-size(32),
-      code::unsigned-integer-size(16),
-      sequence::unsigned-integer-size(64)
-    >> = buffer
-
-    data = %QueryPublisherSequenceData{
-      sequence: sequence
-    }
-
-    %{response | data: data, correlation_id: correlation_id, code: Message.Code.to_atom(code)}
-  end
-
-  def decode!(%Request{command: :publish_confirm} = response, buffer) do
+  def decode!(%Request{command: :publish_confirm} = request, buffer) do
     <<publisher_id::unsigned-integer-size(8), buffer::binary>> = buffer
 
     {"", publishing_ids} =
-      decode_array(buffer, fn buffer, acc ->
+      Message.Data.decode_array(buffer, fn buffer, acc ->
         <<publishing_id::unsigned-integer-size(64), buffer::binary>> = buffer
         {buffer, [publishing_id] ++ acc}
       end)
 
-    data = %PublishConfirmData{
-      publisher_id: publisher_id,
-      publishing_ids: publishing_ids
-    }
+    data = %PublishConfirmData{publisher_id: publisher_id, publishing_ids: publishing_ids}
 
-    %{response | data: data}
+    %{request | data: data}
   end
 
-  def decode!(%Request{command: :publish_error} = response, buffer) do
+  def decode!(%Request{command: :publish_error} = request, buffer) do
     <<publisher_id::unsigned-integer-size(8), buffer::binary>> = buffer
 
     {"", errors} =
-      decode_array(buffer, fn buffer, acc ->
+      Message.Data.decode_array(buffer, fn buffer, acc ->
         <<
           publishing_id::unsigned-integer-size(64),
           code::unsigned-integer-size(16),
@@ -328,28 +172,9 @@ defmodule RabbitMQStream.Message.Decoder do
         {buffer, [entry] ++ acc}
       end)
 
-    data = %PublishErrorData{
-      publisher_id: publisher_id,
-      errors: errors
-    }
+    data = %PublishErrorData{publisher_id: publisher_id, errors: errors}
 
-    %{response | data: data}
-  end
-
-  def decode!(%Response{command: :subscribe} = response, buffer) do
-    <<correlation_id::unsigned-integer-size(32), code::unsigned-integer-size(16)>> = buffer
-
-    data = %SubscribeResponseData{}
-
-    %{response | data: data, correlation_id: correlation_id, code: Message.Code.to_atom(code)}
-  end
-
-  def decode!(%Response{command: :unsubscribe} = response, buffer) do
-    <<correlation_id::unsigned-integer-size(32), code::unsigned-integer-size(16)>> = buffer
-
-    data = %UnsubscribeResponseData{}
-
-    %{response | data: data, correlation_id: correlation_id, code: Message.Code.to_atom(code)}
+    %{request | data: data}
   end
 
   def decode!(%Request{command: :deliver} = request, buffer) do
@@ -362,10 +187,7 @@ defmodule RabbitMQStream.Message.Decoder do
         nil
       end
 
-    data = %DeliverData{
-      subscription_id: subscription_id,
-      osiris_chunk: osiris_chunk
-    }
+    data = %DeliverData{subscription_id: subscription_id, osiris_chunk: osiris_chunk}
 
     %{request | data: data}
   end
