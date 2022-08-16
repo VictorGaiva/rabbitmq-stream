@@ -1,6 +1,7 @@
 defmodule RabbitMQStreamTest.Subscriber do
   use ExUnit.Case
   alias RabbitMQStream.{Connection, Publisher}
+  alias RabbitMQStream.Helpers.OsirisChunk
 
   @stream "stream-01"
   @reference_name "reference-01"
@@ -12,8 +13,10 @@ defmodule RabbitMQStreamTest.Subscriber do
 
     assert {:ok, _} = Connection.subscribe(conn, @stream, self(), :next, 999)
 
-    Publisher.publish(publisher, inspect(%{message: "Hello, world2!"}))
+    message = inspect(%{message: "Hello, world2!"})
 
-    assert_receive {:message, _}, 20_000
+    Publisher.publish(publisher, message)
+
+    assert_receive {:message, %OsirisChunk{data_entries: [^message]}}, 20_000
   end
 end
