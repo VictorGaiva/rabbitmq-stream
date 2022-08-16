@@ -10,7 +10,7 @@ defmodule RabbitMQStreamTest.Subscriber do
 
     {:ok, publisher} = Publisher.start_link(connection: conn, reference_name: @reference_name, stream_name: @stream)
 
-    assert {:ok, subscription_id} = Connection.subscribe(conn, @stream, self(), :next, 999)
+    assert {:ok, _} = Connection.subscribe(conn, @stream, self(), :next, 999)
 
     Publisher.publish(publisher, inspect(%{message: "Hello, world2!"}))
 

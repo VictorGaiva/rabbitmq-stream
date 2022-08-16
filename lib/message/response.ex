@@ -4,14 +4,6 @@ defmodule RabbitMQStream.Message.Response do
 
   alias RabbitMQStream.Connection
 
-  defstruct([
-    :version,
-    :command,
-    :correlation_id,
-    :data,
-    :code
-  ])
-
   def new!(%Connection{} = conn, :tune, correlation_id: correlation_id) do
     :rabbit_stream_core.frame({
       :response,
@@ -29,13 +21,6 @@ defmodule RabbitMQStream.Message.Response do
   end
 
   def new!(%Connection{}, :close, correlation_id: correlation_id, code: code) do
-    :rabbit_stream_core.frame({
-      :response,
-      correlation_id,
-      {
-        :close,
-        code
-      }
-    })
+    :rabbit_stream_core.frame({:response, correlation_id, {:close, code}})
   end
 end

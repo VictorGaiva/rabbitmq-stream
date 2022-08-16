@@ -4,14 +4,6 @@ defmodule RabbitMQStream.Message.Request do
 
   alias RabbitMQStream.Connection
 
-  defstruct [
-    :version,
-    :correlation_id,
-    :command,
-    :data,
-    :code
-  ]
-
   def new!(%Connection{} = conn, :peer_properties, _) do
     :rabbit_stream_core.frame({
       :request,
@@ -29,11 +21,7 @@ defmodule RabbitMQStream.Message.Request do
   end
 
   def new!(%Connection{} = conn, :sasl_handshake, _) do
-    :rabbit_stream_core.frame({
-      :request,
-      conn.correlation_sequence,
-      :sasl_handshake
-    })
+    :rabbit_stream_core.frame({:request, conn.correlation_sequence, :sasl_handshake})
   end
 
   def new!(%Connection{} = conn, :sasl_authenticate, _) do
@@ -54,23 +42,12 @@ defmodule RabbitMQStream.Message.Request do
     end
   end
 
-  def new!(%Connection{} = conn, :tune, _) do
-    :rabbit_stream_core.frame({
-      :tune,
-      conn.options[:frame_max],
-      conn.options[:heartbeat]
-    })
+  def new!(%Connection{options: options}, :tune, _) do
+    :rabbit_stream_core.frame({:tune, options[:frame_max], options[:heartbeat]})
   end
 
-  def new!(%Connection{} = conn, :open, _) do
-    :rabbit_stream_core.frame({
-      :request,
-      conn.correlation_sequence,
-      {
-        :open,
-        conn.options[:vhost]
-      }
-    })
+  def new!(%Connection{options: options, correlation_sequence: correlation_sequence}, :open, _) do
+    :rabbit_stream_core.frame({:request, correlation_sequence, {:open, options[:vhost]}})
   end
 
   def new!(%Connection{}, :heartbeat, _) do
@@ -101,15 +78,8 @@ defmodule RabbitMQStream.Message.Request do
     })
   end
 
-  def new!(%Connection{} = conn, :delete_stream, opts) do
-    :rabbit_stream_core.frame({
-      :request,
-      conn.correlation_sequence,
-      {
-        :delete_stream,
-        opts[:name]
-      }
-    })
+  def new!(%Connection{correlation_sequence: correlation_sequence}, :delete_stream, opts) do
+    :rabbit_stream_core.frame({:request, correlation_sequence, {:delete_stream, opts[:name]}})
   end
 
   def new!(%Connection{}, :store_offset, opts) do
