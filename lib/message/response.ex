@@ -2,9 +2,7 @@ defmodule RabbitMQStream.Message.Response do
   @moduledoc false
   require Logger
 
-  alias __MODULE__
-
-  alias RabbitMQStream.{Connection, Message}
+  alias RabbitMQStream.Connection
 
   defstruct([
     :version,
@@ -26,11 +24,11 @@ defmodule RabbitMQStream.Message.Response do
     })
   end
 
-  def new!(%Connection{} = conn, :heartbeat, _) do
-    :rabbit_stream_core.frame({:heartbeat})
+  def new!(%Connection{}, :heartbeat, _) do
+    :rabbit_stream_core.frame(:heartbeat)
   end
 
-  def new!(%Connection{} = conn, :close, correlation_id: correlation_id, code: code) do
+  def new!(%Connection{}, :close, correlation_id: correlation_id, code: code) do
     :rabbit_stream_core.frame({
       :response,
       correlation_id,

@@ -9,10 +9,7 @@ defmodule RabbitMQStream.Connection do
   require Logger
   alias __MODULE__
 
-  alias RabbitMQStream.Helpers.PublishingTracker
-
   alias RabbitMQStream.Connection.Handler
-  alias RabbitMQStream.Message.Data.QueryMetadataData
 
   @type offset :: :first | :last | :next | {:offset, non_neg_integer()} | {:timestamp, integer()}
 
@@ -38,7 +35,6 @@ defmodule RabbitMQStream.Connection do
           connection_properties: %{String.t() => String.t() | integer()},
           mechanisms: [String.t()],
           connect_requests: [pid()],
-          publish_tracker: %PublishingTracker{},
           request_tracker: %{{atom(), integer()} => {pid(), any()}},
           brokers: %{integer() => BrokerData.t()},
           streams: %{String.t() => StreamData.t()},
@@ -68,7 +64,7 @@ defmodule RabbitMQStream.Connection do
           :ok | {:error, reason :: atom()}
 
   @spec query_metadata(conn :: GenServer.server(), [String.t(), ...]) ::
-          {:ok, metadata :: QueryMetadataData.t()}
+          {:ok, metadata :: %{brokers: any(), streams: any()}}
           | {:error, reason :: atom()}
 
   @spec query_publisher_sequence(conn :: GenServer.server(), String.t(), String.t()) ::
@@ -101,7 +97,6 @@ defmodule RabbitMQStream.Connection do
     connection_properties: [],
     mechanisms: [],
     connect_requests: [],
-    publish_tracker: %PublishingTracker{},
     request_tracker: %{},
     brokers: %{},
     streams: %{},
@@ -129,24 +124,21 @@ defmodule RabbitMQStream.Connection do
   end
 
   def store_offset(conn, stream_name, offset_reference, offset)
-      when is_binary(stream_name)
-      when is_binary(offset_reference)
-      when is_integer(offset)
-      when length(stream_name) <= 255 do
+      when is_binary(stream_name) and
+             is_binary(offset_reference) and
+             is_integer(offset) do
     GenServer.call(conn, {:store_offset, stream_name: stream_name, offset_reference: offset_reference, offset: offset})
   end
 
   def query_offset(conn, stream_name, offset_reference)
-      when is_binary(offset_reference)
-      when is_binary(stream_name)
-      when length(stream_name) <= 255 do
+      when is_binary(offset_reference) and
+             is_binary(stream_name) do
     GenServer.call(conn, {:query_offset, stream_name: stream_name, offset_reference: offset_reference})
   end
 
   def declare_publisher(conn, stream_name, publisher_reference)
-      when is_binary(publisher_reference)
-      when is_binary(stream_name)
-      when length(stream_name) <= 255 do
+      when is_binary(publisher_reference) and
+             is_binary(stream_name) do
     GenServer.call(conn, {:declare_publisher, stream_name: stream_name, publisher_reference: publisher_reference})
   end
 
@@ -157,15 +149,14 @@ defmodule RabbitMQStream.Connection do
   end
 
   def query_metadata(conn, streams)
-      when is_list(streams)
-      when length(streams) > 0 do
+      when is_list(streams) and
+             length(streams) > 0 do
     GenServer.call(conn, {:query_metadata, streams: streams})
   end
 
   def query_publisher_sequence(conn, stream_name, publisher_reference)
-      when is_binary(publisher_reference)
-      when is_binary(stream_name)
-      when length(stream_name) <= 255 do
+      when is_binary(publisher_reference) and
+             is_binary(stream_name) do
     GenServer.call(
       conn,
       {:query_publisher_sequence, publisher_reference: publisher_reference, stream_name: stream_name}
@@ -173,10 +164,10 @@ defmodule RabbitMQStream.Connection do
   end
 
   def publish(conn, publisher_id, publishing_id, message)
-      when is_integer(publisher_id)
-      when is_binary(message)
-      when is_integer(publishing_id)
-      when publisher_id <= 255 do
+      when is_integer(publisher_id) and
+             is_binary(message) and
+             is_integer(publishing_id) and
+             publisher_id <= 255 do
     GenServer.cast(
       conn,
       {:publish, publisher_id: publisher_id, published_messages: [{publishing_id, message}], wait: true}
@@ -184,14 +175,14 @@ defmodule RabbitMQStream.Connection do
   end
 
   def subscribe(conn, stream_name, pid, offset, credit, properties \\ %{})
-      when is_binary(stream_name)
-      when is_integer(credit)
-      when offset in [:first, :last, :next] or
-             (tuple_size(offset) == 2 and is_tuple(offset) and elem(offset, 0) in [:offset, :timestamp])
-      when is_map(properties)
-      when is_pid(pid)
-      when length(stream_name) <= 255
-      when credit >= 0 do
+      when (is_binary(stream_name) and
+              is_integer(credit) and
+              offset in [:first, :last, :next]) or
+             (tuple_size(offset) == 2 and is_tuple(offset) and elem(offset, 0) in [:offset, :timestamp] and
+                is_map(properties) and
+                is_pid(pid) and
+                length(stream_name) <= 255 and
+                credit >= 0) do
     GenServer.call(
       conn,
       {:subscribe, stream_name: stream_name, pid: pid, offset: offset, credit: credit, properties: properties}

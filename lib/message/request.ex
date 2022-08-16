@@ -1,7 +1,6 @@
 defmodule RabbitMQStream.Message.Request do
   @moduledoc false
   require Logger
-  alias __MODULE__
 
   alias RabbitMQStream.Connection
 
@@ -12,10 +11,6 @@ defmodule RabbitMQStream.Message.Request do
     :data,
     :code
   ]
-
-  defp encode_bytes(bytes) do
-    <<byte_size(bytes)::integer-size(32), bytes::binary>>
-  end
 
   def new!(%Connection{} = conn, :peer_properties, _) do
     :rabbit_stream_core.frame({
@@ -79,7 +74,7 @@ defmodule RabbitMQStream.Message.Request do
   end
 
   def new!(%Connection{}, :heartbeat, _) do
-    :rabbit_stream_core.frame({:heartbeat})
+    :rabbit_stream_core.frame(:heartbeat)
   end
 
   def new!(%Connection{} = conn, :close, opts) do
@@ -117,7 +112,7 @@ defmodule RabbitMQStream.Message.Request do
     })
   end
 
-  def new!(%Connection{} = conn, :store_offset, opts) do
+  def new!(%Connection{}, :store_offset, opts) do
     :rabbit_stream_core.frame({
       :store_offset,
       opts[:offset_reference],

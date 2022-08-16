@@ -76,11 +76,11 @@ defmodule RabbitMQStream.Connection.Handler do
     |> send_request(:query_metadata, streams: [stream_name])
   end
 
-  def handle_message({:request, {:deliver, subscription_id, data}}, conn) do
+  def handle_message({:deliver, subscription_id, data}, conn) do
     pid = Map.get(conn.subscriptions, subscription_id)
 
     if pid != nil do
-      Process.send(pid, data, [:noconnect])
+      send(pid, {:message, data})
     end
 
     conn
