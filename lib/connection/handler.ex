@@ -4,48 +4,32 @@ defmodule RabbitMQStream.Connection.Handler do
   require Logger
   alias RabbitMQStream.Connection
   alias RabbitMQStream.Message
-
-  @ok 0x01
-  @stream_does_not_exist 0x02
-  @subscription_id_already_exists 0x03
-  @subscription_id_does_not_exist 0x04
-  @stream_already_exists 0x05
-  @stream_not_available 0x06
-  @sasl_mechanism_not_supported 0x07
-  @authentication_failure 0x08
-  @sasl_error 0x09
-  @sasl_challenge 0x0A
-  @sasl_authentication_failure_loopback 0x0B
-  @virtual_host_access_failure 0x0C
-  @unknown_frame 0x0D
-  @frame_too_large 0x0E
-  @internal_error 0x0F
-  @access_refused 0x10
-  @precondition_failed 0x11
-  @publisher_does_not_exist 0x12
-  @no_offset 0x13
+  alias RabbitMQStream.Helpers.OsirisChunk
 
   @mapper %{
-    @ok => :ok,
-    @stream_does_not_exist => :stream_does_not_exist,
-    @subscription_id_already_exists => :subscription_id_already_exists,
-    @subscription_id_does_not_exist => :subscription_id_does_not_exist,
-    @stream_already_exists => :stream_already_exists,
-    @stream_not_available => :stream_not_available,
-    @sasl_mechanism_not_supported => :sasl_mechanism_not_supported,
-    @authentication_failure => :authentication_failure,
-    @sasl_error => :sasl_error,
-    @sasl_challenge => :sasl_challenge,
-    @sasl_authentication_failure_loopback => :sasl_authentication_failure_loopback,
-    @virtual_host_access_failure => :virtual_host_access_failure,
-    @unknown_frame => :unknown_frame,
-    @frame_too_large => :frame_too_large,
-    @internal_error => :internal_error,
-    @access_refused => :access_refused,
-    @precondition_failed => :precondition_failed,
-    @publisher_does_not_exist => :publisher_does_not_exist,
-    @no_offset => :no_offset
+    0x01 => :ok,
+    0x02 => :stream_does_not_exist,
+    0x03 => :subscription_id_already_exists,
+    0x04 => :subscription_id_does_not_exist,
+    0x05 => :stream_already_exists,
+    0x06 => :stream_not_available,
+    0x07 => :sasl_mechanism_not_supported,
+    0x08 => :authentication_failure,
+    0x09 => :sasl_error,
+    0x0A => :sasl_challenge,
+    0x0B => :sasl_authentication_failure_loopback,
+    0x0C => :virtual_host_access_failure,
+    0x0D => :unknown_frame,
+    0x0E => :frame_too_large,
+    0x0F => :internal_error,
+    0x10 => :access_refused,
+    0x11 => :precondition_failed,
+    0x12 => :publisher_does_not_exist,
+    0x13 => :no_offset
   }
+  for {key, value} <- @mapper do
+    Module.put_attribute(__MODULE__, value, key)
+  end
 
   def handle_message({:request, correlation_id, {:close, code, reason}}, conn) do
     Logger.debug("Connection close requested by server: #{code} #{reason}")
@@ -80,7 +64,8 @@ defmodule RabbitMQStream.Connection.Handler do
     pid = Map.get(conn.subscriptions, subscription_id)
 
     if pid != nil do
-      send(pid, {:message, data})
+      # send(pid, {:message, data})
+      send(pid, {:message, OsirisChunk.decode!(data)})
     end
 
     conn
