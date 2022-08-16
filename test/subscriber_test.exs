@@ -11,12 +11,18 @@ defmodule RabbitMQStreamTest.Subscriber do
 
     {:ok, publisher} = Publisher.start_link(connection: conn, reference_name: @reference_name, stream_name: @stream)
 
-    assert {:ok, _} = Connection.subscribe(conn, @stream, self(), :next, 999)
+    assert {:ok, subscription_id} = Connection.subscribe(conn, @stream, self(), :next, 999)
 
     message = inspect(%{message: "Hello, world2!"})
 
     Publisher.publish(publisher, message)
 
-    assert_receive {:message, %OsirisChunk{data_entries: [^message]}}, 20_000
+    assert_receive {:message, %OsirisChunk{data_entries: [^message]}}, 1_000
+
+    assert :ok = Connection.unsubscribe(conn, subscription_id)
+
+    Publisher.publish(publisher, message)
+
+    refute_receive {:message, %OsirisChunk{}}, 1_000
   end
 end

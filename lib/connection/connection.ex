@@ -1,8 +1,7 @@
 defmodule RabbitMQStream.Connection do
   @moduledoc """
   Responsible for encoding and decoding messages, opening and maintaining a socket connection to a single node.
-  It connects to the RabbitMQ server using [`:gen_tcp`](https://www.erlang.org/doc/man/gen_tcp.html).
-  It then runs throught the [authentication](https://github.com/rabbitmq/rabbitmq-server/blob/master/deps/rabbitmq_stream/docs/PROTOCOL.adoc#authentication) sequence and mantains the connection open with heartbeats, with the provided `tune` definition.
+  It connects to the RabbitMQ, and authenticates, and mantains the connection open with heartbeats.
   """
 
   use GenServer
@@ -12,7 +11,6 @@ defmodule RabbitMQStream.Connection do
   alias RabbitMQStream.Connection.Handler
 
   @type offset :: :first | :last | :next | {:offset, non_neg_integer()} | {:timestamp, integer()}
-
   @type connection_options :: [connection_option]
   @type connection_option ::
           {:username, String.t()}
@@ -274,6 +272,15 @@ defmodule RabbitMQStream.Connection do
     {:noreply, conn}
   end
 
+  def handle_call({:unsubscribe, opts}, from, %Connection{} = conn) do
+    conn =
+      conn
+      |> Handler.push_request_tracker(:unsubscribe, from, opts[:subscription_id])
+      |> Handler.send_request(:unsubscribe, opts)
+
+    {:noreply, conn}
+  end
+
   def handle_call({command, opts}, from, %Connection{} = conn)
       when command in [
              :query_offset,
@@ -281,8 +288,7 @@ defmodule RabbitMQStream.Connection do
              :query_metadata,
              :query_publisher_sequence,
              :delete_stream,
-             :create_stream,
-             :unsubscribe
+             :create_stream
            ] do
     conn =
       conn

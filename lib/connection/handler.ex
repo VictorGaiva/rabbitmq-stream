@@ -243,8 +243,18 @@ defmodule RabbitMQStream.Connection.Handler do
     %{conn | subscriptions: Map.put(conn.subscriptions, subscription_id, subscriber)}
   end
 
+  def handle_message({:response, correlation_id, {:unsubscribe, _code}}, conn) do
+    {{pid, subscription_id}, conn} = pop_request_tracker(conn, :unsubscribe, correlation_id)
+
+    if pid != nil do
+      GenServer.reply(pid, :ok)
+    end
+
+    %{conn | subscriptions: Map.drop(conn.subscriptions, [subscription_id])}
+  end
+
   def handle_message({:response, correlation_id, command}, conn)
-      when elem(command, 0) in [:create_stream, :delete_stream, :delete_publisher, :unsubscribe] do
+      when elem(command, 0) in [:create_stream, :delete_stream, :delete_publisher] do
     {{pid, _data}, conn} = pop_request_tracker(conn, elem(command, 0), correlation_id)
 
     if pid != nil do
