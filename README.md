@@ -43,14 +43,14 @@ Here is the set of messages with handlers currently implemented:
 | Command                | Status | Description                               |
 | ---------------------- | ------ | ----------------------------------------- |
 | DeclarePublisher       | ✅     | --                                        |
-| Publish                | ✅     |
-| PublishConfirm         | ✅     |
-| PublishError           | ✅     |
+| Publish                | ✅     | --                                        |
+| PublishConfirm         | ✅     | --                                        |
+| PublishError           | ✅     | --                                        |
 | QueryPublisherSequence | ✅     | --                                        |
 | DeletePublisher        | ✅     | --                                        |
-| Subscribe              | ✅     |
-| Deliver                | ⏳     |
-| Credit                 | ⏳     |
+| Subscribe              | ✅     | --                                        |
+| Deliver                | ✅     | --                                        |
+| Credit                 | ⏳     | --                                        |
 | StoreOffset            | ✅     | Stores a stream offset under given `name` |
 | QueryOffset            | ✅     | Retrieves a stored offset                 |
 | Unsubscribe            | ✅     |
