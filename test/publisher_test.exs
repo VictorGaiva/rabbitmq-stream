@@ -1,95 +1,107 @@
 defmodule RabbitMQStreamTest.Publisher do
-  use ExUnit.Case
-  alias RabbitMQStream.{Connection, Publisher}
+  use ExUnit.Case, async: false
 
-  defmodule SupervisorTest do
-    use Publisher,
-      stream_name: "stream-00"
+  alias RabbitMQStream.Connection
+
+  defmodule SupervisedConnection do
+    use RabbitMQStream.Connection
+  end
+
+  defmodule SupervisorPublisher do
+    use RabbitMQStream.Publisher,
+      stream_name: "stream-00",
+      connection: RabbitMQStreamTest.Publisher.SupervisedConnection
   end
 
   @stream "stream-01"
   @reference_name "reference-01"
   test "should declare itself and its stream" do
-    {:ok, conn} = Connection.start_link(host: "localhost", vhost: "/")
-    :ok = Connection.connect(conn)
+    {:ok, _} = SupervisedConnection.start_link(host: "localhost", vhost: "/")
+    :ok = SupervisedConnection.connect()
 
-    assert {:ok, publisher} =
-             Publisher.start_link(connection: conn, reference_name: @reference_name, stream_name: @stream)
+    assert {:ok, _} =
+             SupervisorPublisher.start_link(
+               reference_name: @reference_name,
+               stream_name: @stream
+             )
 
-    Connection.delete_stream(conn, @stream)
-    assert %{connection: ^conn} = Publisher.get_state(publisher)
+    SupervisedConnection.delete_stream(@stream)
   end
 
   @stream "stream-02"
   @reference_name "reference-02"
   test "should query its sequence when declaring" do
-    {:ok, conn} = Connection.start_link(host: "localhost", vhost: "/")
-    :ok = Connection.connect(conn)
+    {:ok, _} = SupervisedConnection.start_link(host: "localhost", vhost: "/")
+    :ok = SupervisedConnection.connect()
 
-    {:ok, publisher} = Publisher.start_link(connection: conn, reference_name: @reference_name, stream_name: @stream)
+    {:ok, _} =
+      SupervisorPublisher.start_link(
+        reference_name: @reference_name,
+        stream_name: @stream
+      )
 
-    Connection.delete_stream(conn, @stream)
-    assert %{sequence: 1} = Publisher.get_state(publisher)
+    SupervisedConnection.delete_stream(@stream)
+    assert %{sequence: 1} = SupervisorPublisher.get_state()
   end
 
   @stream "stream-03"
   @reference_name "reference-03"
   test "should publish a message" do
-    {:ok, conn} = Connection.start_link(host: "localhost", vhost: "/")
-    :ok = Connection.connect(conn)
+    {:ok, _} = SupervisedConnection.start_link(host: "localhost", vhost: "/")
+    :ok = SupervisedConnection.connect()
 
-    {:ok, publisher} = Publisher.start_link(connection: conn, reference_name: @reference_name, stream_name: @stream)
+    {:ok, _} =
+      SupervisorPublisher.start_link(
+        reference_name: @reference_name,
+        stream_name: @stream
+      )
 
-    %{sequence: sequence} = Publisher.get_state(publisher)
+    %{sequence: sequence} = SupervisorPublisher.get_state()
 
-    Publisher.publish(publisher, inspect(%{message: "Hello, world!"}))
-
-    sequence = sequence + 1
-
-    assert %{sequence: ^sequence} = Publisher.get_state(publisher)
-
-    Publisher.publish(publisher, inspect(%{message: "Hello, world2!"}))
+    SupervisorPublisher.publish(inspect(%{message: "Hello, world!"}))
 
     sequence = sequence + 1
 
-    assert %{sequence: ^sequence} = Publisher.get_state(publisher)
+    assert %{sequence: ^sequence} = SupervisorPublisher.get_state()
 
-    Connection.delete_stream(conn, @stream)
-    Connection.close(conn, @stream)
+    SupervisorPublisher.publish(inspect(%{message: "Hello, world2!"}))
+
+    sequence = sequence + 1
+
+    assert %{sequence: ^sequence} = SupervisorPublisher.get_state()
+
+    SupervisedConnection.delete_stream(@stream)
+    SupervisedConnection.close(@stream)
   end
 
   @stream "stream-04"
   @reference_name "reference-04"
   test "should keep track of sequence across startups" do
-    {:ok, conn} = Connection.start_link(host: "localhost", vhost: "/")
-    :ok = Connection.connect(conn)
+    {:ok, _} = SupervisedConnection.start_link(host: "localhost", vhost: "/")
+    :ok = SupervisedConnection.connect()
 
-    {:ok, publisher} = Publisher.start_link(connection: conn, reference_name: @reference_name, stream_name: @stream)
+    {:ok, _} =
+      SupervisorPublisher.start_link(
+        reference_name: @reference_name,
+        stream_name: @stream
+      )
 
-    Publisher.publish(publisher, inspect(%{message: "Hello, world!"}))
-    Publisher.publish(publisher, inspect(%{message: "Hello, world2!"}))
+    SupervisorPublisher.publish(inspect(%{message: "Hello, world!"}))
+    SupervisorPublisher.publish(inspect(%{message: "Hello, world2!"}))
 
-    %{sequence: sequence} = Publisher.get_state(publisher)
+    %{sequence: sequence} = SupervisorPublisher.get_state()
 
-    assert :ok = Publisher.stop(publisher)
+    assert :ok = SupervisorPublisher.stop()
 
-    {:ok, publisher} = Publisher.start_link(connection: conn, reference_name: @reference_name, stream_name: @stream)
+    {:ok, _} =
+      SupervisorPublisher.start_link(
+        reference_name: @reference_name,
+        stream_name: @stream
+      )
 
-    assert %{sequence: ^sequence} = Publisher.get_state(publisher)
+    assert %{sequence: ^sequence} = SupervisorPublisher.get_state()
 
-    Connection.delete_stream(conn, @stream)
-    Connection.close(conn, @stream)
-  end
-
-  test "should start itself and publish a message" do
-    {:ok, _supervised} = SupervisorTest.start_link(host: "localhost", vhost: "/")
-
-    %{sequence: sequence} = SupervisorTest.get_publisher_state()
-
-    assert :ok = SupervisorTest.publish("Hello, world!")
-
-    sequence = sequence + 1
-
-    assert %{sequence: ^sequence} = SupervisorTest.get_publisher_state()
+    SupervisedConnection.delete_stream(@stream)
+    SupervisedConnection.close(@stream)
   end
 end

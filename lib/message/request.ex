@@ -13,7 +13,7 @@ defmodule RabbitMQStream.Message.Request do
         %{
           "product" => "RabbitMQ Stream Client",
           "information" => "Development",
-          "version" => "0.0.1",
+          "version" => "0.1.0",
           "platform" => "Elixir"
         }
       }
