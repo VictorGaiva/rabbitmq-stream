@@ -54,7 +54,6 @@ defmodule RabbitMQStream.Connection.Handler do
     conn
   end
 
-  # wtf is this '_code?'
   def handle_message({:metadata_update, stream_name, _code?}, conn) do
     conn
     |> send_request(:query_metadata, streams: [stream_name])

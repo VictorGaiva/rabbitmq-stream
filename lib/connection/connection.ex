@@ -37,6 +37,13 @@ defmodule RabbitMQStream.Connection do
   * `heartbeat` - The heartbeat interval in seconds. Defaults to `60`.
   * `lazy` - If `true`, the connection won't starting until explicitly calling `connect/1`. Defaults to `false`.
 
+
+  ## Subscribing to messages
+  You can subscribe to messages by calling `subscribe/5`:
+
+      {:ok, _subscription_id} = MyApp.MyConnection.subscribe("stream-01", self(), :next, 999)
+
+
   """
 
   defmacro __using__(opts) do

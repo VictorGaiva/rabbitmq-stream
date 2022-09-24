@@ -13,39 +13,38 @@ def deps do
 end
 ```
 
-After running `mix deps.get`, you add a `RabbitMQStream.Connection` to your supervision tree with:
+## Subscribing to stream
+
+First you define a connection
 
 ```elixir
-defmodule MyApp.Application do
-  use Application
-
-  def start(_type, _args) do
-    children = [
-      {RabbitMQStream.Connection, username: "guest", password: "guest", host: "localhost", vhost: "/"}},
-      # ...
-    ]
-
-    opts = # ...
-    Supervisor.start_link(children, opts)
-  end
+defmodule MyApp.MyConnection
+  use RabbitMQStream.Connection
 end
 ```
 
-## Publishing messages
-
-You can create a standalone Publisher for a static stream.
+Then you can subscribe to messages from a stream:
 
 ```elixir
-defmodule MyApp.MyPublisher do
+{:ok, _subscription_id} = MyApp.MyConnection.subscribe("stream-01", self(), :next, 999)
+```
+
+## Publishing to stream
+
+RabbitMQ Streams protocol needs a static `:reference_name` per publisher. This is used to prevent message duplication. For this reason, each stream needs, for now, a static module to publish messages, which keeps track of its own `publishing_id`.
+
+You can define a `Publihser` module like this:
+
+```elixir
+defmodule MyApp.MyPublisher
   use RabbitMQStream.Publisher,
-    stream_name: "my-stream"
+    stream: "stream-01",
+    connection: MyApp.MyConnection
 end
 ```
 
-You can now publish messages to the stream with
+Then you can publish messages to the stream:
 
 ```elixir
-MyApp.MyPublisher.publish("Hello, world!")
+MyApp.MyPublisher.publish("Hello World")
 ```
-
-## Subscribing

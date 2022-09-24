@@ -37,7 +37,6 @@ defmodule RabbitMQStream.Publisher do
   * `reference_name` - The string which is used by the server to prevent [Duplicate Message](https://blog.rabbitmq.com/posts/2021/07/rabbitmq-streams-message-deduplication/). Defaults to `__MODULE__.Publisher`.
   * `connection` - The identifier for a `RabbitMQStream.Connection`.
 
-
   """
 
   defmacro __using__(opts) do
