@@ -4,123 +4,125 @@ defmodule RabbitMQStream.Publisher do
 
   ## Defining a publisher Module
 
-  A publisher module can be defined in your applcation as follows:
+  A standalone publisher module can be defined with:
 
       defmodule MyApp.MyPublisher do
         use RabbitMQStream.Publisher,
-          stream_name: "my-stream"
+          stream_name: "my-stream",
+          connection: MyApp.MyConnection
       end
 
-  This defined a `Supervisor` process which controls a `RabbitMQStream.Publisher` and a `RabbitMQStream.Connection`.
+  After adding it to your supervision tree, you can publish messages with:
 
-  You can add it to the supervision tree of your application as follows:
+      MyApp.MyPublisher.publish("Hello, world!")
 
-      defmodule MyApp do
-        use Application
+  You can add the publisher to your supervision tree as follows this:
 
-        def start(_, _) do
-          children = [
-            # ...
-            MyApp.MyPublisher
-          ]
+      def start(_, _) do
+        children = [
+          # ...
+          MyApp.MyPublisher
+        ]
 
-          opts = [strategy: :one_for_one, name: MyApp.Supervisor]
-          Supervisor.start_link(children, opts)
-        end
+        opts = # ...
+        Supervisor.start_link(children, opts)
       end
 
+  The standalone publisher starts its own `RabbitMQStream.Connection`, declaring itself and fetching its most recent `publishing_id`, and declaring the stream, if it does not exist.
 
-  When a publisher module starts, it creates a `RabbitMQStream.Connection`, and starts its connection with the RabbitMQ server.
-  It then declares the Publisher under the specified `stream_name`, fetching the most recent `publishing_id`. It also creates the
-  stream in the RabbitMQ server if it doesn't exist.
+  ## Configuration
+  The RabbitMQStream.Publisher accepts the following options:
 
-  ## Dynamically starting publishers
-
-  If you want to share a single `RabbitMQStream.Connection` with multiple publishers, you should start the `RabbitMQStream.Publisher` as a
-  GenServer process, passsing the `connection` option. You can attach it to your supervision tree.
-
-      defmodule MyApp do
-        use Supervisor
-
-        def init(_) do
-          children = [
-            {RabbitMQStream.Connection,
-            [
-              host: "localhost",
-              username: "guest",
-              password: "guest",
-              vhost: "/"
-              name: __MODULE__.Connection,
-            ]},
-            {RabbitMQStream.Publisher,
-            [
-              connection: __MODULE__.Connection,
-              reference_name: "MyEmailsPublisher",
-              stream_name: "my-emails",
-              name: MyApp.MyEmailsPublisher
-            ]},
-            {RabbitMQStream.Publisher,
-            [
-              connection: __MODULE__.Connection,
-              reference_name: "MyMessagesPublisher",
-              stream_name: "my-messages",
-              name: MyApp.MyMessagesPublisher
-            ]}
-            # ...
-          ]
-
-          Supervisor.init(children, strategy: :one_for_all)
-        end
-      end
-
-
-  The API will be heavily imporoved in future versions.
+  * `stream_name` - The name of the stream to publish to. Required.
+  * `reference_name` - The string which is used by the server to prevent [Duplicate Message](https://blog.rabbitmq.com/posts/2021/07/rabbitmq-streams-message-deduplication/). Defaults to `__MODULE__.Publisher`.
+  * `connection` - The identifier for a `RabbitMQStream.Connection`.
 
   """
 
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts] do
-      use Supervisor
-      @stream_name Keyword.get(opts, :stream_name) || raise("Stream Name is required")
-      @connection Keyword.get(opts, :connection) || []
-      @reference_name Keyword.get(opts, :reference_name) || __MODULE__.Publisher |> Atom.to_string()
+      use GenServer
+      @opts opts
 
-      def start_link(init_arg) do
-        Supervisor.start_link(__MODULE__, init_arg, name: __MODULE__)
+      def start_link(args \\ []) do
+        args = Keyword.merge(@opts, args)
+        GenServer.start_link(__MODULE__, args, name: __MODULE__)
+      end
+
+      def publish(message, sequence \\ nil) when is_binary(message) do
+        GenServer.cast(__MODULE__, {:publish, message, sequence})
+      end
+
+      def stop() do
+        GenServer.stop(__MODULE__)
+      end
+
+      ## Callbacks
+      @impl true
+      def init(opts \\ []) do
+        reference_name = Keyword.get(opts, :reference_name, __MODULE__)
+        connection = Keyword.get(opts, :connection) || raise(":connection is required")
+        stream_name = Keyword.get(opts, :stream_name) || raise(":stream_name is required")
+
+        with :ok <- connection.connect(),
+             {:ok, id} <- connection.declare_publisher(stream_name, reference_name),
+             {:ok, sequence} <- connection.query_publisher_sequence(stream_name, reference_name) do
+          state = %RabbitMQStream.Publisher{
+            id: id,
+            stream_name: stream_name,
+            connection: connection,
+            reference_name: reference_name,
+            sequence: sequence + 1
+          }
+
+          {:ok, state}
+        else
+          {:error, :stream_does_not_exist} ->
+            with :ok <- connection.create_stream(stream_name),
+                 {:ok, id} <- connection.declare_publisher(stream_name, reference_name),
+                 {:ok, sequence} <- connection.query_publisher_sequence(stream_name, reference_name) do
+              state = %RabbitMQStream.Publisher{
+                id: id,
+                stream_name: stream_name,
+                connection: connection,
+                reference_name: reference_name,
+                sequence: sequence + 1
+              }
+
+              {:ok, state}
+            end
+        end
       end
 
       @impl true
-      def init(_) do
-        children = [
-          {RabbitMQStream.Connection, @connection ++ [name: __MODULE__.Connection]},
-          {RabbitMQStream.Publisher,
-           [
-             connection: __MODULE__.Connection,
-             reference_name: @reference_name,
-             stream_name: @stream_name,
-             name: __MODULE__.Publisher
-           ]}
-        ]
-
-        Supervisor.init(children, strategy: :one_for_all)
+      def handle_call({:get_state}, _from, state) do
+        {:reply, state, state}
       end
 
-      def publish(message, opts \\ nil) do
-        RabbitMQStream.Publisher.publish(__MODULE__.Publisher, message, opts)
+      @impl true
+      def handle_cast({:publish, message, nil}, %RabbitMQStream.Publisher{} = publisher) do
+        with :ok <- publisher.connection.connect() do
+          publisher.connection.publish(publisher.id, publisher.sequence, message)
+
+          {:noreply, %{publisher | sequence: publisher.sequence + 1}}
+        else
+          _ -> {:reply, {:error, :closed}, publisher}
+        end
+      end
+
+      @impl true
+      def terminate(_reason, state) do
+        state.connection.delete_publisher(state.id)
+        :ok
       end
 
       if Mix.env() == :test do
-        def get_publisher_state() do
-          RabbitMQStream.Publisher.get_state(__MODULE__.Publisher)
+        def get_state() do
+          GenServer.call(__MODULE__, {:get_state})
         end
       end
     end
   end
-
-  use GenServer
-
-  alias RabbitMQStream.Connection
-  alias __MODULE__
 
   defstruct [
     :publishing_id,
@@ -130,81 +132,4 @@ defmodule RabbitMQStream.Publisher do
     :sequence,
     :id
   ]
-
-  def publish(pid, message, sequence \\ nil) when is_binary(message) do
-    GenServer.cast(pid, {:publish, message, sequence})
-  end
-
-  def stop(pid) do
-    GenServer.stop(pid)
-  end
-
-  def start_link(args) do
-    GenServer.start_link(__MODULE__, args, name: args[:name])
-  end
-
-  ## Callbacks
-  @impl true
-  def init(opts) do
-    reference_name = opts[:reference_name]
-    connection = opts[:connection]
-    stream_name = opts[:stream_name]
-
-    with :ok <- Connection.connect(connection),
-         {:ok, id} <- Connection.declare_publisher(connection, stream_name, reference_name),
-         {:ok, sequence} <- Connection.query_publisher_sequence(connection, stream_name, reference_name) do
-      state = %Publisher{
-        id: id,
-        stream_name: stream_name,
-        connection: connection,
-        reference_name: reference_name,
-        sequence: sequence + 1
-      }
-
-      {:ok, state}
-    else
-      {:error, :stream_does_not_exist} ->
-        with :ok <- Connection.create_stream(connection, stream_name),
-             {:ok, id} <- Connection.declare_publisher(connection, stream_name, reference_name),
-             {:ok, sequence} <- Connection.query_publisher_sequence(connection, stream_name, reference_name) do
-          state = %Publisher{
-            id: id,
-            stream_name: stream_name,
-            connection: connection,
-            reference_name: reference_name,
-            sequence: sequence + 1
-          }
-
-          {:ok, state}
-        end
-    end
-  end
-
-  @impl true
-  def handle_call({:get_state}, _from, state) do
-    {:reply, state, state}
-  end
-
-  @impl true
-  def handle_cast({:publish, message, nil}, %Publisher{} = publisher) do
-    with :ok <- Connection.connect(publisher.connection) do
-      Connection.publish(publisher.connection, publisher.id, publisher.sequence, message)
-
-      {:noreply, %{publisher | sequence: publisher.sequence + 1}}
-    else
-      _ -> {:reply, {:error, :closed}, publisher}
-    end
-  end
-
-  @impl true
-  def terminate(_reason, state) do
-    Connection.delete_publisher(state.connection, state.id)
-    :ok
-  end
-
-  if Mix.env() == :test do
-    def get_state(pid) do
-      GenServer.call(pid, {:get_state})
-    end
-  end
 end

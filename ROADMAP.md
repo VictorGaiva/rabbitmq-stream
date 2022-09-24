@@ -2,18 +2,6 @@
 
 The target dates might change depending on the feedback and contributions.
 
-## v0.1.0
-
-Target Date: Early July 2022
-
-An initial implementation for basic usage, and to start collecting feedback from developers.
-
-- Implementation for handlers for all
-- Implementation of Publisher and Subscribers, and basic usage guides.
-- Documentation of Overview, Roadmap and Guides.
-- Hex release.
-- License.
-
 ## v0.2.0
 
 Target Date: Late August - Early September 2022

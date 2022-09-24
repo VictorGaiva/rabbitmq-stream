@@ -1,4 +1,4 @@
-# RabbitMQStream - WIP
+# RabbitMQStream - (Work In Progress)
 
 [![Version](https://img.shields.io/hexpm/v/rabbitmq_stream.svg)](https://hex.pm/packages/rabbitmq_stream)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/rabbitmq_stream/)
@@ -9,21 +9,53 @@ Elixir Client for [RabbitMQ Streams Protocol](https://www.rabbitmq.com/streams.h
 
 ## Usage
 
-### RabbitMQStream.Publisher
+### Subscribing to stream
 
-A publisher module can be defined like this:
+First you define a connection
 
 ```elixir
-defmodule MyApp.MyPublisher do
-  use RabbitMQStream.Publisher,
-    stream_name: "my-stream"
+defmodule MyApp.MyConnection
+  use RabbitMQStream.Connection
 end
 ```
 
-After adding it to your supervision tree, you can publish messages with:
+Then you can subscribe to messages from a stream:
 
 ```elixir
-MyApp.MyPublisher.publish("Hello, world!")
+{:ok, _subscription_id} = MyApp.MyConnection.subscribe("stream-01", self(), :next, 999)
+```
+
+### Publishing to stream
+
+RabbitMQ Streams protocol needs a static `:reference_name` per publisher. This is used to prevent message duplication. For this reason, each stream needs, for now, a static module to publish messages, which keeps track of its own `publishing_id`.
+
+You can define a `Publihser` module like this:
+
+```elixir
+defmodule MyApp.MyPublisher
+  use RabbitMQStream.Publisher,
+    stream: "stream-01",
+    connection: MyApp.MyConnection
+end
+```
+
+Then you can publish messages to the stream:
+
+```elixir
+MyApp.MyPublisher.publish("Hello World")
+```
+
+## Installation
+
+The package can be installed by adding `rabbitmq_stream` to your list of dependencies in `mix.exs`:
+
+```elixir
+def deps do
+  [
+    {:rabbitmq_stream, "~> 0.1.0"},
+    # ...
+  ]
+end
 ```
 
 For more information, check the [documentation](https://hexdocs.pm/rabbitmq_stream/).
@@ -33,39 +65,3 @@ You can also check the roadmap [here](/ROADMAP.md)
 ## Status
 
 The current aim is to fully document the already implemented features, which are the `RabbitMQStream.Connection`, `RabbitMQStream.Publisher` and `RabbitMQStream.SupervisedPublisher`. Then the next step will be to implement the `RabbitMQStream.Subscriber` and `RabbitMQStream` Integerated Client.
-
-## Progress
-
-This implementation is following the protocol defined in the RabbitMQ's repository, seen [here](https://github.com/rabbitmq/rabbitmq-server/blob/master/deps/rabbitmq_stream/docs/PROTOCOL.adoc).
-
-Here is the set of messages with handlers currently implemented:
-
-| Command                | Status | Description                               |
-| ---------------------- | ------ | ----------------------------------------- |
-| DeclarePublisher       | ✅     | --                                        |
-| Publish                | ✅     |
-| PublishConfirm         | ✅     |
-| PublishError           | ✅     |
-| QueryPublisherSequence | ✅     | --                                        |
-| DeletePublisher        | ✅     | --                                        |
-| Subscribe              | ✅     |
-| Deliver                | ⏳     |
-| Credit                 | ⏳     |
-| StoreOffset            | ✅     | Stores a stream offset under given `name` |
-| QueryOffset            | ✅     | Retrieves a stored offset                 |
-| Unsubscribe            | ✅     |
-| Create                 | ✅     | Create a Stream                           |
-| Delete                 | ✅     | Delete a Stream                           |
-| Metadata               | ✅     | --                                        |
-| MetadataUpdate         | ✅     | --                                        |
-| PeerProperties         | ✅     | --                                        |
-| SaslHandshake          | ✅     | --                                        |
-| SaslAuthenticate       | ✅     | --                                        |
-| Tune                   | ✅     | --                                        |
-| Open                   | ✅     | --                                        |
-| Close                  | ✅     | --                                        |
-| Heartbeat              | ✅     | --                                        |
-
-## Future Plans
-
-- Broadway Producer implementation using this client.

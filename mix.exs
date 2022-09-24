@@ -2,7 +2,7 @@ defmodule RabbitMQStream.MixProject do
   use Mix.Project
 
   @source_url "https://github.com/VictorGaiva/rabbitmq-stream"
-  @version "0.0.3"
+  @version "0.1.0"
 
   def project do
     [
@@ -15,7 +15,7 @@ defmodule RabbitMQStream.MixProject do
       deps: deps(),
       docs: [
         source_ref: "v#{@version}",
-        main: "overview",
+        main: "getting-started",
         extra_section: "GUIDES",
         assets: "guides/assets",
         formatters: ["html", "epub"],
@@ -36,7 +36,8 @@ defmodule RabbitMQStream.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:ex_doc, "~> 0.28.4", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.28.4", only: :dev, runtime: false},
+      {:rabbitmq_stream_common, github: "rabbitmq/rabbitmq-server", subdir: "deps/rabbitmq_stream_common"}
     ]
   end
 
@@ -63,8 +64,7 @@ defmodule RabbitMQStream.MixProject do
 
   defp extras do
     [
-      "guides/introduction/overview.md",
-      "guides/introduction/installation.md",
+      "guides/introduction/getting-started.md",
       "guides/tutorial/publishing.md",
       "guides/tutorial/connection.md",
       "CHANGELOG.md"
@@ -86,13 +86,8 @@ defmodule RabbitMQStream.MixProject do
 
     [
       Client: [
-        RabbitMQStream,
         RabbitMQStream.Connection,
-        RabbitMQStream.Publisher,
-        RabbitMQStream.SupervisedPublisher
-      ],
-      Internal: [
-        RabbitMQStream.Message
+        RabbitMQStream.Publisher
       ]
     ]
   end
