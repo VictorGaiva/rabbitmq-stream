@@ -8,7 +8,8 @@ defmodule RabbitMQStream.Publisher do
 
       defmodule MyApp.MyPublisher do
         use RabbitMQStream.Publisher,
-          stream_name: "my-stream"
+          stream_name: "my-stream",
+          connection: MyApp.MyConnection
       end
 
   After adding it to your supervision tree, you can publish messages with:
@@ -32,55 +33,10 @@ defmodule RabbitMQStream.Publisher do
   ## Configuration
   The RabbitMQStream.Publisher accepts the following options:
 
-  - `stream_name` - The name of the stream to publish to. Required.
-  - `reference_name` - The string which is used by the server to prevent [Duplicate Message](https://blog.rabbitmq.com/posts/2021/07/rabbitmq-streams-message-deduplication/). Defaults to `__MODULE__.Publisher`.
-  - `connection` - Can be either:
-      - `GenServer.server()` - The identifier for a `RabbitMQStream.Connection`.
-      - `RabbitMQStream.Connection.connection_options()` - The options that are forwarded to `RabbitMQStream.Connection.start_link/1`.
+  * `stream_name` - The name of the stream to publish to. Required.
+  * `reference_name` - The string which is used by the server to prevent [Duplicate Message](https://blog.rabbitmq.com/posts/2021/07/rabbitmq-streams-message-deduplication/). Defaults to `__MODULE__.Publisher`.
+  * `connection` - The identifier for a `RabbitMQStream.Connection`.
 
-      Defaults to `[]`, and `name` is overwritten as `__MODULE__.Connection`.
-
-
-  ## Dynamically starting publishers
-
-  For now, if you want to share a single `RabbitMQStream.Connection` with multiple publishers, you can add `RabbitMQStream.Publisher` directly to your supervision tree, adding the `connection` option as follows.
-
-      defmodule MyApp do
-        use Supervisor
-
-        def init(_) do
-          children = [
-            {RabbitMQStream.Connection,
-            [
-              host: "localhost",
-              username: "guest",
-              password: "guest",
-              vhost: "/"
-              name: __MODULE__.Connection,
-            ]},
-            {RabbitMQStream.Publisher,
-            [
-              connection: __MODULE__.Connection,
-              reference_name: "MyEmailsPublisher",
-              stream_name: "my-emails",
-              name: MyApp.MyEmailsPublisher
-            ]},
-            {RabbitMQStream.Publisher,
-            [
-              connection: __MODULE__.Connection,
-              reference_name: "MyMessagesPublisher",
-              stream_name: "my-messages",
-              name: MyApp.MyMessagesPublisher
-            ]}
-            # ...
-          ]
-
-          Supervisor.init(children, strategy: :one_for_all)
-        end
-      end
-
-
-  The API will be heavily imporoved in future versions.
 
   """
 

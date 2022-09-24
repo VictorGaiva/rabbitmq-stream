@@ -5,9 +5,18 @@ defmodule RabbitMQStream.Connection do
 
   ## Adding a connectiong to the supervision tree
 
+  You can define a connection with:
+
+      defmodule MyApp.MyConnection
+        use RabbitMQStream.Connection
+      end
+
+
+  Then you can add it to your supervision tree:
+
       def start(_, _) do
         children = [
-          {RabbitMQStream.Connection, username: "guest", password: "guest", host: "localhost", vhost: "/"}},
+          {MyApp.MyConnection, username: "guest", password: "guest", host: "localhost", vhost: "/"}},
           # ...
         ]
 
@@ -19,109 +28,16 @@ defmodule RabbitMQStream.Connection do
   ## Connection configuration
   The connection accept the following options:
 
-  - `username` - The username to use for authentication. Defaults to `guest`.
-  - `password` - The password to use for authentication. Defaults to `guest`.
-  - `host` - The host to connect to. Defaults to `localhost`.
-  - `port` - The port to connect to. Defaults to `5552`.
-  - `vhost` - The virtual host to use. Defaults to `/`.
-  - `frame_max` - The maximum frame size in Bytes. Defaults to `1_048_576`.
-  - `heartbeat` - The heartbeat interval in seconds. Defaults to `60`.
-  - `lazy` - If `true`, the connection won't starting until explicitly calling `connect/1`. Defaults to `false`.
+  * `username` - The username to use for authentication. Defaults to `guest`.
+  * `password` - The password to use for authentication. Defaults to `guest`.
+  * `host` - The host to connect to. Defaults to `localhost`.
+  * `port` - The port to connect to. Defaults to `5552`.
+  * `vhost` - The virtual host to use. Defaults to `/`.
+  * `frame_max` - The maximum frame size in Bytes. Defaults to `1_048_576`.
+  * `heartbeat` - The heartbeat interval in seconds. Defaults to `60`.
+  * `lazy` - If `true`, the connection won't starting until explicitly calling `connect/1`. Defaults to `false`.
 
   """
-
-  @type offset :: :first | :last | :next | {:offset, non_neg_integer()} | {:timestamp, integer()}
-  @type connection_options :: [connection_option]
-  @type connection_option ::
-          {:username, String.t()}
-          | {:password, String.t()}
-          | {:host, String.t()}
-          | {:port, non_neg_integer()}
-          | {:vhost, String.t()}
-          | {:frame_max, non_neg_integer()}
-          | {:heartbeat, non_neg_integer()}
-          | {:lazy, boolean()}
-
-  @type t() :: %RabbitMQStream.Connection{
-          options: connection_options,
-          socket: :gen_tcp.socket(),
-          version: 1,
-          state: :closed | :connecting | :open | :closing,
-          correlation_sequence: integer(),
-          publisher_sequence: non_neg_integer(),
-          subscriber_sequence: non_neg_integer(),
-          peer_properties: [[String.t()]],
-          connection_properties: %{String.t() => String.t() | integer()},
-          mechanisms: [String.t()],
-          connect_requests: [pid()],
-          request_tracker: %{{atom(), integer()} => {pid(), any()}},
-          brokers: %{integer() => BrokerData.t()},
-          streams: %{String.t() => StreamData.t()},
-          subscriptions: %{non_neg_integer() => pid()},
-          buffer: :rabbit_stream_core.state()
-        }
-
-  @callback start_link([connection_option | {:name, atom()}]) :: :ignore | {:error, any} | {:ok, pid}
-
-  @callback connect() :: :ok | {:error, reason :: atom()}
-
-  @callback close(reason :: String.t(), code :: integer()) ::
-              :ok | {:error, reason :: atom()}
-
-  @callback create_stream(String.t(), keyword(String.t())) ::
-              :ok | {:error, reason :: atom()}
-
-  @callback delete_stream(String.t()) :: :ok | {:error, reason :: atom()}
-
-  @callback store_offset(String.t(), String.t(), integer()) :: :ok
-
-  @callback query_offset(String.t(), String.t()) ::
-              {:ok, offset :: integer()} | {:error, reason :: atom()}
-
-  @callback declare_publisher(String.t(), String.t()) ::
-              {:ok, publisher_id :: integer()} | {:error, any()}
-
-  @callback delete_publisher(publisher_id :: integer()) ::
-              :ok | {:error, reason :: atom()}
-
-  @callback query_metadata([String.t(), ...]) ::
-              {:ok, metadata :: %{brokers: any(), streams: any()}}
-              | {:error, reason :: atom()}
-
-  @callback query_publisher_sequence(String.t(), String.t()) ::
-              {:ok, sequence :: integer()} | {:error, reason :: atom()}
-
-  @callback publish(integer(), integer(), binary()) :: :ok
-
-  @callback subscribe(
-              stream_name :: String.t(),
-              pid :: pid(),
-              offset :: offset(),
-              credit :: non_neg_integer(),
-              properties :: %{String.t() => String.t()}
-            ) :: {:ok, subscription_id :: non_neg_integer()} | {:error, reason :: atom()}
-
-  @callback unsubscribe(subscription_id :: non_neg_integer()) ::
-              :ok | {:error, reason :: atom()}
-
-  defstruct [
-    :socket,
-    options: [],
-    version: 1,
-    correlation_sequence: 1,
-    publisher_sequence: 1,
-    subscriber_sequence: 1,
-    subscriptions: %{},
-    state: :closed,
-    peer_properties: [],
-    connection_properties: [],
-    mechanisms: [],
-    connect_requests: [],
-    request_tracker: %{},
-    brokers: %{},
-    streams: %{},
-    buffer: :rabbit_stream_core.init("")
-  ]
 
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts] do
@@ -253,4 +169,97 @@ defmodule RabbitMQStream.Connection do
       end
     end
   end
+
+  @type offset :: :first | :last | :next | {:offset, non_neg_integer()} | {:timestamp, integer()}
+  @type connection_options :: [connection_option]
+  @type connection_option ::
+          {:username, String.t()}
+          | {:password, String.t()}
+          | {:host, String.t()}
+          | {:port, non_neg_integer()}
+          | {:vhost, String.t()}
+          | {:frame_max, non_neg_integer()}
+          | {:heartbeat, non_neg_integer()}
+          | {:lazy, boolean()}
+
+  @type t() :: %RabbitMQStream.Connection{
+          options: connection_options,
+          socket: :gen_tcp.socket(),
+          version: 1,
+          state: :closed | :connecting | :open | :closing,
+          correlation_sequence: integer(),
+          publisher_sequence: non_neg_integer(),
+          subscriber_sequence: non_neg_integer(),
+          peer_properties: [[String.t()]],
+          connection_properties: %{String.t() => String.t() | integer()},
+          mechanisms: [String.t()],
+          connect_requests: [pid()],
+          request_tracker: %{{atom(), integer()} => {pid(), any()}},
+          brokers: %{integer() => BrokerData.t()},
+          streams: %{String.t() => StreamData.t()},
+          subscriptions: %{non_neg_integer() => pid()},
+          buffer: :rabbit_stream_core.state()
+        }
+
+  @callback start_link([connection_option | {:name, atom()}]) :: :ignore | {:error, any} | {:ok, pid}
+
+  @callback connect() :: :ok | {:error, reason :: atom()}
+
+  @callback close(reason :: String.t(), code :: integer()) ::
+              :ok | {:error, reason :: atom()}
+
+  @callback create_stream(String.t(), keyword(String.t())) ::
+              :ok | {:error, reason :: atom()}
+
+  @callback delete_stream(String.t()) :: :ok | {:error, reason :: atom()}
+
+  @callback store_offset(String.t(), String.t(), integer()) :: :ok
+
+  @callback query_offset(String.t(), String.t()) ::
+              {:ok, offset :: integer()} | {:error, reason :: atom()}
+
+  @callback declare_publisher(String.t(), String.t()) ::
+              {:ok, publisher_id :: integer()} | {:error, any()}
+
+  @callback delete_publisher(publisher_id :: integer()) ::
+              :ok | {:error, reason :: atom()}
+
+  @callback query_metadata([String.t(), ...]) ::
+              {:ok, metadata :: %{brokers: any(), streams: any()}}
+              | {:error, reason :: atom()}
+
+  @callback query_publisher_sequence(String.t(), String.t()) ::
+              {:ok, sequence :: integer()} | {:error, reason :: atom()}
+
+  @callback publish(integer(), integer(), binary()) :: :ok
+
+  @callback subscribe(
+              stream_name :: String.t(),
+              pid :: pid(),
+              offset :: offset(),
+              credit :: non_neg_integer(),
+              properties :: %{String.t() => String.t()}
+            ) :: {:ok, subscription_id :: non_neg_integer()} | {:error, reason :: atom()}
+
+  @callback unsubscribe(subscription_id :: non_neg_integer()) ::
+              :ok | {:error, reason :: atom()}
+
+  defstruct [
+    :socket,
+    options: [],
+    version: 1,
+    correlation_sequence: 1,
+    publisher_sequence: 1,
+    subscriber_sequence: 1,
+    subscriptions: %{},
+    state: :closed,
+    peer_properties: [],
+    connection_properties: [],
+    mechanisms: [],
+    connect_requests: [],
+    request_tracker: %{},
+    brokers: %{},
+    streams: %{},
+    buffer: :rabbit_stream_core.init("")
+  ]
 end

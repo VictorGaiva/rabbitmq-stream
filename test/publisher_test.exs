@@ -13,12 +13,16 @@ defmodule RabbitMQStreamTest.Publisher do
       connection: RabbitMQStreamTest.Publisher.SupervisedConnection
   end
 
+  setup do
+    {:ok, _conn} = SupervisedConnection.start_link(host: "localhost", vhost: "/")
+    :ok = SupervisedConnection.connect()
+
+    :ok
+  end
+
   @stream "stream-01"
   @reference_name "reference-01"
   test "should declare itself and its stream" do
-    {:ok, _} = SupervisedConnection.start_link(host: "localhost", vhost: "/")
-    :ok = SupervisedConnection.connect()
-
     assert {:ok, _} =
              SupervisorPublisher.start_link(
                reference_name: @reference_name,
@@ -31,9 +35,6 @@ defmodule RabbitMQStreamTest.Publisher do
   @stream "stream-02"
   @reference_name "reference-02"
   test "should query its sequence when declaring" do
-    {:ok, _} = SupervisedConnection.start_link(host: "localhost", vhost: "/")
-    :ok = SupervisedConnection.connect()
-
     {:ok, _} =
       SupervisorPublisher.start_link(
         reference_name: @reference_name,
@@ -47,9 +48,6 @@ defmodule RabbitMQStreamTest.Publisher do
   @stream "stream-03"
   @reference_name "reference-03"
   test "should publish a message" do
-    {:ok, _} = SupervisedConnection.start_link(host: "localhost", vhost: "/")
-    :ok = SupervisedConnection.connect()
-
     {:ok, _} =
       SupervisorPublisher.start_link(
         reference_name: @reference_name,
@@ -71,15 +69,11 @@ defmodule RabbitMQStreamTest.Publisher do
     assert %{sequence: ^sequence} = SupervisorPublisher.get_state()
 
     SupervisedConnection.delete_stream(@stream)
-    SupervisedConnection.close(@stream)
   end
 
   @stream "stream-04"
   @reference_name "reference-04"
   test "should keep track of sequence across startups" do
-    {:ok, _} = SupervisedConnection.start_link(host: "localhost", vhost: "/")
-    :ok = SupervisedConnection.connect()
-
     {:ok, _} =
       SupervisorPublisher.start_link(
         reference_name: @reference_name,
@@ -102,6 +96,5 @@ defmodule RabbitMQStreamTest.Publisher do
     assert %{sequence: ^sequence} = SupervisorPublisher.get_state()
 
     SupervisedConnection.delete_stream(@stream)
-    SupervisedConnection.close(@stream)
   end
 end
