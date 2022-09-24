@@ -33,7 +33,7 @@ Then you can subscribe to messages from a stream:
 
 RabbitMQ Streams protocol needs a static `:reference_name` per publisher. This is used to prevent message duplication. For this reason, each stream needs, for now, a static module to publish messages, which keeps track of its own `publishing_id`.
 
-You can define a `Publihser` module like this:
+You can define a `Publisher` module like this:
 
 ```elixir
 defmodule MyApp.MyPublisher
