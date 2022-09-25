@@ -37,7 +37,7 @@ defmodule RabbitMQStream.MixProject do
   defp deps do
     [
       {:ex_doc, "~> 0.28.4", only: :dev, runtime: false},
-      {:rabbitmq_stream_common, github: "rabbitmq/rabbitmq-server", subdir: "deps/rabbitmq_stream_common"}
+      {:rabbitmq_stream_common, path: "./rabbitmq-server/deps/rabbitmq_stream_common"}
     ]
   end
 
