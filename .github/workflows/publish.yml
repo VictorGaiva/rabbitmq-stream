@@ -17,6 +17,8 @@ jobs:
           otp-version: "24"
           elixir-version: "1.13"
       - uses: actions/checkout@v2
+        with:
+          submodules: 'rabbitmq-server'
 
       - name: Install Dependencies
         run: |
