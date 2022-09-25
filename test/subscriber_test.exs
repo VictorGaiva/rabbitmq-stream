@@ -1,5 +1,5 @@
 defmodule RabbitMQStreamTest.Subscriber do
-  use ExUnit.Case
+  use ExUnit.Case, async: false
   alias RabbitMQStream.Helpers.OsirisChunk
 
   defmodule SupervisedConnection do

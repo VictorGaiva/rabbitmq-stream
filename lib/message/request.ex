@@ -12,7 +12,7 @@ defmodule RabbitMQStream.Message.Request do
         :peer_properties,
         %{
           "product" => "RabbitMQ Stream Client",
-          "information" => "Development",
+          "information" => "Elixir Client",
           "version" => "0.1.0",
           "platform" => "Elixir"
         }

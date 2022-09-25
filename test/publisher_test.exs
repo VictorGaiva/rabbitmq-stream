@@ -32,8 +32,8 @@ defmodule RabbitMQStreamTest.Publisher do
     SupervisedConnection.delete_stream(@stream)
   end
 
-  @stream "stream-02"
-  @reference_name "reference-02"
+  @stream "stream-03"
+  @reference_name "reference-03"
   test "should query its sequence when declaring" do
     {:ok, _} =
       SupervisorPublisher.start_link(

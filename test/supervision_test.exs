@@ -1,5 +1,5 @@
 defmodule RabbitMQStreamTest.Supervision do
-  use ExUnit.Case
+  use ExUnit.Case, async: false
 
   defmodule SupervisedConnection do
     use RabbitMQStream.Connection
@@ -17,8 +17,8 @@ defmodule RabbitMQStreamTest.Supervision do
       Supervisor.start_link(__MODULE__, :ok, name: __MODULE__)
     end
 
-    @stream "stream-02"
-    @reference_name "reference-02"
+    @stream "stream-08"
+    @reference_name "reference-08"
 
     def init(:ok) do
       children = [
