@@ -18,7 +18,7 @@ jobs:
           elixir-version: "1.13"
       - uses: actions/checkout@v3
         with:
-          submodules: 'rabbitmq-server'
+          submodules: 'true'
 
       - name: Install Dependencies
         run: |
