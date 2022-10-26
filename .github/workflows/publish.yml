@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "src/**"
+      - "lib/**"
+      - "guides/**"
+      - "mix.exs"
+      - "mix.lock"
 
 env:
   HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
