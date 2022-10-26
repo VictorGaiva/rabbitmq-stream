@@ -13,6 +13,7 @@ defmodule RabbitMQStream.MixProject do
       package: package(),
       source_url: @source_url,
       deps: deps(),
+      erlc_paths: ["src"],
       docs: [
         source_ref: "v#{@version}",
         main: "getting-started",
@@ -21,6 +22,7 @@ defmodule RabbitMQStream.MixProject do
         formatters: ["html", "epub"],
         groups_for_modules: groups_for_modules(),
         extras: extras(),
+        compilers: [:erlang] ++ Mix.compilers(),
         groups_for_extras: groups_for_extras()
       ]
     ]
@@ -36,8 +38,7 @@ defmodule RabbitMQStream.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:ex_doc, "~> 0.28.4", only: :dev, runtime: false},
-      {:rabbitmq_stream_common, path: "./rabbitmq-server/deps/rabbitmq_stream_common"}
+      {:ex_doc, "~> 0.28.4", only: :dev, runtime: false}
     ]
   end
 
