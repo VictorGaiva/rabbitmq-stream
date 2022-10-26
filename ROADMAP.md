@@ -1,30 +1,16 @@
 # Roadmap
 
-The target dates might change depending on the feedback and contributions.
-
-## v0.2.0
-
-Target Date: Late August - Early September 2022
-
-This release is going to be aimed at the configuration
-
-- Documentation of the Connection Module, for advanced usage.
-- Centralization of the configuration.
-- Reutilization of Connection across Publishers and Subscribers.
-- Initial Client Module implementation, for executing other actions on the shared connection.
-
-## v0.3.0
+## v0.1.0
 
 Target Date: October 2022
 
 The probably some room to improve the performance and the architecture in general. With the collected feedback this one is going to be focused on refactoring, were necessary.
 
 - Benchmarks and Performance overall.
-- Overall API improvements, and creation of helper modules if necessary
 
-## v0.4.0
+## v0.2.0
 
-Target Date: November 2022
+Target Date: December 2022
 
 - Exploration of dynamic Connections supervision in a Client Module.
 - Exploration of Cluster support, with [_Well-behaved_](https://blog.rabbitmq.com/posts/2021/07/connecting-to-streams/#:~:text=Well%2Dbehaved%20Clients) connections.
@@ -33,7 +19,7 @@ Target Date: November 2022
 
 Target Date: ???
 
-- Route and Partition: Currently in experimental, these commands will be added when they are released
+- Route and Partition: Currently in experimental.
 
 ## v1.0
 

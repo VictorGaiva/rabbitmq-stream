@@ -1,4 +1,4 @@
-# RabbitMQStream - (Work In Progress)
+# RabbitMQStream
 
 [![Version](https://img.shields.io/hexpm/v/rabbitmq_stream.svg)](https://hex.pm/packages/rabbitmq_stream)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/rabbitmq_stream/)
@@ -64,4 +64,4 @@ You can also check the roadmap [here](/ROADMAP.md)
 
 ## Status
 
-The current aim is to fully document the already implemented features, which are the `RabbitMQStream.Connection`, `RabbitMQStream.Publisher` and `RabbitMQStream.SupervisedPublisher`. Then the next step will be to implement the `RabbitMQStream.Subscriber` and `RabbitMQStream` Integerated Client.
+The version `0.1.0` has the basic features for it to be used in a testing enviroment, during development. The current goal is to collect feedback from the community, and improve the API where necessary.
