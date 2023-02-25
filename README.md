@@ -14,7 +14,7 @@ Elixir Client for [RabbitMQ Streams Protocol](https://www.rabbitmq.com/streams.h
 First you define a connection
 
 ```elixir
-defmodule MyApp.MyConnection
+defmodule MyApp.MyConnection do
   use RabbitMQStream.Connection
 end
 ```
@@ -32,7 +32,7 @@ RabbitMQ Streams protocol needs a static `:reference_name` per publisher. This i
 You can define a `Publisher` module like this:
 
 ```elixir
-defmodule MyApp.MyPublisher
+defmodule MyApp.MyPublisher do
   use RabbitMQStream.Publisher,
     stream: "stream-01",
     connection: MyApp.MyConnection
