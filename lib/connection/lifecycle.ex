@@ -162,7 +162,7 @@ defmodule RabbitMQStream.Connection.Lifecycle do
 
       def handle_info({:tcp_closed, _socket}, conn) do
         if conn.state == :connecting do
-          Logger.warn(
+          Logger.warning(
             "The connection was closed by the host, after the socket was already open, while running the authentication sequence. This could be caused by the server not having Stream Plugin active"
           )
         end
