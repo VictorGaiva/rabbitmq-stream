@@ -1,6 +1,6 @@
 defmodule RabbitMQStreamTest.Subscriber do
   use ExUnit.Case, async: false
-  alias RabbitMQStream.Helpers.OsirisChunk
+  alias RabbitMQStream.Message.Data.DeliverData
 
   defmodule SupervisedConnection do
     use RabbitMQStream.Connection
@@ -29,12 +29,12 @@ defmodule RabbitMQStreamTest.Subscriber do
 
     SupervisorPublisher.publish(message)
 
-    assert_receive {:message, %OsirisChunk{data_entries: [^message]}}, 1_000
+    assert_receive {:message, %DeliverData{osiris_chunk: %{data_entries: [^message]}}}, 1_000
 
     assert :ok = SupervisedConnection.unsubscribe(subscription_id)
 
     SupervisorPublisher.publish(message)
 
-    refute_receive {:message, %OsirisChunk{}}, 1_000
+    refute_receive {:message, %DeliverData{}}, 1_000
   end
 end

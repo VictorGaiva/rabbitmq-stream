@@ -8,6 +8,7 @@ defmodule RabbitMQStream.Connection.Lifecycle do
 
       alias RabbitMQStream.Connection.Handler
       alias RabbitMQStream.Connection
+      alias RabbitMQStream.Message.Buffer
 
       @impl true
       def handle_call({:get_state}, _from, %Connection{} = conn) do
@@ -136,8 +137,8 @@ defmodule RabbitMQStream.Connection.Lifecycle do
       def handle_info({:tcp, _socket, data}, conn) do
         {commands, buffer} =
           data
-          |> :rabbit_stream_core.incoming_data(conn.buffer)
-          |> :rabbit_stream_core.all_commands()
+          |> Buffer.incoming_data(conn.buffer)
+          |> Buffer.all_commands()
 
         conn = %{conn | buffer: buffer}
 

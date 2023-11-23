@@ -2,25 +2,52 @@ defmodule RabbitMQStream.Message.Response do
   @moduledoc false
   require Logger
 
-  alias RabbitMQStream.Connection
+  alias __MODULE__
+
+  alias RabbitMQStream.{Connection, Message}
+
+  alias Message.Data.{
+    TuneData,
+    CloseData,
+    HeartbeatData
+  }
+
+  defstruct([
+    :version,
+    :command,
+    :correlation_id,
+    :data,
+    :code
+  ])
 
   def new!(%Connection{} = conn, :tune, correlation_id: correlation_id) do
-    :rabbit_stream_core.frame({
-      :response,
-      correlation_id,
-      {
-        :tune,
-        conn.options[:frame_max],
-        conn.options[:heartbeat]
+    %Response{
+      version: conn.version,
+      command: :tune,
+      correlation_id: correlation_id,
+      data: %TuneData{
+        frame_max: conn.options[:frame_max],
+        heartbeat: conn.options[:heartbeat]
       }
-    })
+    }
   end
 
-  def new!(%Connection{}, :heartbeat, _) do
-    :rabbit_stream_core.frame(:heartbeat)
+  def new!(%Connection{} = conn, :heartbeat, correlation_id: correlation_id) do
+    %Response{
+      version: conn.version,
+      command: :heartbeat,
+      correlation_id: correlation_id,
+      data: %HeartbeatData{}
+    }
   end
 
-  def new!(%Connection{}, :close, correlation_id: correlation_id, code: code) do
-    :rabbit_stream_core.frame({:response, correlation_id, {:close, code}})
+  def new!(%Connection{} = conn, :close, correlation_id: correlation_id, code: code) do
+    %Response{
+      version: conn.version,
+      correlation_id: correlation_id,
+      command: :close,
+      data: %CloseData{},
+      code: code
+    }
   end
 end
