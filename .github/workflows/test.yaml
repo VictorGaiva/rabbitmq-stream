@@ -1,0 +1,44 @@
+name: Tests an Open PR
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - "lib/**"
+      - "guides/**"
+      - "mix.exs"
+      - "mix.lock"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      rabbitmq:
+        image: rabbitmq:3.11
+        ports:
+          - 5552:5552
+    steps:
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "26"
+          elixir-version: "1.15"
+      
+      - uses: actions/checkout@v3
+
+      - name: Enable rabbitmq management plugin
+        run: docker exec rabbitmq rabbitmq-plugins enable rabbitmq_management
+
+      - name: Install Dependencies
+        run: |
+          mix local.rebar --force
+          mix local.hex --force
+          mix deps.get
+          mix deps.compile
+
+      - name: Compile app
+        run: mix compile
+
+      - name: Run tests
+        run: mix test
