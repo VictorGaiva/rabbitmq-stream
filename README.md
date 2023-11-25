@@ -6,7 +6,7 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Unit Tests](https://github.com/VictorGaiva/rabbitmq-stream/actions/workflows/ci.yaml/badge.svg)](https://github.com/VictorGaiva/rabbitmq-stream/actions)
 
-Elixir Client for [RabbitMQ Streams Protocol](https://www.rabbitmq.com/streams.html).
+Zero dependencies Elixir Client for [RabbitMQ Streams Protocol](https://www.rabbitmq.com/streams.html).
 
 ## Usage
 
