@@ -59,9 +59,3 @@ end
 ```
 
 For more information, check the [documentation](https://hexdocs.pm/rabbitmq_stream/).
-
-You can also check the roadmap [here](/ROADMAP.md)
-
-## Status
-
-The version `0.1.0` has the basic features for it to be used in a testing enviroment, during development. The current goal is to collect feedback from the community, and improve the API where necessary.
