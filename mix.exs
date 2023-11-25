@@ -2,7 +2,7 @@ defmodule RabbitMQStream.MixProject do
   use Mix.Project
 
   @source_url "https://github.com/VictorGaiva/rabbitmq-stream"
-  @version "0.1.0"
+  @version File.read!("VERSION")
 
   def project do
     [
