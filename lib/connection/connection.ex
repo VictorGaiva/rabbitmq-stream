@@ -57,6 +57,10 @@ defmodule RabbitMQStream.Connection do
         GenServer.start_link(__MODULE__, args, name: __MODULE__)
       end
 
+      def stop(reason \\ :normal, timeout \\ :infinity) do
+        GenServer.stop(__MODULE__, reason, timeout)
+      end
+
       @impl true
       def init(opts) do
         conn = %RabbitMQStream.Connection{
