@@ -20,7 +20,7 @@ defmodule RabbitMQStreamTest.Connection do
 
     assert %Connection{state: :closed} = SupervisedConnection.get_state()
 
-    assert {:error, _} = SupervisedConnection.close()
+    assert :ok = SupervisedConnection.close()
   end
 
   test "should correctly answer to parallel `connect` requests" do
