@@ -8,6 +8,13 @@ on:
       - "lib/**"
       - "mix.exs"
       - "mix.lock"
+  push:
+    branches:
+      - main
+    paths:
+      - "lib/**"
+      - "mix.exs"
+      - "mix.lock"
 
 jobs:
   test:
