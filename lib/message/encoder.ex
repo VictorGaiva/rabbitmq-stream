@@ -226,10 +226,7 @@ defmodule RabbitMQStream.Message.Encoder do
     messages =
       encode_array(
         for {publishing_id, message} <- data.published_messages do
-          <<
-            publishing_id::unsigned-integer-size(64),
-            encode_bytes(message)::binary
-          >>
+          <<publishing_id::unsigned-integer-size(64), encode_bytes(message)::binary>>
         end
       )
 
@@ -255,15 +252,7 @@ defmodule RabbitMQStream.Message.Encoder do
         {:timestamp, timestamp} -> <<5::unsigned-integer-size(16), timestamp::integer-size(64)>>
       end
 
-    properties =
-      encode_array(
-        for {name, value} <- data.properties do
-          <<
-            encode_string(name)::binary,
-            encode_bytes(value)::binary
-          >>
-        end
-      )
+    properties = encode_map(data.properties)
 
     data = <<
       Frame.command_to_code(request.command)::unsigned-integer-size(16),
