@@ -13,6 +13,9 @@ defmodule RabbitMQStream.MixProject do
       package: package(),
       source_url: @source_url,
       deps: deps(),
+      elixirc_options: [
+        warnings_as_errors: true
+      ],
       docs: [
         source_ref: "v#{@version}",
         main: "getting-started",
