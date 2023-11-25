@@ -16,7 +16,7 @@ defmodule RabbitMQStream.Connection.Lifecycle do
       end
 
       def handle_call({:connect}, from, %Connection{state: :closed} = conn) do
-        Logger.info("Connecting to server: #{conn.options[:host]}:#{conn.options[:port]}")
+        Logger.debug("Connecting to server: #{conn.options[:host]}:#{conn.options[:port]}")
 
         with {:ok, socket} <-
                :gen_tcp.connect(String.to_charlist(conn.options[:host]), conn.options[:port], [:binary, active: true]),
@@ -49,7 +49,7 @@ defmodule RabbitMQStream.Connection.Lifecycle do
       end
 
       def handle_call({:close, reason, code}, from, %Connection{} = conn) do
-        Logger.info("Connection close requested by client: #{reason} #{code}")
+        Logger.debug("Connection close requested by client: #{reason} #{code}")
 
         conn =
           %{conn | state: :closing}
@@ -181,7 +181,7 @@ defmodule RabbitMQStream.Connection.Lifecycle do
 
       @impl true
       def handle_continue({:connect}, %Connection{state: :closed} = conn) do
-        Logger.info("Connecting to server: #{conn.options[:host]}:#{conn.options[:port]}")
+        Logger.debug("Connecting to server: #{conn.options[:host]}:#{conn.options[:port]}")
 
         with {:ok, socket} <-
                :gen_tcp.connect(String.to_charlist(conn.options[:host]), conn.options[:port], [:binary, active: true]),
