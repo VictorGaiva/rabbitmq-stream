@@ -1,6 +1,7 @@
 defmodule RabbitMQStreamTest.Connection do
   use ExUnit.Case, async: false
   alias RabbitMQStream.Connection
+  import ExUnit.CaptureLog
 
   defmodule SupervisedConnection do
     use RabbitMQStream.Connection
@@ -35,13 +36,16 @@ defmodule RabbitMQStreamTest.Connection do
   test "should fail to connect with expected error messages" do
     {:ok, pid} = SupervisedConnection.start_link(host: "localhost", vhost: "/NONEXISTENT", lazy: true)
 
-    assert {:error, :virtual_host_access_failure} = SupervisedConnection.connect()
+    assert capture_log(fn -> assert {:error, :virtual_host_access_failure} = SupervisedConnection.connect() end) =~
+             "Failed to connect"
+
     :ok = GenServer.stop(pid)
 
     {:ok, _} =
       SupervisedConnection.start_link(host: "localhost", vhost: "/", user: "guest", password: "wrong", lazy: true)
 
-    assert {:error, :authentication_failure} = SupervisedConnection.connect()
+    assert capture_log(fn -> assert {:error, :authentication_failure} = SupervisedConnection.connect() end) =~
+             "Failed to connect"
   end
 
   test "should create and delete a stream" do

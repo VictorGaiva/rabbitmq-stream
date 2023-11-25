@@ -8,12 +8,14 @@ defmodule RabbitMQStream.MixProject do
     [
       app: :rabbitmq_stream,
       version: @version,
-      elixir: "~> 1.13",
+      elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       package: package(),
       source_url: @source_url,
       deps: deps(),
-      erlc_paths: ["src"],
+      elixirc_options: [
+        warnings_as_errors: true
+      ],
       docs: [
         source_ref: "v#{@version}",
         main: "getting-started",

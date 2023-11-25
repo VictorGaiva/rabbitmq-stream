@@ -205,7 +205,7 @@ defmodule RabbitMQStream.Connection do
           brokers: %{integer() => BrokerData.t()},
           streams: %{String.t() => StreamData.t()},
           subscriptions: %{non_neg_integer() => pid()},
-          buffer: :rabbit_stream_core.state()
+          buffer: RabbitMQStream.Message.Buffer.t()
         }
 
   @callback start_link([connection_option | {:name, atom()}]) :: :ignore | {:error, any} | {:ok, pid}
@@ -267,6 +267,6 @@ defmodule RabbitMQStream.Connection do
     request_tracker: %{},
     brokers: %{},
     streams: %{},
-    buffer: :rabbit_stream_core.init("")
+    buffer: RabbitMQStream.Message.Buffer.init()
   ]
 end

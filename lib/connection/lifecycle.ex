@@ -8,6 +8,7 @@ defmodule RabbitMQStream.Connection.Lifecycle do
 
       alias RabbitMQStream.Connection.Handler
       alias RabbitMQStream.Connection
+      alias RabbitMQStream.Message.Buffer
 
       @impl true
       def handle_call({:get_state}, _from, %Connection{} = conn) do
@@ -15,7 +16,7 @@ defmodule RabbitMQStream.Connection.Lifecycle do
       end
 
       def handle_call({:connect}, from, %Connection{state: :closed} = conn) do
-        Logger.info("Connecting to server: #{conn.options[:host]}:#{conn.options[:port]}")
+        Logger.debug("Connecting to server: #{conn.options[:host]}:#{conn.options[:port]}")
 
         with {:ok, socket} <-
                :gen_tcp.connect(String.to_charlist(conn.options[:host]), conn.options[:port], [:binary, active: true]),
@@ -48,7 +49,7 @@ defmodule RabbitMQStream.Connection.Lifecycle do
       end
 
       def handle_call({:close, reason, code}, from, %Connection{} = conn) do
-        Logger.info("Connection close requested by client: #{reason} #{code}")
+        Logger.debug("Connection close requested by client: #{reason} #{code}")
 
         conn =
           %{conn | state: :closing}
@@ -136,8 +137,8 @@ defmodule RabbitMQStream.Connection.Lifecycle do
       def handle_info({:tcp, _socket, data}, conn) do
         {commands, buffer} =
           data
-          |> :rabbit_stream_core.incoming_data(conn.buffer)
-          |> :rabbit_stream_core.all_commands()
+          |> Buffer.incoming_data(conn.buffer)
+          |> Buffer.all_commands()
 
         conn = %{conn | buffer: buffer}
 
@@ -162,7 +163,7 @@ defmodule RabbitMQStream.Connection.Lifecycle do
 
       def handle_info({:tcp_closed, _socket}, conn) do
         if conn.state == :connecting do
-          Logger.warn(
+          Logger.warning(
             "The connection was closed by the host, after the socket was already open, while running the authentication sequence. This could be caused by the server not having Stream Plugin active"
           )
         end
@@ -180,7 +181,7 @@ defmodule RabbitMQStream.Connection.Lifecycle do
 
       @impl true
       def handle_continue({:connect}, %Connection{state: :closed} = conn) do
-        Logger.info("Connecting to server: #{conn.options[:host]}:#{conn.options[:port]}")
+        Logger.debug("Connecting to server: #{conn.options[:host]}:#{conn.options[:port]}")
 
         with {:ok, socket} <-
                :gen_tcp.connect(String.to_charlist(conn.options[:host]), conn.options[:port], [:binary, active: true]),
