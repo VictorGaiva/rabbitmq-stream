@@ -84,9 +84,6 @@ defmodule RabbitMQStream.MixProject do
   end
 
   defp groups_for_modules do
-    # Ungrouped:
-    # - Absinthe
-
     [
       Client: [
         RabbitMQStream.Connection,
