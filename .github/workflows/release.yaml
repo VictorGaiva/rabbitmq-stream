@@ -2,14 +2,8 @@ name: Publish to Hex.pm
 
 on:
   push:
-    branches:
-      - main
-    paths:
-      - "src/**"
-      - "lib/**"
-      - "guides/**"
-      - "mix.exs"
-      - "mix.lock"
+    tags:
+      - v*
 
 env:
   HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
