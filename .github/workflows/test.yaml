@@ -5,9 +5,7 @@ on:
     branches:
       - main
     paths:
-      - "src/**"
       - "lib/**"
-      - "guides/**"
       - "mix.exs"
       - "mix.lock"
 
