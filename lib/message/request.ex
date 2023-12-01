@@ -34,6 +34,8 @@ defmodule RabbitMQStream.Message.Request do
     :code
   ]
 
+  @version Mix.Project.config()[:version]
+
   def new!(%Connection{} = conn, :peer_properties, _) do
     %Request{
       version: conn.version,
@@ -43,7 +45,7 @@ defmodule RabbitMQStream.Message.Request do
         peer_properties: [
           {"product", "RabbitMQ Stream Client"},
           {"information", "Development"},
-          {"version", "0.0.1"},
+          {"version", @version},
           {"platform", "Elixir"}
         ]
       }
