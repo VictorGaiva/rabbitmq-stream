@@ -52,6 +52,7 @@ defmodule RabbitMQStream.MixProject do
         "mix.exs",
         "README.md",
         "CHANGELOG.md",
+        "VERSION",
         ".formatter.exs"
       ],
       maintainers: [
