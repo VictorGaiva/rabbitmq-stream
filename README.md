@@ -59,4 +59,13 @@ def deps do
 end
 ```
 
+## Configuration
+
+The configuration for the connection can be set in your `config.exs` file:
+
+      config :rabbitmq_stream, MyApp.MyConnection,
+        username: "guest",
+        password: "guest"
+        # ...
+
 For more information, check the [documentation](https://hexdocs.pm/rabbitmq_stream/).

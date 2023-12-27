@@ -37,6 +37,12 @@ defmodule RabbitMQStream.Publisher do
   * `reference_name` - The string which is used by the server to prevent [Duplicate Message](https://blog.rabbitmq.com/posts/2021/07/rabbitmq-streams-message-deduplication/). Defaults to `__MODULE__.Publisher`.
   * `connection` - The identifier for a `RabbitMQStream.Connection`.
 
+  You can also declare the configuration in your `config.exs`:
+
+      config :rabbitmq_stream, MyApp.MyPublisher,
+        stream_name: "my-stream",
+        connection: MyApp.MyConnection
+
   """
 
   defmacro __using__(opts) do
@@ -44,9 +50,14 @@ defmodule RabbitMQStream.Publisher do
       use GenServer
       @opts opts
 
-      def start_link(args \\ []) do
-        args = Keyword.merge(@opts, args)
-        GenServer.start_link(__MODULE__, args, name: __MODULE__)
+      def start_link(opts \\ []) do
+        opts =
+          Application.get_env(:rabbitmq_stream, __MODULE__, [])
+          |> Keyword.merge(@opts)
+          |> Keyword.merge(opts)
+
+        # opts = Keyword.merge(@opts, opts)
+        GenServer.start_link(__MODULE__, opts, name: __MODULE__)
       end
 
       def publish(message, sequence \\ nil) when is_binary(message) do

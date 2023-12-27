@@ -16,7 +16,7 @@ defmodule RabbitMQStream.Connection do
 
       def start(_, _) do
         children = [
-          {MyApp.MyConnection, username: "guest", password: "guest", host: "localhost", vhost: "/"}},
+          {MyApp.MyConnection, username: "guest", password: "guest", host: "localhost", vhost: "/"},
           # ...
         ]
 
@@ -44,6 +44,34 @@ defmodule RabbitMQStream.Connection do
       {:ok, _subscription_id} = MyApp.MyConnection.subscribe("stream-01", self(), :next, 999)
 
 
+
+  ## Configuration
+  The configuration for the connection can be set in your `config.exs` file:
+
+      config :rabbitmq_stream, MyApp.MyConnection,
+        username: "guest",
+        password: "guest"
+        # ...
+
+  You can override each configuration option by manually passing each configuration on the `use` macro:
+
+      defmodule MyApp.MyConnection
+        use RabbitMQStream.Connection, username: "guest", password: "guest"
+      end
+
+  or when adding to the supervision tree:
+
+      def start(_, _) do
+        children = [
+          {MyApp.MyConnection, username: "guest", password: "guest"},
+          # ...
+        ]
+
+        opts = # ...
+        Supervisor.start_link(children, opts)
+      end
+
+  The precedence order is is the same order as the examples above, from top to bottom.
   """
 
   defmacro __using__(opts) do
@@ -52,9 +80,13 @@ defmodule RabbitMQStream.Connection do
       @behaviour RabbitMQStream.Connection
       @opts opts
 
-      def start_link(args \\ []) when is_list(args) do
-        args = Keyword.merge(@opts, args)
-        GenServer.start_link(__MODULE__, args, name: __MODULE__)
+      def start_link(opts \\ []) when is_list(opts) do
+        opts =
+          Application.get_env(:rabbitmq_stream, __MODULE__, [])
+          |> Keyword.merge(@opts)
+          |> Keyword.merge(opts)
+
+        GenServer.start_link(__MODULE__, opts, name: __MODULE__)
       end
 
       def stop(reason \\ :normal, timeout \\ :infinity) do
