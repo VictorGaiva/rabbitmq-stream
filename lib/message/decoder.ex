@@ -188,7 +188,7 @@ defmodule RabbitMQStream.Message.Decoder do
 
     osiris_chunk =
       if rest != "" do
-        RabbitMQStream.Helpers.OsirisChunk.decode!(rest)
+        RabbitMQStream.OsirisChunk.decode!(rest)
       else
         nil
       end

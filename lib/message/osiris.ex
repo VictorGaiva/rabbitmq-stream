@@ -1,5 +1,10 @@
-defmodule RabbitMQStream.Helpers.OsirisChunk do
-  @moduledoc false
+defmodule RabbitMQStream.OsirisChunk do
+  @moduledoc """
+    Struct that holds the data of a Osiris chunk, which is the format used by RabbitMQ Stream to store the stream data.
+
+    You can find more information at their [Github repo](https://github.com/rabbitmq/osiris)
+
+  """
   @type chunk_type :: :chunk_user | :chunk_track_delta | :chunk_track_snapshot
   @spec decode_entry!(type :: chunk_type(), data :: binary()) :: {binary() | [ChunkTrackSnapshot.t()], binary()}
 
@@ -152,6 +157,7 @@ defmodule RabbitMQStream.Helpers.OsirisChunk do
     {entry, rest}
   end
 
+  @doc false
   def decode!(<<@magic::unsigned-integer-size(4), @version::unsigned-integer-size(4), rest::binary>>) do
     <<
       chunk_type::integer-size(8),

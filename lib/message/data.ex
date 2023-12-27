@@ -249,7 +249,7 @@ defmodule RabbitMQStream.Message.Data do
     @moduledoc false
     @type t :: %{
             subscription_id: non_neg_integer(),
-            osiris_chunk: Helpers.OsirisChunk.t() | nil
+            osiris_chunk: RabbitMQStream.OsirisChunk.t() | nil
           }
     defstruct [
       :subscription_id,
