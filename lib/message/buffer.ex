@@ -1,4 +1,6 @@
 defmodule RabbitMQStream.Message.Buffer do
+  @moduledoc false
+
   alias RabbitMQStream.Message.Decoder
 
   defstruct commands: :queue.new(),

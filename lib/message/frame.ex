@@ -1,4 +1,6 @@
 defmodule RabbitMQStream.Message.Frame do
+  @moduledoc false
+
   @commands %{
     0x0001 => :declare_publisher,
     0x0002 => :publish,
