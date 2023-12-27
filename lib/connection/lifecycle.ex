@@ -1,8 +1,8 @@
 defmodule RabbitMQStream.Connection.Lifecycle do
   @moduledoc false
 
-  defmacro __using__(opts) do
-    quote bind_quoted: [opts: opts] do
+  defmacro __using__(_) do
+    quote do
       require Logger
       use GenServer
 
@@ -204,6 +204,10 @@ defmodule RabbitMQStream.Connection.Lifecycle do
             {:noreply, conn}
         end
       end
+
+      defguard is_offset(offset)
+               when offset in [:first, :last, :next] or
+                      (is_tuple(offset) and tuple_size(offset) == 2 and elem(offset, 0) in [:offset, :timestamp])
     end
   end
 end

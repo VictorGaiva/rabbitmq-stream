@@ -188,10 +188,9 @@ defmodule RabbitMQStream.Connection do
       end
 
       def subscribe(stream_name, pid, offset, credit, properties \\ %{})
-          when ((is_binary(stream_name) and
-                   is_integer(credit) and
-                   offset in [:first, :last, :next]) or
-                  (tuple_size(offset) == 2 and is_tuple(offset) and elem(offset, 0) in [:offset, :timestamp])) and
+          when is_binary(stream_name) and
+                 is_integer(credit) and
+                 is_offset(offset) and
                  is_map(properties) and
                  is_pid(pid) and
                  credit >= 0 do
