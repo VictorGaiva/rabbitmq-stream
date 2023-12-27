@@ -71,7 +71,7 @@ defmodule RabbitMQStream.Publisher do
       ## Callbacks
       @impl true
       def init(opts \\ []) do
-        reference_name = Keyword.get(opts, :reference_name, __MODULE__)
+        reference_name = Keyword.get(opts, :reference_name, Atom.to_string(__MODULE__))
         connection = Keyword.get(opts, :connection) || raise(":connection is required")
         stream_name = Keyword.get(opts, :stream_name) || raise(":stream_name is required")
 
