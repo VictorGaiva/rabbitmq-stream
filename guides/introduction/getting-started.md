@@ -7,7 +7,7 @@ First add RabbitMQ to your `mix.exs` dependencies:
 ```elixir
 def deps do
   [
-    {:rabbitmq_stream, "~> 0.2.0"},
+    {:rabbitmq_stream, "~> 0.2.1"},
     # ...
   ]
 end

@@ -64,7 +64,7 @@ The package can be installed by adding `rabbitmq_stream` to your list of depende
 ```elixir
 def deps do
   [
-    {:rabbitmq_stream, "~> 0.2.0"},
+    {:rabbitmq_stream, "~> 0.2.1"},
     # ...
   ]
 end
