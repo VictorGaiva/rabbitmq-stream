@@ -29,10 +29,10 @@ Then you can subscribe to messages from a stream:
 {:ok, _subscription_id} = MyApp.MyConnection.subscribe("stream-01", self(), :next, 999)
 ```
 
-The caller process will start receiving messages with the format `{:message, %RabbitMQStream.OsirisChunk{}}`
+The caller process will start receiving messages with the format `{:message, RabbitMQStream.Message.Data.DeliverData}`
 
 ```elixir
-def handle_info({:message, %RabbitMQStream.OsirisChunk{} = message}, state) do
+def handle_info({:message, RabbitMQStream.Message.Data.DeliverData = message}, state) do
   # do something with message
   {:noreply, state}
 end
