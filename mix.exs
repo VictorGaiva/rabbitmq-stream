@@ -69,8 +69,7 @@ defmodule RabbitMQStream.MixProject do
   defp extras do
     [
       "guides/introduction/getting-started.md",
-      "guides/tutorial/publishing.md",
-      "guides/tutorial/connection.md",
+      "guides/tutorial/subscribing.md",
       "CHANGELOG.md"
     ]
   end
