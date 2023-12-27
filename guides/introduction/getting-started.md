@@ -29,6 +29,15 @@ Then you can subscribe to messages from a stream:
 {:ok, _subscription_id} = MyApp.MyConnection.subscribe("stream-01", self(), :next, 999)
 ```
 
+The caller process will start receiving messages with the format `{:message, %RabbitMQStream.OsirisChunk{}}`
+
+```elixir
+def handle_info({:message, %RabbitMQStream.OsirisChunk{} = message}, state) do
+  # do something with message
+  {:noreply, state}
+end
+```
+
 ## Publishing to stream
 
 RabbitMQ Streams protocol needs a static `:reference_name` per publisher. This is used to prevent message duplication. For this reason, each stream needs, for now, a static module to publish messages, which keeps track of its own `publishing_id`.
