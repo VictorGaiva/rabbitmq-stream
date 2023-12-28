@@ -63,14 +63,13 @@ defmodule RabbitMQStream.OsirisChunk do
     @moduledoc false
     @type t :: %{
             type: :sequence | :offset,
-            id_size: non_neg_integer(),
             id: binary(),
             chunk_id: non_neg_integer() | nil,
             sequence: non_neg_integer() | nil,
             offset: non_neg_integer() | nil
           }
-    @enforce_keys [:type, :id_size, :id]
-    defstruct [:type, :id_size, :id, :chunk_id, :sequence, :offset]
+    @enforce_keys [:type, :id]
+    defstruct [:type, :id, :chunk_id, :sequence, :offset]
 
     defp do_decode!(<<
            0::unsigned-integer-size(8),
@@ -80,7 +79,7 @@ defmodule RabbitMQStream.OsirisChunk do
            sequence::unsigned-integer-size(64),
            rest::binary
          >>) do
-      {%ChunkTrackSnapshot{type: :sequence, id_size: id_size, id: id, chunk_id: chunk_id, sequence: sequence}, rest}
+      {%ChunkTrackSnapshot{type: :sequence, id: id, chunk_id: chunk_id, sequence: sequence}, rest}
     end
 
     defp do_decode!(<<
@@ -90,7 +89,7 @@ defmodule RabbitMQStream.OsirisChunk do
            offset::integer-size(64),
            rest::binary
          >>) do
-      {%ChunkTrackSnapshot{type: :offset, id_size: id_size, id: id, offset: offset}, rest}
+      {%ChunkTrackSnapshot{type: :offset, id: id, offset: offset}, rest}
     end
 
     def decode_entries!(<<>>) do
