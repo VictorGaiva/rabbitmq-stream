@@ -29,7 +29,7 @@ Then you can subscribe to messages from a stream:
 The caller process will start receiving messages with the format `{:message, RabbitMQStream.Message.Data.DeliverData}`
 
 ```elixir
-def handle_info({:message, RabbitMQStream.Message.Data.DeliverData = message}, state) do
+def handle_info({:message, %RabbitMQStream.Message.Data.DeliverData{} = message}, state) do
   # do something with message
   {:noreply, state}
 end
@@ -74,9 +74,11 @@ end
 
 The configuration for the connection can be set in your `config.exs` file:
 
-      config :rabbitmq_stream, MyApp.MyConnection,
-        username: "guest",
-        password: "guest"
-        # ...
+```elixir
+config :rabbitmq_stream, MyApp.MyConnection,
+  username: "guest",
+  password: "guest"
+  # ...
+end
 
 For more information, check the [documentation](https://hexdocs.pm/rabbitmq_stream/).
