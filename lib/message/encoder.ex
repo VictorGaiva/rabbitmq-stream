@@ -16,7 +16,8 @@ defmodule RabbitMQStream.Message.Encoder do
     QueryPublisherSequenceData,
     PublishData,
     SubscribeRequestData,
-    UnsubscribeRequestData
+    UnsubscribeRequestData,
+    CreditRequestData
   }
 
   def encode!(%Request{command: :peer_properties} = request) do
@@ -274,6 +275,17 @@ defmodule RabbitMQStream.Message.Encoder do
       request.version::unsigned-integer-size(16),
       request.correlation_id::unsigned-integer-size(32),
       data.subscription_id::unsigned-integer-size(8)
+    >>
+
+    wrap(data)
+  end
+
+  def encode!(%Request{command: :credit, data: %CreditRequestData{} = data} = request) do
+    data = <<
+      Frame.command_to_code(request.command)::unsigned-integer-size(16),
+      request.version::unsigned-integer-size(16),
+      data.subscription_id::unsigned-integer-size(8),
+      data.credit::unsigned-integer-size(16)
     >>
 
     wrap(data)

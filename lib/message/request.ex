@@ -23,7 +23,8 @@ defmodule RabbitMQStream.Message.Request do
     QueryPublisherSequenceData,
     PublishData,
     SubscribeRequestData,
-    UnsubscribeRequestData
+    UnsubscribeRequestData,
+    CreditRequestData
   }
 
   defstruct [
@@ -252,6 +253,18 @@ defmodule RabbitMQStream.Message.Request do
       command: :unsubscribe,
       correlation_id: conn.correlation_sequence,
       data: %UnsubscribeRequestData{
+        subscription_id: opts[:subscription_id]
+      }
+    }
+  end
+
+  def new!(%Connection{} = conn, :credit, opts) do
+    %Request{
+      version: conn.version,
+      command: :credit,
+      correlation_id: conn.correlation_sequence,
+      data: %CreditRequestData{
+        credit: opts[:credit],
         subscription_id: opts[:subscription_id]
       }
     }

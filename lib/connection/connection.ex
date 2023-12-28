@@ -204,6 +204,10 @@ defmodule RabbitMQStream.Connection do
         GenServer.call(__MODULE__, {:unsubscribe, subscription_id: subscription_id})
       end
 
+      def credit(subscription_id, credit) when is_integer(subscription_id) and credit >= 0 do
+        GenServer.cast(__MODULE__, {:credit, subscription_id: subscription_id, credit: credit})
+      end
+
       if Mix.env() == :test do
         def get_state() do
           GenServer.call(__MODULE__, {:get_state})
@@ -285,6 +289,14 @@ defmodule RabbitMQStream.Connection do
 
   @callback unsubscribe(subscription_id :: non_neg_integer()) ::
               :ok | {:error, reason :: atom()}
+  @doc """
+    Adds the specified amount of credits to the subscription under the given `subscription_id`.
+
+    This function instantly returns `:ok` as the RabbitMQ Server only sends a response if the command fails,
+    which only happens if the subscription is not found. In that case the error is logged.
+
+  """
+  @callback credit(subscription_id :: non_neg_integer(), credit :: non_neg_integer()) :: :ok
 
   defstruct [
     :socket,

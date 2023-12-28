@@ -37,4 +37,28 @@ defmodule RabbitMQStreamTest.Subscriber do
 
     refute_receive {:message, %DeliverData{}}, 1_000
   end
+
+  @stream "stream-02"
+  @reference_name "reference-02"
+  test "should credit a subscriber" do
+    {:ok, _publisher} = SupervisorPublisher.start_link(reference_name: @reference_name, stream_name: @stream)
+
+    assert {:ok, subscription_id} = SupervisedConnection.subscribe(@stream, self(), :next, 1)
+
+    message = inspect(%{message: "Hello, world1!"})
+
+    SupervisorPublisher.publish(message)
+
+    assert_receive {:message, %DeliverData{osiris_chunk: %{data_entries: [^message]}}}, 1_000
+
+    message = inspect(%{message: "Hello, world2!"})
+
+    SupervisorPublisher.publish(message)
+
+    refute_receive {:message, %DeliverData{}}, 1_000
+
+    assert :ok = SupervisedConnection.credit(subscription_id, 1)
+
+    assert_receive {:message, %DeliverData{osiris_chunk: %{data_entries: [^message]}}}, 1_000
+  end
 end

@@ -233,6 +233,20 @@ defmodule RabbitMQStream.Message.Data do
     ]
   end
 
+  defmodule CreditRequestData do
+    @moduledoc false
+
+    @type t :: %{
+            subscription_id: non_neg_integer(),
+            credit: non_neg_integer()
+          }
+
+    defstruct [
+      :subscription_id,
+      :credit
+    ]
+  end
+
   defmodule SubscribeResponseData do
     @moduledoc false
     @type t :: %{}
@@ -240,6 +254,12 @@ defmodule RabbitMQStream.Message.Data do
   end
 
   defmodule UnsubscribeResponseData do
+    @moduledoc false
+    @type t :: %{}
+    defstruct []
+  end
+
+  defmodule CreditResponseData do
     @moduledoc false
     @type t :: %{}
     defstruct []
@@ -264,6 +284,7 @@ defmodule RabbitMQStream.Message.Data do
   def decode_data(:delete_publisher, ""), do: %DeletePublisherData{}
   def decode_data(:subscribe, ""), do: %SubscribeResponseData{}
   def decode_data(:unsubscribe, ""), do: %UnsubscribeResponseData{}
+  def decode_data(:credit, ""), do: %CreditResponseData{}
 
   def decode_data(:query_offset, <<offset::unsigned-integer-size(64)>>) do
     %QueryOffsetData{offset: offset}

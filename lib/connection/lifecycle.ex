@@ -138,6 +138,14 @@ defmodule RabbitMQStream.Connection.Lifecycle do
         {:noreply, conn}
       end
 
+      def handle_cast({:credit, opts}, %Connection{} = conn) do
+        conn =
+          conn
+          |> Handler.send_request(:credit, opts)
+
+        {:noreply, conn}
+      end
+
       @impl true
       def handle_info({:tcp, _socket, data}, conn) do
         {commands, buffer} =

@@ -41,6 +41,7 @@ defmodule RabbitMQStream.Message.Decoder do
              :delete_publisher,
              :subscribe,
              :unsubscribe,
+             :credit,
              :query_offset,
              :query_publisher_sequence,
              :peer_properties,

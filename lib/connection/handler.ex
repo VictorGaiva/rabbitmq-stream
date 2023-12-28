@@ -84,6 +84,13 @@ defmodule RabbitMQStream.Connection.Handler do
     %{conn | state: :closed, socket: nil, connect_requests: []}
   end
 
+  def handle_message(%Response{command: :credit, code: code}, conn)
+      when code not in [:ok, nil] do
+    Logger.error("Failed to credit subscription. Reason: #{code}")
+
+    conn
+  end
+
   def handle_message(%Response{command: command, code: code} = response, conn)
       when command in [
              :create_stream,
@@ -275,7 +282,11 @@ defmodule RabbitMQStream.Connection.Handler do
     {publisher_sum, opts} = Keyword.pop(opts, :publisher_sum, 0)
     {subscriber_sum, opts} = Keyword.pop(opts, :subscriber_sum, 0)
 
-    frame = Message.Request.new!(conn, command, opts) |> Encoder.encode!()
+    frame =
+      conn
+      |> Message.Request.new!(command, opts)
+      |> Encoder.encode!()
+
     :ok = :gen_tcp.send(conn.socket, frame)
 
     correlation_sequence = conn.correlation_sequence + correlation_sum
