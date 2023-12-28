@@ -70,14 +70,14 @@ defmodule RabbitMQStream.Message.Buffer do
       <<part::binary-size(size), rest::binary>> ->
         incoming_data(
           rest,
-          %{state | frames: [append_data(partial, part) | frames], data: nil}
+          %{state | frames: [<<partial::binary, part::binary>> | frames], data: nil}
         )
 
       rest ->
         %{
           state
           | frames: [],
-            data: {size - byte_size(rest), append_data(partial, rest)},
+            data: {size - byte_size(rest), <<partial::binary, rest::binary>>},
             commands: parse_frames(frames, commands)
         }
     end
@@ -95,13 +95,5 @@ defmodule RabbitMQStream.Message.Buffer do
     Enum.reduce(frames, queue, fn frame, acc ->
       :queue.in(Decoder.parse(frame), acc)
     end)
-  end
-
-  defp append_data(prev, data) when is_binary(prev) do
-    [prev, data]
-  end
-
-  defp append_data(prev, data) when is_list(prev) do
-    prev ++ [data]
   end
 end
