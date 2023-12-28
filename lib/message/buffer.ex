@@ -3,6 +3,9 @@ defmodule RabbitMQStream.Message.Buffer do
 
   alias RabbitMQStream.Message.Decoder
 
+  # The code in this module is a one to one translation of the RabbitMQ decoding code at
+  # https://github.com/rabbitmq/rabbitmq-server/blob/main/deps/rabbitmq_stream_common/src/rabbit_stream_core.erl
+
   defstruct commands: :queue.new(),
             frames: [],
             cfg: %{},
@@ -92,7 +95,15 @@ defmodule RabbitMQStream.Message.Buffer do
   end
 
   def parse_frames(frames, queue) do
-    Enum.reduce(frames, queue, fn frame, acc ->
+    # We receive the frames in the reverse order that they were received,
+    # since we are prepending them to the list. So here we reverse the it to
+    # correctly insert them into the queue.
+    #
+    # This is different from the reference implementation, but necessary to
+    # maintain the order of commands received.
+    frames
+    |> Enum.reverse()
+    |> Enum.reduce(queue, fn frame, acc ->
       :queue.in(Decoder.parse(frame), acc)
     end)
   end
