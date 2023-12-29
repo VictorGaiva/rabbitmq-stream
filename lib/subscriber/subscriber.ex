@@ -66,6 +66,37 @@ defmodule RabbitMQStream.Subscriber do
     you can call `RabbitMQStream.Subscriber.credit/2` to manually add more
     credits to the subscription.
 
+
+    ## Configuration
+
+    You can configure each subscriber with:
+
+        config :rabbitmq_stream, MyApp.MySubscriber,
+          connection: MyApp.MyConnection,
+          stream_name: "my_stream",
+          initial_offset: :first,
+          initial_credit: 50_000,
+          offset_strategy: [RabbitMQStream.Subscriber.OffsetTracking.CountStrategy],
+          flow_control: RabbitMQStream.Subscriber.FlowControl.MessageCount
+
+    These options are overriden by the options passed to the `use` macro, which
+    are overriden by the options passed to `start_link/1`.
+
+    And also you can override the defaults of all subscribers with:
+
+          config :rabbitmq_stream,
+            subscribers: [
+              connection: MyApp.MyConnection,
+              initial_credit: 50_000,
+              # ...
+            ]
+    Globally configuring all subscribers ignores the following options:
+
+      * `:stream_name`
+      * `:offset_reference`
+      * `:private`
+
+
   """
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts], location: :keep do
@@ -84,7 +115,9 @@ defmodule RabbitMQStream.Subscriber do
 
       def start_link(opts \\ []) do
         opts =
-          Application.get_env(:rabbitmq_stream, __MODULE__, [])
+          Application.get_env(:rabbitmq_stream, :subscribers, [])
+          |> Keyword.drop([:stream_name, :offset_reference, :private])
+          |> Keyword.merge(Application.get_env(:rabbitmq_stream, __MODULE__, []))
           |> Keyword.merge(@opts)
           |> Keyword.merge(opts)
 

@@ -29,6 +29,7 @@ Added an implementation for a stream Subscriber, fixed bugs and improved the doc
 
 - Added the `:credit` command.
 - Added `RabbitMQStream.Subscriber`, which subscribes to a stream, while tracking its offset and credit based on customizeable strategies.
+- Added the possibility of globally configuring the default Connection for Publishers and Subscribers
 
 ### Bug Fixes
 

@@ -61,6 +61,28 @@ defmodule RabbitMQStream.Publisher do
         end
       end
 
+  ### Configuration
+
+    You can configure each Publisher with:
+
+        config :rabbitmq_stream, MyApp.MyPublisher,
+          stream_name: "my-stream",
+          connection: MyApp.MyConnection
+
+    And also you can override the defaults of all publishers with:
+
+          config :rabbitmq_stream,
+            publishers: [
+              connection: MyApp.MyConnection,
+              # ...
+            ]
+
+
+    Globally configuring all publishers ignores the following options:
+
+      * `:stream_name`
+      * `:reference_name`
+
   """
 
   defmacro __using__(opts) do
@@ -70,7 +92,9 @@ defmodule RabbitMQStream.Publisher do
 
       def start_link(opts \\ []) do
         opts =
-          Application.get_env(:rabbitmq_stream, __MODULE__, [])
+          Application.get_env(:rabbitmq_stream, :subscribers)
+          |> Keyword.drop([:stream_name, :reference_name])
+          |> Keyword.merge(Application.get_env(:rabbitmq_stream, __MODULE__, []))
           |> Keyword.merge(@opts)
           |> Keyword.merge(opts)
 
