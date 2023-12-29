@@ -203,8 +203,6 @@ defmodule RabbitMQStream.Connection.Lifecycle do
 
       # I'm not really sure how to test this behavior at the moment.
       def handle_info(:flush_request_buffer, %Connection{} = conn) do
-        dbg(conn.request_buffer)
-
         # There is probably a better way to reprocess the buffer, but I'm not sure how to do at the moment.
         conn =
           :queue.fold(
