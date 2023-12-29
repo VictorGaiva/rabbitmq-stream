@@ -1,4 +1,48 @@
 defmodule RabbitMQStream.Subscriber do
+  @moduledoc """
+    Used to declare a Persistent Subscriber module. It is able to process
+    chunks by implementing the `handle_chunk/1` or `handle_chunk/2` callbacks.
+
+    ## Usage
+
+        defmodule MyApp.MySubscriber do
+          use RabbitMQStream.Subscriber,
+            connection: MyApp.MyConnection,
+            stream_name: "my_stream",
+            initial_offset: :first
+
+          @impl true
+          def handle_chunk(_chunk, _subscriber) do
+            :ok
+          end
+        end
+
+
+    ## Parameters
+
+      * `:connection` - The connection module to use. This is required.
+      * `:stream_name` - The name of the stream to subscribe to. This is required.
+      * `:initial_offset` - The initial offset to subscribe from. This is required.
+      * `:initial_credit` - The initial credit to request from the server. Defaults to `50_000`.
+      * `:offset_strategy` - Offset tracking strategies to use. Defaults to `[RabbitMQStream.Subscriber.OffsetTracking.CountStrategy]`.
+      * `:private` - Private data that can hold any value, and is passed to the `handle_chunk/2` callback.
+
+
+    ## Offset Tracking
+
+    The subscriber is able to track its progress in the stream by storing its
+    latests offset in the stream. Check [Offset Tracking with RabbitMQ Streams(https://blog.rabbitmq.com/posts/2021/09/rabbitmq-streams-offset-tracking/) for more information on
+    how offset tracking works.
+
+    The subscriber can be configured to use different offset tracking strategies,
+    which decide when to store the offset in the stream. You can implement your
+    own strategy by implementing the `RabbitMQStream.Subscriber.OffsetTracking.Strategy`
+    behaviour, and passing it to the `:offset_strategy` option. It defaults to
+    `RabbitMQStream.Subscriber.OffsetTracking.CountStrategy`, which stores the
+    offset after, by default, every 50_000 messages.
+
+
+  """
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts], location: :keep do
       use GenServer
@@ -148,39 +192,21 @@ defmodule RabbitMQStream.Subscriber do
     end
   end
 
-  @moduledoc """
-    Used to declare a Subscriber module.
-
-    ## Usage
-
-        defmodule MyApp.MySubscriber do
-          use RabbitMQStream.Subscriber,
-            connection: MyApp.MyConnection,
-            stream_name: "my_stream",
-            initial_offset: :first
-
-          @impl true
-          def handle_chunk(_chunk, _subscriber) do
-            :ok
-          end
-        end
-
-
-     ## Parameters
-
-      * `:connection` - The connection module to use. This is required.
-      * `:stream_name` - The name of the stream to subscribe to. This is required.
-      * `:initial_offset` - The initial offset to subscribe from. This is required.
-      * `:initial_credit` - The initial credit to request from the server. Defaults to `50_000`.
-      * `:offset_strategy` - Offset tracking strategies to use. Defaults to `[RabbitMQStream.Subscriber.OffsetTracking.CountStrategy]`.
-      * `:private` - Private data that can hold any value, and is passed to the `handle_chunk/2` callback.
-
-
-  """
-
   @optional_callbacks handle_chunk: 1, handle_chunk: 2
 
   @doc """
+    The callback that is invoked when a chunk is received.
+
+    Each chunk contains a list of potentially many data entries, along with
+    metadata about the chunk itself. The callback is invoked once for each
+    chunk received.
+
+    Optionally if you implement `handle_chunk/2`, it also passes the current
+    state of the subscriber. It can be used to access the `private` field
+    passed to `start_link/1`, and other fields.
+
+    The return value is ignored.
+  """
   @callback handle_chunk(chunk :: RabbitMQStream.OsirisChunk.t()) :: term()
   @callback handle_chunk(chunk :: RabbitMQStream.OsirisChunk.t(), state :: t()) :: term()
 
