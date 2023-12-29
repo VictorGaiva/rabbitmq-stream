@@ -10,6 +10,12 @@ defmodule RabbitMQStreamTest.Subscriber do
   defmodule SupervisorPublisher do
     use RabbitMQStream.Publisher,
       connection: RabbitMQStreamTest.Subscriber.SupervisedConnection
+
+    def before_start(_opts, state) do
+      state.connection.create_stream(state.stream_name)
+
+      state
+    end
   end
 
   defmodule Subscriber do
@@ -34,7 +40,6 @@ defmodule RabbitMQStreamTest.Subscriber do
   @stream "subscriber-test-stream-01"
   @reference_name "reference-01"
   test "should publish and receive a message" do
-    SupervisedConnection.create_stream(@stream)
     {:ok, _publisher} = SupervisorPublisher.start_link(reference_name: @reference_name, stream_name: @stream)
 
     assert {:ok, subscription_id} = SupervisedConnection.subscribe(@stream, self(), :next, 999)
@@ -56,7 +61,6 @@ defmodule RabbitMQStreamTest.Subscriber do
   @stream "subscriber-test-stream-02"
   @reference_name "reference-02"
   test "should credit a subscriber" do
-    SupervisedConnection.create_stream(@stream)
     {:ok, _publisher} = SupervisorPublisher.start_link(reference_name: @reference_name, stream_name: @stream)
 
     assert {:ok, subscription_id} = SupervisedConnection.subscribe(@stream, self(), :next, 1)
@@ -82,8 +86,6 @@ defmodule RabbitMQStreamTest.Subscriber do
   @stream "subscriber-test-stream-10"
   @reference_name "reference-10"
   test "a message should be received by a persistent subscriber" do
-    SupervisedConnection.create_stream(@stream)
-
     {:ok, _publisher} =
       SupervisorPublisher.start_link(reference_name: @reference_name, stream_name: @stream)
 

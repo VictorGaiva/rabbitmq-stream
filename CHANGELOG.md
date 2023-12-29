@@ -36,7 +36,7 @@ Added an implementation for a stream Subscriber, fixed bugs and improved the doc
 
 ### Changes
 
-- `RabbitMQStream.Publisher` no longer calls `connect` on the connection
-- Moved `RabbitMQStream.Publisher`'s setup logic into `handle_continue`, so that the supervision tree doesn't lag at startup
-- `RabbitMQStream.Publisher` no longer declares the stream if it doesn't exists. There are plans of creating a `before_connect` callback
-  where one could add this type of setup logic to the module, but for now it expects the stream to already exist.
+- `RabbitMQStream.Publisher` no longer calls `connect` on the Connection during its setup.
+- Moved `RabbitMQStream.Publisher`'s setup logic into `handle_continue`, to prevent locking up the application startup.
+- `RabbitMQStream.Publisher` no longer declares the stream if it doesn't exists.
+- `RabbitMQStream.Publisher` module now can optionally declare a `before_start/2` callback, which is called before it calls `declare_publisher/2`, and can be used to create the stream if it doesn't exists.

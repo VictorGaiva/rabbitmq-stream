@@ -43,6 +43,24 @@ defmodule RabbitMQStream.Publisher do
         stream_name: "my-stream",
         connection: MyApp.MyConnection
 
+
+  ## Setting up
+
+  You can optionally define a `before_start/2` callback to perform setup logic, such as creating the stream, if it doesn't yet exists.
+
+      defmodule MyApp.MyPublisher do
+        use RabbitMQStream.Publisher,
+          stream_name: "my-stream",
+          connection: MyApp.MyConnection
+
+        def before_start(_opts, state) do
+          # Create the stream
+          state.connection.create_stream(state.stream_name)
+
+          state
+        end
+      end
+
   """
 
   defmacro __using__(opts) do
@@ -87,7 +105,14 @@ defmodule RabbitMQStream.Publisher do
       end
 
       @impl true
-      def handle_continue(_opts, state) do
+      def handle_continue(opts, state) do
+        state =
+          if function_exported?(__MODULE__, :before_start, 2) do
+            before_start(opts, state)
+          else
+            state
+          end
+
         with {:ok, id} <- state.connection.declare_publisher(state.stream_name, state.reference_name),
              {:ok, sequence} <- state.connection.query_publisher_sequence(state.stream_name, state.reference_name) do
           {:noreply, %{state | id: id, sequence: sequence + 1}}
@@ -142,4 +167,20 @@ defmodule RabbitMQStream.Publisher do
           sequence: non_neg_integer() | nil,
           id: String.t() | nil
         }
+
+  @type options :: [option()]
+
+  @type option ::
+          {:stream_name, String.t()}
+          | {:reference_name, String.t()}
+          | {:connection, RabbitMQStream.Connection.t()}
+  @optional_callbacks [before_start: 2]
+
+  @doc """
+    Optional callback that is called after the process has started, but before the
+    publisher has declared itself and fetched its most recent `publishing_id`.
+
+    This is usefull for setup logic, such as creating the Stream, if it doesn't yet exists.
+  """
+  @callback before_start(options(), t()) :: t()
 end
