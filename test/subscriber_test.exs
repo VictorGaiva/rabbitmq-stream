@@ -63,6 +63,8 @@ defmodule RabbitMQStreamTest.Subscriber do
   test "should credit a subscriber" do
     {:ok, _publisher} = SupervisorPublisher.start_link(reference_name: @reference_name, stream_name: @stream)
 
+    # We ensure the stream exists before subscribing
+    SupervisedConnection.create_stream(@stream)
     assert {:ok, subscription_id} = SupervisedConnection.subscribe(@stream, self(), :next, 1)
 
     message = inspect(%{message: "Hello, world1!"})

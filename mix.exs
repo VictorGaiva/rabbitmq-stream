@@ -87,7 +87,17 @@ defmodule RabbitMQStream.MixProject do
     [
       Client: [
         RabbitMQStream.Connection,
-        RabbitMQStream.Publisher
+        RabbitMQStream.Publisher,
+        RabbitMQStream.Subscriber
+      ],
+      "Offset Tracking": [
+        RabbitMQStream.Subscriber.OffsetTracking.Strategy,
+        RabbitMQStream.Subscriber.OffsetTracking.CountStrategy,
+        RabbitMQStream.Subscriber.OffsetTracking.IntervalStrategy
+      ],
+      "Flow Control": [
+        RabbitMQStream.Subscriber.FlowControl.Strategy,
+        RabbitMQStream.Subscriber.FlowControl.MessageCount
       ]
     ]
   end

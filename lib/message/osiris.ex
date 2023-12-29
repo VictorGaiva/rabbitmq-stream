@@ -19,8 +19,8 @@ defmodule RabbitMQStream.OsirisChunk do
           timestamp: integer(),
           # <<epoch::unsigned-integer-size(64)>>
           epoch: non_neg_integer(),
-          # <<chunk_first_offset::unsigned-integer-size(64)>>
-          chunk_first_offset: non_neg_integer(),
+          # <<chunk_id::unsigned-integer-size(64)>>
+          chunk_id: non_neg_integer(),
           # <<chunk_crc::integer-size(32)>>
           chunk_crc: integer(),
           # <<data_length::unsigned-integer-size(32)>>
@@ -37,7 +37,7 @@ defmodule RabbitMQStream.OsirisChunk do
     :num_records,
     :timestamp,
     :epoch,
-    :chunk_first_offset,
+    :chunk_id,
     :chunk_crc,
     :data_length,
     :trailer_length,
@@ -49,7 +49,7 @@ defmodule RabbitMQStream.OsirisChunk do
     :num_records,
     :timestamp,
     :epoch,
-    :chunk_first_offset,
+    :chunk_id,
     :chunk_crc,
     :data_length,
     :trailer_length,
@@ -164,7 +164,7 @@ defmodule RabbitMQStream.OsirisChunk do
       num_records::unsigned-integer-size(32),
       timestamp::integer-size(64),
       epoch::unsigned-integer-size(64),
-      chunk_first_offset::unsigned-integer-size(64),
+      chunk_id::unsigned-integer-size(64),
       chunk_crc::integer-size(32),
       data_length::unsigned-integer-size(32),
       trailer_length::unsigned-integer-size(32),
@@ -203,7 +203,7 @@ defmodule RabbitMQStream.OsirisChunk do
       num_records: num_records,
       timestamp: timestamp,
       epoch: epoch,
-      chunk_first_offset: chunk_first_offset,
+      chunk_id: chunk_id,
       chunk_crc: chunk_crc,
       data_length: data_length,
       trailer_length: trailer_length,

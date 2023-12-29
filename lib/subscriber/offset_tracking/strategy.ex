@@ -1,4 +1,6 @@
 defmodule RabbitMQStream.Subscriber.OffsetTracking.Strategy do
+  @type t :: module()
+
   @moduledoc """
     Behavior for offset tracking strategies.
 

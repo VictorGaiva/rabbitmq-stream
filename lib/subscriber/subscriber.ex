@@ -25,6 +25,7 @@ defmodule RabbitMQStream.Subscriber do
       * `:initial_offset` - The initial offset to subscribe from. This is required.
       * `:initial_credit` - The initial credit to request from the server. Defaults to `50_000`.
       * `:offset_strategy` - Offset tracking strategies to use. Defaults to `[RabbitMQStream.Subscriber.OffsetTracking.CountStrategy]`.
+      * `:flow_control` - Flow control strategy to use. Defaults to `RabbitMQStream.Subscriber.FlowControl.MessageCount`.
       * `:private` - Private data that can hold any value, and is passed to the `handle_chunk/2` callback.
 
 
@@ -41,6 +42,29 @@ defmodule RabbitMQStream.Subscriber do
     `RabbitMQStream.Subscriber.OffsetTracking.CountStrategy`, which stores the
     offset after, by default, every 50_000 messages.
 
+    ## Flow Control
+
+    The RabbitMQ Streams server requires that the subscriber declares how many
+    messages it is able to process at a time. This is done by informing an amount
+    of 'credits' to the server. After every chunk is sent, one credit is consumed,
+    and the server will send messages only if there are credits available.
+
+    We can configure the subscriber to automatically request more credits based on
+    a strategy. By default it uses the `RabbitMQStream.Subscriber.FlowControl.MessageCount`,
+    which requests 1 additional credit for every 1 processed chunk. Please check
+    the RabbitMQStream.Subscriber.FlowControl.MessageCount module for more information.
+
+    You can also call `RabbitMQStream.Subscriber.credit/2` to manually add more
+    credits to the subscription, or implement your own strategy by implementing
+    the `RabbitMQStream.Subscriber.FlowControl.Strategy` behaviour, and passing
+    it to the `:flow_control` option.
+
+    You can find more information on the [RabbitMQ Streams documentation](https://www.rabbitmq.com/stream.html#flow-control).
+
+    If you want an external process to be fully in control of the flow control
+    of a subscriber, you can set the `:flow_control` option to `false`. Then
+    you can call `RabbitMQStream.Subscriber.credit/2` to manually add more
+    credits to the subscription.
 
   """
   defmacro __using__(opts) do
@@ -49,6 +73,14 @@ defmodule RabbitMQStream.Subscriber do
       @behaviour RabbitMQStream.Subscriber
 
       @opts opts
+
+      def credit(amount) do
+        GenServer.cast(__MODULE__, {:credit, amount})
+      end
+
+      def get_credits() do
+        GenServer.call(__MODULE__, :get_credits)
+      end
 
       def start_link(opts \\ []) do
         opts =
@@ -64,8 +96,10 @@ defmodule RabbitMQStream.Subscriber do
       def init(opts \\ []) do
         connection = Keyword.get(opts, :connection) || raise(":connection is required")
         stream_name = Keyword.get(opts, :stream_name) || raise(":stream_name is required")
+        initial_credit = Keyword.get(opts, :initial_credit, 50_000)
 
-        strategies = Keyword.get(opts, :offset_strategy, [RabbitMQStream.Subscriber.OffsetTracking.CountStrategy])
+        offset_tracking = Keyword.get(opts, :offset_strategy, [RabbitMQStream.Subscriber.OffsetTracking.CountStrategy])
+        flow_control = Keyword.get(opts, :flow_control, RabbitMQStream.Subscriber.FlowControl.MessageCount)
 
         offset_reference = Keyword.get(opts, :offset_reference, Atom.to_string(__MODULE__))
 
@@ -74,7 +108,10 @@ defmodule RabbitMQStream.Subscriber do
           connection: connection,
           offset_reference: offset_reference,
           private: opts[:private],
-          offset_tracking: init_strategies(strategies, opts)
+          offset_tracking: init_offset_tracking(offset_tracking, opts),
+          flow_control: init_flow_control(flow_control, opts),
+          credits: initial_credit,
+          initial_credit: initial_credit
         }
 
         {:ok, state, {:continue, opts}}
@@ -83,7 +120,6 @@ defmodule RabbitMQStream.Subscriber do
       @impl true
       def handle_continue(opts, state) do
         initial_offset = Keyword.get(opts, :initial_offset) || raise(":initial_offset is required")
-        initial_credit = Keyword.get(opts, :initial_credit) || 50_000
 
         last_offset =
           case state.connection.query_offset(state.stream_name, state.offset_reference) do
@@ -94,7 +130,7 @@ defmodule RabbitMQStream.Subscriber do
               initial_offset
           end
 
-        case state.connection.subscribe(state.stream_name, self(), last_offset, initial_credit) do
+        case state.connection.subscribe(state.stream_name, self(), last_offset, state.initial_credit) do
           {:ok, id} ->
             last_offset =
               case last_offset do
@@ -140,15 +176,33 @@ defmodule RabbitMQStream.Subscriber do
             end
           end
 
+        credit = state.credits - chunk.num_entries
+
         state =
-          %{state | offset_tracking: offset_tracking, last_offset: chunk.chunk_first_offset}
-          |> run_offset_tracking()
+          %{state | offset_tracking: offset_tracking, last_offset: chunk.chunk_id, credits: credit}
+
+        state = state |> run_offset_tracking() |> run_flow_control()
 
         {:noreply, state}
       end
 
       def handle_info(:run_offset_tracking, state) do
         {:noreply, run_offset_tracking(state)}
+      end
+
+      def handle_info(:run_flow_control, state) do
+        {:noreply, run_flow_control(state)}
+      end
+
+      @impl true
+      def handle_cast({:credit, amount}, state) do
+        state.connection.credit(state.id, amount)
+        {:noreply, %{state | credits: state.credits + amount}}
+      end
+
+      @impl true
+      def handle_call(:get_credits, _from, state) do
+        {:reply, state.credits, state}
       end
 
       defp run_offset_tracking(%{last_offset: nil} = state), do: state
@@ -178,7 +232,20 @@ defmodule RabbitMQStream.Subscriber do
         %{state | offset_tracking: offset_tracking}
       end
 
-      defp init_strategies(strategies, subscriber_opts) do
+      defp run_flow_control(%{flow_control: {strategy, flow_state}} = state) do
+        case strategy.run(flow_state, state) do
+          {:credit, amount, new_flow_control} ->
+            state.connection.credit(state.id, amount)
+            %{state | flow_control: {strategy, new_flow_control}, credits: state.credits + amount}
+
+          {:skip, new_flow_control} ->
+            %{state | flow_control: {strategy, new_flow_control}}
+        end
+      end
+
+      defp run_flow_control(%{flow_control: false} = state), do: state
+
+      defp init_offset_tracking(strategies, subscriber_opts) do
         strategies
         |> List.wrap()
         |> Enum.map(fn
@@ -188,6 +255,18 @@ defmodule RabbitMQStream.Subscriber do
           strategy when is_atom(strategy) ->
             {strategy, strategy.init(subscriber_opts)}
         end)
+      end
+
+      defp init_flow_control({strategy, opts}, subscriber_opts) do
+        {strategy, strategy.init(Keyword.merge(subscriber_opts, opts))}
+      end
+
+      defp init_flow_control(false, _) do
+        false
+      end
+
+      defp init_flow_control(strategy, subscriber_opts) do
+        {strategy, strategy.init(subscriber_opts)}
       end
     end
   end
@@ -215,8 +294,15 @@ defmodule RabbitMQStream.Subscriber do
     :connection,
     :stream_name,
     :offset_tracking,
+    :flow_control,
     :id,
     :last_offset,
+    # We could have delegated the tracking of the credit to the strategy,
+    #  by adding declaring a callback similar to `after_chunk/3`. But it seems
+    #  reasonable to have a `credit` function to manually add more credits,
+    #  which would them possibly cause the strategy to not work as expected.
+    :credits,
+    :initial_credit,
     :private
   ]
 
@@ -225,9 +311,12 @@ defmodule RabbitMQStream.Subscriber do
           connection: RabbitMQStream.Connection.t(),
           stream_name: String.t(),
           id: non_neg_integer() | nil,
-          offset_tracking: OffsetAutoTracking.t(),
+          offset_tracking: [{RabbitMQStream.Subscriber.OffsetTracking.Strategy.t(), term()}],
+          flow_control: {RabbitMQStream.Subscriber.FlowControl.Strategy.t(), term()},
           last_offset: non_neg_integer() | nil,
-          private: any()
+          private: any(),
+          credits: non_neg_integer(),
+          initial_credit: non_neg_integer()
         }
 
   @type subscriber_option ::
@@ -236,7 +325,8 @@ defmodule RabbitMQStream.Subscriber do
           | {:stream_name, String.t()}
           | {:initial_offset, RabbitMQStream.Connection.offset()}
           | {:initial_credit, non_neg_integer()}
-          | {:offset_strategy, [OffsetAutoTracking.auto_tracking_strategy_option()]}
+          | {:offset_strategy, [{RabbitMQStream.Subscriber.OffsetTracking.Strategy.t(), term()}]}
+          | {:flow_control, {RabbitMQStream.Subscriber.FlowControl.Strategy.t(), term()}}
           | {:private, any()}
 
   @type opts :: [subscriber_option()]

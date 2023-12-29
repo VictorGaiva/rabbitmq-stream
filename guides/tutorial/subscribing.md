@@ -16,7 +16,29 @@ You can subscribe to messages from a stream with:
 
 The message will be received with the format `{:chunk, %RabbitMQStream.OsirisChunk{} = chunk}`.
 
-## Example
+## Examples
+
+### Persistent Subscription
+
+You can `use RabbitMQStream.Subscriber` to create a persistent subscription to a stream, which will automatically track the offset and credit.
+You can check more information about the `RabbitMQStream.Subscriber` module [here](https://hexdocs.pm/rabbitmq_stream/RabbitMQStream.Subscriber.html).
+
+```elixir
+defmodule MyApp.MySubscriber do
+  use RabbitMQStream.Subscriber,
+    connection: MyApp.MyConnection,
+    stream_name: "my_stream",
+    initial_offset: :first
+
+  @impl true
+  def handle_chunk(_chunk, _subscriber) do
+    :ok
+  end
+end
+
+```
+
+### Genserver
 
 An example `GenServer` handler that receives messages from a stream could be written like this:
 
