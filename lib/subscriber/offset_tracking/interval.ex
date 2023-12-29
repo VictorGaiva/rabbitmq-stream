@@ -2,32 +2,32 @@ defmodule RabbitMQStream.Subscriber.OffsetTracking.IntervalStrategy do
   @behaviour RabbitMQStream.Subscriber.OffsetTracking.Strategy
 
   @moduledoc """
-    Interval Strategy
+  Interval Strategy
 
-    Runs a timer every `interval` milliseconds, and sends the parent process
-    a `:run_offset_tracking` message.
+  Runs a timer every `interval` milliseconds, and sends the parent process
+  a `:run_offset_tracking` message.
 
-    Since we also execute the strategy after every message, we also reset any
-    timer that may be running when the strategy is returns a `:store`.
+  Since we also execute the strategy after every message, we also reset any
+  timer that may be running when the strategy is returns a `:store`.
 
 
-    ## Usage
-        defmodule MyApp.MySubscriber do
-          alias RabbitMQStream.Subscriber.OffsetTracking
+  ## Usage
+      defmodule MyApp.MySubscriber do
+        alias RabbitMQStream.Subscriber.OffsetTracking
 
-          use RabbitMQStream.Subscriber,
-            offset_strategy: [OffsetTracking.IntervalStrategy, interval: 10_000]
+        use RabbitMQStream.Subscriber,
+          offset_strategy: [OffsetTracking.IntervalStrategy, interval: 10_000]
 
-          @impl true
-          def handle_chunk(_chunk, _subscriber) do
-            :ok
-          end
+        @impl true
+        def handle_chunk(_chunk, _subscriber) do
+          :ok
         end
+      end
 
 
-    ## Parameters
+  ## Parameters
 
-    * `interval` - the time in milliseconds before storing the offset
+  * `interval` - the time in milliseconds before storing the offset
   """
 
   def init(opts \\ []) do

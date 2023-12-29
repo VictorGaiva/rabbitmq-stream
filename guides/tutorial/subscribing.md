@@ -21,7 +21,7 @@ The message will be received with the format `{:chunk, %RabbitMQStream.OsirisChu
 ### Persistent Subscription
 
 You can `use RabbitMQStream.Subscriber` to create a persistent subscription to a stream, which will automatically track the offset and credit.
-You can check more information about the `RabbitMQStream.Subscriber` module [here](https://hexdocs.pm/rabbitmq_stream/RabbitMQStream.Subscriber.html).
+You can check more information about the `RabbitMQStream.Subscriber` in its documentation.
 
 ```elixir
 defmodule MyApp.MySubscriber do

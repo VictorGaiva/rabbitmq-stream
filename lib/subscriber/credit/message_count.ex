@@ -2,22 +2,21 @@ defmodule RabbitMQStream.Subscriber.FlowControl.MessageCount do
   @behaviour RabbitMQStream.Subscriber.FlowControl.Strategy
 
   @moduledoc """
-    Message Count Strategy
+  Message Count Strategy
 
-    Adds credits after the amount of consumed credit reaches a certain threshold.
+  Adds credits after the amount of consumed credit reaches a certain threshold.
 
-    ## Usage
+  ## Usage
 
 
-    ## Parameters
+  ## Parameters
 
-    * `credit_after` - The type of computation performed to decide whether to add more credit.
-        Can be one of:
-        * `{:count, amount}` - adds the amount in credits after the specified is consumed
-        * `{:ratio, ratio}` - credits the missing amount after the ratio of remaining credits reaches the threshold
+  * `credit_after` - The type of computation performed to decide whether to add more credit.
+      Can be one of:
+      * `{:count, amount}` - adds the amount in credits after the specified is consumed
+      * `{:ratio, ratio}` - credits the missing amount after the ratio of remaining credits reaches the threshold
 
-    Defaults to `{:count, 1}`.
-
+  Defaults to `{:count, 1}`.
 
   """
 

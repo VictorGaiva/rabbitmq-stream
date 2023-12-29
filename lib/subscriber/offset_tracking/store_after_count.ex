@@ -2,27 +2,27 @@ defmodule RabbitMQStream.Subscriber.OffsetTracking.CountStrategy do
   @behaviour RabbitMQStream.Subscriber.OffsetTracking.Strategy
 
   @moduledoc """
-    Count Strategy
+  Count Strategy
 
-    Stores the offset after every `store_after` messages.
+  Stores the offset after every `store_after` messages.
 
-    ## Usage
-        defmodule MyApp.MySubscriber do
-          alias RabbitMQStream.Subscriber.OffsetTracking
+  ## Usage
+      defmodule MyApp.MySubscriber do
+        alias RabbitMQStream.Subscriber.OffsetTracking
 
-          use RabbitMQStream.Subscriber,
-            offset_strategy: [OffsetTracking.CountStrategy, store_after: 50_000]
+        use RabbitMQStream.Subscriber,
+          offset_strategy: [OffsetTracking.CountStrategy, store_after: 50_000]
 
-          @impl true
-          def handle_chunk(_chunk, _subscriber) do
-            :ok
-          end
+        @impl true
+        def handle_chunk(_chunk, _subscriber) do
+          :ok
         end
+      end
 
 
-    ## Parameters
+  ## Parameters
 
-    * `store_after` - the number of messages to receive before storing the offset
+  * `store_after` - the number of messages to receive before storing the offset
 
   """
 
