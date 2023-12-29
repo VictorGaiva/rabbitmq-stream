@@ -72,6 +72,11 @@ defmodule RabbitMQStream.Connection do
       end
 
   The precedence order is is the same order as the examples above, from top to bottom.
+
+
+  ## Buffering
+
+  Any call or cast to the connection while it is not connected will be buffered and executed once the connection is open.
   """
 
   defmacro __using__(opts) do
@@ -228,25 +233,6 @@ defmodule RabbitMQStream.Connection do
           | {:heartbeat, non_neg_integer()}
           | {:lazy, boolean()}
 
-  @type t() :: %RabbitMQStream.Connection{
-          options: connection_options,
-          socket: :gen_tcp.socket(),
-          version: 1,
-          state: :closed | :connecting | :open | :closing,
-          correlation_sequence: integer(),
-          publisher_sequence: non_neg_integer(),
-          subscriber_sequence: non_neg_integer(),
-          peer_properties: [[String.t()]],
-          connection_properties: %{String.t() => String.t() | integer()},
-          mechanisms: [String.t()],
-          connect_requests: [pid()],
-          request_tracker: %{{atom(), integer()} => {pid(), any()}},
-          brokers: %{integer() => BrokerData.t()},
-          streams: %{String.t() => StreamData.t()},
-          subscriptions: %{non_neg_integer() => pid()},
-          buffer: RabbitMQStream.Message.Buffer.t()
-        }
-
   @callback start_link([connection_option | {:name, atom()}]) :: :ignore | {:error, any} | {:ok, pid}
 
   @callback connect() :: :ok | {:error, reason :: atom()}
@@ -298,6 +284,26 @@ defmodule RabbitMQStream.Connection do
   """
   @callback credit(subscription_id :: non_neg_integer(), credit :: non_neg_integer()) :: :ok
 
+  @type t() :: %RabbitMQStream.Connection{
+          options: connection_options,
+          socket: :gen_tcp.socket(),
+          version: 1,
+          state: :closed | :connecting | :open | :closing,
+          correlation_sequence: integer(),
+          publisher_sequence: non_neg_integer(),
+          subscriber_sequence: non_neg_integer(),
+          peer_properties: [[String.t()]],
+          connection_properties: %{String.t() => String.t() | integer()},
+          mechanisms: [String.t()],
+          connect_requests: [pid()],
+          request_tracker: %{{atom(), integer()} => {pid(), any()}},
+          brokers: %{integer() => BrokerData.t()},
+          streams: %{String.t() => StreamData.t()},
+          subscriptions: %{non_neg_integer() => pid()},
+          frames_buffer: RabbitMQStream.Message.Buffer.t(),
+          request_buffer: :queue.queue({term(), pid()})
+        }
+
   defstruct [
     :socket,
     options: [],
@@ -314,6 +320,7 @@ defmodule RabbitMQStream.Connection do
     request_tracker: %{},
     brokers: %{},
     streams: %{},
-    buffer: RabbitMQStream.Message.Buffer.init()
+    request_buffer: :queue.new(),
+    frames_buffer: RabbitMQStream.Message.Buffer.init()
   ]
 end

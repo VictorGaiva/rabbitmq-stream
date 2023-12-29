@@ -2,7 +2,7 @@ defmodule RabbitMQStream.Connection.Lifecycle do
   @moduledoc false
 
   defmacro __using__(_) do
-    quote do
+    quote location: :keep do
       require Logger
       use GenServer
 
@@ -49,8 +49,8 @@ defmodule RabbitMQStream.Connection.Lifecycle do
         {:reply, :ok, conn}
       end
 
-      def handle_call(_, _from, %Connection{state: state} = conn) when state != :open do
-        {:reply, {:error, state}, conn}
+      def handle_call(action, from, %Connection{state: state} = conn) when state != :open do
+        {:noreply, %{conn | request_buffer: :queue.in({:call, {action, from}}, conn.request_buffer)}}
       end
 
       def handle_call({:close, reason, code}, from, %Connection{} = conn) do
@@ -119,6 +119,10 @@ defmodule RabbitMQStream.Connection.Lifecycle do
       end
 
       @impl true
+      def handle_cast(action, %Connection{state: state} = conn) when state != :open do
+        {:noreply, %{conn | request_buffer: :queue.in({:cast, action}, conn.request_buffer)}}
+      end
+
       def handle_cast({:publish, opts}, %Connection{} = conn) do
         {_wait, opts} = Keyword.pop(opts, :wait, false)
 
@@ -148,12 +152,12 @@ defmodule RabbitMQStream.Connection.Lifecycle do
 
       @impl true
       def handle_info({:tcp, _socket, data}, conn) do
-        {commands, buffer} =
+        {commands, frames_buffer} =
           data
-          |> Buffer.incoming_data(conn.buffer)
+          |> Buffer.incoming_data(conn.frames_buffer)
           |> Buffer.all_commands()
 
-        conn = %{conn | buffer: buffer}
+        conn = %{conn | frames_buffer: frames_buffer}
 
         conn = Enum.reduce(commands, conn, &Handler.handle_message/2)
 
@@ -190,6 +194,28 @@ defmodule RabbitMQStream.Connection.Lifecycle do
         conn = %{conn | socket: nil, state: :closed} |> Handler.handle_closed(reason)
 
         {:noreply, conn}
+      end
+
+      def handle_info(:flush_buffer, %Connection{state: :closed} = conn) do
+        Logger.warning("Connection is closed. Ignoring flush buffer request.")
+        {:noreply, conn}
+      end
+
+      def handle_info(:flush_buffer, %Connection{} = conn) do
+        conn =
+          :queue.fold(
+            fn
+              {:call, {action, from}}, conn ->
+                handle_call(action, from, conn)
+
+              {:cast, action}, conn ->
+                handle_cast(action, conn)
+            end,
+            conn,
+            conn.request_buffer
+          )
+
+        {:noreply, %{conn | request_buffer: :queue.new()}}
       end
 
       @impl true
