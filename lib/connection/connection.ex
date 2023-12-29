@@ -139,7 +139,7 @@ defmodule RabbitMQStream.Connection do
           when is_binary(stream_name) and
                  is_binary(offset_reference) and
                  is_integer(offset) do
-        GenServer.call(
+        GenServer.cast(
           __MODULE__,
           {:store_offset, stream_name: stream_name, offset_reference: offset_reference, offset: offset}
         )

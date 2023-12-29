@@ -101,12 +101,12 @@ defmodule RabbitMQStream.Connection.Lifecycle do
         {:noreply, conn}
       end
 
-      def handle_call({:store_offset, opts}, _from, %Connection{} = conn) do
+      def handle_cast({:store_offset, opts}, %Connection{} = conn) do
         conn =
           conn
           |> Handler.send_request(:store_offset, opts)
 
-        {:reply, :ok, conn}
+        {:noreply, conn}
       end
 
       def handle_call({:declare_publisher, opts}, from, %Connection{} = conn) do
@@ -196,20 +196,26 @@ defmodule RabbitMQStream.Connection.Lifecycle do
         {:noreply, conn}
       end
 
-      def handle_info(:flush_buffer, %Connection{state: :closed} = conn) do
+      def handle_info(:flush_request_buffer, %Connection{state: :closed} = conn) do
         Logger.warning("Connection is closed. Ignoring flush buffer request.")
         {:noreply, conn}
       end
 
-      def handle_info(:flush_buffer, %Connection{} = conn) do
+      # I'm not really sure how to test this behavior at the moment.
+      def handle_info(:flush_request_buffer, %Connection{} = conn) do
+        dbg(conn.request_buffer)
+
+        # There is probably a better way to reprocess the buffer, but I'm not sure how to do at the moment.
         conn =
           :queue.fold(
             fn
               {:call, {action, from}}, conn ->
-                handle_call(action, from, conn)
+                {:noreply, conn} = handle_call(action, from, conn)
+                conn
 
               {:cast, action}, conn ->
-                handle_cast(action, conn)
+                {:noreply, conn} = handle_cast(action, conn)
+                conn
             end,
             conn,
             conn.request_buffer

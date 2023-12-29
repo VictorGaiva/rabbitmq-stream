@@ -165,6 +165,8 @@ defmodule RabbitMQStream.Connection.Handler do
       GenServer.reply(request, :ok)
     end
 
+    send(self(), :flush_request_buffer)
+
     %{conn | state: :open, connect_requests: [], connection_properties: response.data.connection_properties}
   end
 
