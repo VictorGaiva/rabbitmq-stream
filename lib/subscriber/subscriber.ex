@@ -12,7 +12,7 @@ defmodule RabbitMQStream.Subscriber do
             initial_offset: :first
 
           @impl true
-          def handle_chunk(_chunk, _subscriber) do
+          def handle_chunk(%RabbitMQStream.OsirisChunk{} = _chunk, _subscriber) do
             :ok
           end
         end

@@ -20,7 +20,23 @@ defmodule MyApp.MyConnection do
 end
 ```
 
-Then you can subscribe to messages from a stream:
+You then can declare a subscriber module with the `RabbitMQStream.Subscriber`:
+
+```elixir
+defmodule MyApp.MySubscriber do
+  use RabbitMQStream.Subscriber,
+    connection: MyApp.MyConnection,
+    stream_name: "my_stream",
+    initial_offset: :first
+
+  @impl true
+  def handle_chunk(%RabbitMQStream.OsirisChunk{}=_chunk, _subscriber) do
+    :ok
+  end
+end
+```
+
+Or you could manually subscribe to the stream with
 
 ```elixir
 {:ok, _subscription_id} = MyApp.MyConnection.subscribe("stream-01", self(), :next, 999)
@@ -81,5 +97,6 @@ config :rabbitmq_stream, MyApp.MyConnection,
   # ...
 end
 
-For more information, check the [documentation](https://hexdocs.pm/rabbitmq_stream/).
 ```
+
+For more information, check the [documentation](https://hexdocs.pm/rabbitmq_stream/).
