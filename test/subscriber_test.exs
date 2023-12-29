@@ -1,6 +1,7 @@
 defmodule RabbitMQStreamTest.Subscriber do
   use ExUnit.Case, async: false
   alias RabbitMQStream.Message.Data.DeliverData
+  require Logger
 
   defmodule SupervisedConnection do
     use RabbitMQStream.Connection
@@ -11,6 +12,18 @@ defmodule RabbitMQStreamTest.Subscriber do
       connection: RabbitMQStreamTest.Subscriber.SupervisedConnection
   end
 
+  defmodule Subscriber do
+    use RabbitMQStream.Subscriber,
+      connection: RabbitMQStreamTest.Subscriber.SupervisedConnection
+
+    @impl true
+    def handle_chunk(%DeliverData{osiris_chunk: %{data_entries: entries}}, %{private: parent}) do
+      send(parent, {:handle_chunk, entries})
+
+      :ok
+    end
+  end
+
   setup do
     {:ok, _conn} = SupervisedConnection.start_link(host: "localhost", vhost: "/")
     :ok = SupervisedConnection.connect()
@@ -18,9 +31,10 @@ defmodule RabbitMQStreamTest.Subscriber do
     :ok
   end
 
-  @stream "stream-01"
+  @stream "subscriber-test-stream-01"
   @reference_name "reference-01"
   test "should publish and receive a message" do
+    SupervisedConnection.create_stream(@stream)
     {:ok, _publisher} = SupervisorPublisher.start_link(reference_name: @reference_name, stream_name: @stream)
 
     assert {:ok, subscription_id} = SupervisedConnection.subscribe(@stream, self(), :next, 999)
@@ -29,18 +43,20 @@ defmodule RabbitMQStreamTest.Subscriber do
 
     SupervisorPublisher.publish(message)
 
-    assert_receive {:message, %DeliverData{osiris_chunk: %{data_entries: [^message]}}}, 1_000
+    assert_receive {:message, %DeliverData{osiris_chunk: %{data_entries: [^message]}}}, 500
 
     assert :ok = SupervisedConnection.unsubscribe(subscription_id)
 
     SupervisorPublisher.publish(message)
 
-    refute_receive {:message, %DeliverData{}}, 1_000
+    refute_receive {:message, %DeliverData{}}, 500
+    SupervisedConnection.delete_stream(@stream)
   end
 
-  @stream "stream-02"
+  @stream "subscriber-test-stream-02"
   @reference_name "reference-02"
   test "should credit a subscriber" do
+    SupervisedConnection.create_stream(@stream)
     {:ok, _publisher} = SupervisorPublisher.start_link(reference_name: @reference_name, stream_name: @stream)
 
     assert {:ok, subscription_id} = SupervisedConnection.subscribe(@stream, self(), :next, 1)
@@ -49,16 +65,40 @@ defmodule RabbitMQStreamTest.Subscriber do
 
     SupervisorPublisher.publish(message)
 
-    assert_receive {:message, %DeliverData{osiris_chunk: %{data_entries: [^message]}}}, 1_000
+    assert_receive {:message, %DeliverData{osiris_chunk: %{data_entries: [^message]}}}, 500
 
     message = inspect(%{message: "Hello, world2!"})
 
     SupervisorPublisher.publish(message)
 
-    refute_receive {:message, %DeliverData{}}, 1_000
+    refute_receive {:message, %DeliverData{}}, 500
 
     assert :ok = SupervisedConnection.credit(subscription_id, 1)
 
-    assert_receive {:message, %DeliverData{osiris_chunk: %{data_entries: [^message]}}}, 1_000
+    assert_receive {:message, %DeliverData{osiris_chunk: %{data_entries: [^message]}}}, 500
+    SupervisedConnection.delete_stream(@stream)
+  end
+
+  @stream "subscriber-test-stream-10"
+  @reference_name "reference-10"
+  test "a message should be received by a persistent subscriber" do
+    SupervisedConnection.create_stream(@stream)
+
+    {:ok, _publisher} =
+      SupervisorPublisher.start_link(reference_name: @reference_name, stream_name: @stream)
+
+    {:ok, _subscriber} =
+      Subscriber.start_link(
+        initial_offset: :first,
+        stream_name: @stream,
+        private: self()
+      )
+
+    message1 = "Subscriber Test: 1"
+
+    SupervisorPublisher.publish(message1)
+    assert_receive {:handle_chunk, [^message1]}, 500
+
+    SupervisedConnection.delete_stream(@stream)
   end
 end
