@@ -108,7 +108,7 @@ defmodule RabbitMQStream.Publisher do
       def handle_continue(opts, state) do
         state =
           if function_exported?(__MODULE__, :before_start, 2) do
-            before_start(opts, state)
+            apply(__MODULE__, :before_start, [opts, state])
           else
             state
           end
