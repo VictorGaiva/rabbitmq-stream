@@ -36,6 +36,7 @@ defmodule RabbitMQStreamTest.Supervision do
   test "should start itself and publish a message" do
     {:ok, _conn} = SupervisedConnection.start_link(host: "localhost", vhost: "/")
     :ok = SupervisedConnection.connect()
+    SupervisedConnection.create_stream(@stream)
     assert {:ok, _publisher} = SupervisorPublisher.start_link(reference_name: @reference_name, stream_name: @stream)
 
     %{sequence: sequence} = SupervisorPublisher.get_state()
@@ -45,6 +46,7 @@ defmodule RabbitMQStreamTest.Supervision do
     sequence = sequence + 1
 
     assert %{sequence: ^sequence} = SupervisorPublisher.get_state()
+    SupervisedConnection.delete_stream(@stream)
   end
 
   test "should start itself and publish a message via supervisor" do
