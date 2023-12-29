@@ -84,7 +84,7 @@ defmodule RabbitMQStream.Subscriber do
 
     And also you can override the defaults of all subscribers with:
 
-          config :rabbitmq_stream,
+          config :rabbitmq_stream, :defaults,
             subscribers: [
               connection: MyApp.MyConnection,
               initial_credit: 50_000,
@@ -115,7 +115,8 @@ defmodule RabbitMQStream.Subscriber do
 
       def start_link(opts \\ []) do
         opts =
-          Application.get_env(:rabbitmq_stream, :subscribers, [])
+          Application.get_env(:rabbitmq_stream, :defaults, [])
+          |> Keyword.get(:subscribers, [])
           |> Keyword.drop([:stream_name, :offset_reference, :private])
           |> Keyword.merge(Application.get_env(:rabbitmq_stream, __MODULE__, []))
           |> Keyword.merge(@opts)

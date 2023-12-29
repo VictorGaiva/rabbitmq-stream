@@ -71,7 +71,7 @@ defmodule RabbitMQStream.Publisher do
 
     And also you can override the defaults of all publishers with:
 
-          config :rabbitmq_stream,
+          config :rabbitmq_stream, :defaults,
             publishers: [
               connection: MyApp.MyConnection,
               # ...
@@ -92,7 +92,8 @@ defmodule RabbitMQStream.Publisher do
 
       def start_link(opts \\ []) do
         opts =
-          Application.get_env(:rabbitmq_stream, :subscribers)
+          Application.get_env(:rabbitmq_stream, :defaults, [])
+          |> Keyword.get(:publishers, [])
           |> Keyword.drop([:stream_name, :reference_name])
           |> Keyword.merge(Application.get_env(:rabbitmq_stream, __MODULE__, []))
           |> Keyword.merge(@opts)
