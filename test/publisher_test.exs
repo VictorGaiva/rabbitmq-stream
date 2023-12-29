@@ -9,7 +9,6 @@ defmodule RabbitMQStreamTest.Publisher do
 
   defmodule SupervisorPublisher do
     use RabbitMQStream.Publisher,
-      stream_name: "stream-00",
       connection: RabbitMQStreamTest.Publisher.SupervisedConnection
   end
 
@@ -20,9 +19,11 @@ defmodule RabbitMQStreamTest.Publisher do
     :ok
   end
 
-  @stream "stream-01"
-  @reference_name "reference-01"
+  @stream "publisher-test-01"
+  @reference_name "publisher-test-reference-01"
   test "should declare itself and its stream" do
+    SupervisedConnection.create_stream(@stream)
+
     assert {:ok, _} =
              SupervisorPublisher.start_link(
                reference_name: @reference_name,
@@ -32,22 +33,26 @@ defmodule RabbitMQStreamTest.Publisher do
     SupervisedConnection.delete_stream(@stream)
   end
 
-  @stream "stream-03"
-  @reference_name "reference-03"
+  @stream "publisher-test-02"
+  @reference_name "publisher-test-reference-02"
   test "should query its sequence when declaring" do
+    SupervisedConnection.create_stream(@stream)
+
     {:ok, _} =
       SupervisorPublisher.start_link(
         reference_name: @reference_name,
         stream_name: @stream
       )
 
-    SupervisedConnection.delete_stream(@stream)
     assert %{sequence: 1} = SupervisorPublisher.get_state()
+    SupervisedConnection.delete_stream(@stream)
   end
 
-  @stream "stream-03"
-  @reference_name "reference-03"
+  @stream "publisher-test-03"
+  @reference_name "publisher-test-reference-03"
   test "should publish a message" do
+    SupervisedConnection.create_stream(@stream)
+
     {:ok, _} =
       SupervisorPublisher.start_link(
         reference_name: @reference_name,
@@ -71,9 +76,11 @@ defmodule RabbitMQStreamTest.Publisher do
     SupervisedConnection.delete_stream(@stream)
   end
 
-  @stream "stream-04"
-  @reference_name "reference-04"
+  @stream "publisher-test-04"
+  @reference_name "publisher-test-reference-04"
   test "should keep track of sequence across startups" do
+    SupervisedConnection.create_stream(@stream)
+
     {:ok, _} =
       SupervisorPublisher.start_link(
         reference_name: @reference_name,

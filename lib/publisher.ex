@@ -75,33 +75,25 @@ defmodule RabbitMQStream.Publisher do
         connection = Keyword.get(opts, :connection) || raise(":connection is required")
         stream_name = Keyword.get(opts, :stream_name) || raise(":stream_name is required")
 
-        with :ok <- connection.connect(),
-             {:ok, id} <- connection.declare_publisher(stream_name, reference_name),
-             {:ok, sequence} <- connection.query_publisher_sequence(stream_name, reference_name) do
-          state = %RabbitMQStream.Publisher{
-            id: id,
-            stream_name: stream_name,
-            connection: connection,
-            reference_name: reference_name,
-            sequence: sequence + 1
-          }
+        state = %RabbitMQStream.Publisher{
+          id: nil,
+          sequence: nil,
+          stream_name: stream_name,
+          connection: connection,
+          reference_name: reference_name
+        }
 
-          {:ok, state}
+        {:ok, state, {:continue, opts}}
+      end
+
+      @impl true
+      def handle_continue(_opts, state) do
+        with {:ok, id} <- state.connection.declare_publisher(state.stream_name, state.reference_name),
+             {:ok, sequence} <- state.connection.query_publisher_sequence(state.stream_name, state.reference_name) do
+          {:noreply, %{state | id: id, sequence: sequence + 1}}
         else
-          {:error, :stream_does_not_exist} ->
-            with :ok <- connection.create_stream(stream_name),
-                 {:ok, id} <- connection.declare_publisher(stream_name, reference_name),
-                 {:ok, sequence} <- connection.query_publisher_sequence(stream_name, reference_name) do
-              state = %RabbitMQStream.Publisher{
-                id: id,
-                stream_name: stream_name,
-                connection: connection,
-                reference_name: reference_name,
-                sequence: sequence + 1
-              }
-
-              {:ok, state}
-            end
+          err ->
+            {:stop, err, state}
         end
       end
 
@@ -112,16 +104,14 @@ defmodule RabbitMQStream.Publisher do
 
       @impl true
       def handle_cast({:publish, message, nil}, %RabbitMQStream.Publisher{} = publisher) do
-        with :ok <- publisher.connection.connect() do
-          publisher.connection.publish(publisher.id, publisher.sequence, message)
+        publisher.connection.publish(publisher.id, publisher.sequence, message)
 
-          {:noreply, %{publisher | sequence: publisher.sequence + 1}}
-        else
-          _ -> {:reply, {:error, :closed}, publisher}
-        end
+        {:noreply, %{publisher | sequence: publisher.sequence + 1}}
       end
 
       @impl true
+      def terminate(_reason, %{id: nil}), do: :ok
+
       def terminate(_reason, state) do
         state.connection.delete_publisher(state.id)
         :ok
@@ -143,4 +133,13 @@ defmodule RabbitMQStream.Publisher do
     :sequence,
     :id
   ]
+
+  @type t :: %__MODULE__{
+          publishing_id: String.t(),
+          reference_name: String.t(),
+          connection: RabbitMQStream.Connection.t(),
+          stream_name: String.t(),
+          sequence: non_neg_integer() | nil,
+          id: String.t() | nil
+        }
 end
