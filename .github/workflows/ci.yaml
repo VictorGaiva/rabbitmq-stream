@@ -8,6 +8,7 @@ on:
       - "lib/**"
       - "mix.exs"
       - "mix.lock"
+      - "test/**"
   push:
     branches:
       - main
