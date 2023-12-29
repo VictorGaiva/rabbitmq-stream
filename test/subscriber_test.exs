@@ -1,6 +1,6 @@
 defmodule RabbitMQStreamTest.Subscriber do
   use ExUnit.Case, async: false
-  alias RabbitMQStream.Message.Data.DeliverData
+  alias RabbitMQStream.OsirisChunk
   require Logger
 
   defmodule SupervisedConnection do
@@ -23,7 +23,7 @@ defmodule RabbitMQStreamTest.Subscriber do
       connection: RabbitMQStreamTest.Subscriber.SupervisedConnection
 
     @impl true
-    def handle_chunk(%DeliverData{osiris_chunk: %{data_entries: entries}}, %{private: parent}) do
+    def handle_chunk(%OsirisChunk{data_entries: entries}, %{private: parent}) do
       send(parent, {:handle_chunk, entries})
 
       :ok
@@ -48,13 +48,13 @@ defmodule RabbitMQStreamTest.Subscriber do
 
     SupervisorPublisher.publish(message)
 
-    assert_receive {:message, %DeliverData{osiris_chunk: %{data_entries: [^message]}}}, 500
+    assert_receive {:chunk, %OsirisChunk{data_entries: [^message]}}, 500
 
     assert :ok = SupervisedConnection.unsubscribe(subscription_id)
 
     SupervisorPublisher.publish(message)
 
-    refute_receive {:message, %DeliverData{}}, 500
+    refute_receive {:chunk, %OsirisChunk{}}, 500
     SupervisedConnection.delete_stream(@stream)
   end
 
@@ -69,17 +69,17 @@ defmodule RabbitMQStreamTest.Subscriber do
 
     SupervisorPublisher.publish(message)
 
-    assert_receive {:message, %DeliverData{osiris_chunk: %{data_entries: [^message]}}}, 500
+    assert_receive {:chunk, %OsirisChunk{data_entries: [^message]}}, 500
 
     message = inspect(%{message: "Hello, world2!"})
 
     SupervisorPublisher.publish(message)
 
-    refute_receive {:message, %DeliverData{}}, 500
+    refute_receive {:chunk, %OsirisChunk{}}, 500
 
     assert :ok = SupervisedConnection.credit(subscription_id, 1)
 
-    assert_receive {:message, %DeliverData{osiris_chunk: %{data_entries: [^message]}}}, 500
+    assert_receive {:chunk, %OsirisChunk{data_entries: [^message]}}, 500
     SupervisedConnection.delete_stream(@stream)
   end
 

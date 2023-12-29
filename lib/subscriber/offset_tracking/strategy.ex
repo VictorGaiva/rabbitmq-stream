@@ -28,7 +28,7 @@ defmodule RabbitMQStream.Subscriber.OffsetTracking.Strategy do
   """
   @callback after_chunk(
               state :: term(),
-              message :: RabbitMQStream.Message.Data.DeliverData.t(),
+              chunk :: RabbitMQStream.OsirisChunk.t(),
               subscription :: RabbitMQStream.Subscriber.t()
             ) ::
               term()

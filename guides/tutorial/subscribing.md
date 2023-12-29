@@ -14,7 +14,7 @@ You can subscribe to messages from a stream with:
 {:ok, _subscription_id} = MyApp.MyConnection.subscribe("stream-01", self(), :next, 999)
 ```
 
-The message will be received with the format `{:message, RabbitMQStream.Message.Data.DeliverData}`.
+The message will be received with the format `{:chunk, %RabbitMQStream.OsirisChunk{} = chunk}`.
 
 ## Example
 
@@ -35,7 +35,7 @@ defmodule MyApp.MySubscriber do
     {:ok, Map.put(state, :subscription_id, subscription_id)}
   end
 
-  def handle_info({:message, %OsirisChunk{} = message}, state) do
+  def handle_info({:chunk, %OsirisChunk{} = message}, state) do
     # do something with message
     {:noreply, state}
   end

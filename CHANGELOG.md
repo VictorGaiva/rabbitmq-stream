@@ -40,3 +40,7 @@ Added an implementation for a stream Subscriber, fixed bugs and improved the doc
 - Moved `RabbitMQStream.Publisher`'s setup logic into `handle_continue`, to prevent locking up the application startup.
 - `RabbitMQStream.Publisher` no longer declares the stream if it doesn't exists.
 - `RabbitMQStream.Publisher` module now can optionally declare a `before_start/2` callback, which is called before it calls `declare_publisher/2`, and can be used to create the stream if it doesn't exists.
+
+### Breaking Changes
+
+- Subscription deliver messages are now in the format `{:chunk, %RabbitMQ.OsirisChunk{}}`.

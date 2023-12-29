@@ -75,13 +75,13 @@ defmodule RabbitMQStream.Subscriber do
       end
 
       @impl true
-      def handle_info({:message, %RabbitMQStream.Message.Data.DeliverData{} = message}, state) do
+      def handle_info({:chunk, %RabbitMQStream.OsirisChunk{} = chunk}, state) do
         cond do
           function_exported?(__MODULE__, :handle_chunk, 1) ->
-            apply(__MODULE__, :handle_chunk, [message])
+            apply(__MODULE__, :handle_chunk, [chunk])
 
           function_exported?(__MODULE__, :handle_chunk, 2) ->
-            apply(__MODULE__, :handle_chunk, [message, state])
+            apply(__MODULE__, :handle_chunk, [chunk, state])
 
           true ->
             raise "handle_chunk/1 or handle_chunk/2 must be implemented"
@@ -90,14 +90,14 @@ defmodule RabbitMQStream.Subscriber do
         offset_tracking =
           for {strategy, track_state} <- state.offset_tracking do
             if function_exported?(strategy, :after_chunk, 3) do
-              {strategy, strategy.after_chunk(track_state, message, state)}
+              {strategy, strategy.after_chunk(track_state, chunk, state)}
             else
               {strategy, track_state}
             end
           end
 
         state =
-          %{state | offset_tracking: offset_tracking, last_offset: message.osiris_chunk.chunk_first_offset}
+          %{state | offset_tracking: offset_tracking, last_offset: chunk.chunk_first_offset}
           |> run_offset_tracking()
 
         {:noreply, state}
@@ -181,10 +181,8 @@ defmodule RabbitMQStream.Subscriber do
   @optional_callbacks handle_chunk: 1, handle_chunk: 2
 
   @doc """
-    Callback invoked when a chunk is received.
-  """
-  @callback handle_chunk(chunk :: RabbitMQStream.Message.Data.DeliverData.t()) :: term()
-  @callback handle_chunk(chunk :: RabbitMQStream.Message.Data.DeliverData.t(), state :: t()) :: term()
+  @callback handle_chunk(chunk :: RabbitMQStream.OsirisChunk.t()) :: term()
+  @callback handle_chunk(chunk :: RabbitMQStream.OsirisChunk.t(), state :: t()) :: term()
 
   defstruct [
     :offset_reference,

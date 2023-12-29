@@ -1,6 +1,5 @@
 defmodule RabbitMQStream.Subscriber.OffsetTracking.CountStrategy do
   @behaviour RabbitMQStream.Subscriber.OffsetTracking.Strategy
-  alias RabbitMQStream.Message.Data.DeliverData
 
   @moduledoc """
     Count Strategy
@@ -34,7 +33,7 @@ defmodule RabbitMQStream.Subscriber.OffsetTracking.CountStrategy do
 
   def after_chunk(
         {count, store_after},
-        %DeliverData{osiris_chunk: %RabbitMQStream.OsirisChunk{num_entries: num_entries}},
+        %RabbitMQStream.OsirisChunk{num_entries: num_entries},
         _
       ) do
     {count + num_entries, store_after}
