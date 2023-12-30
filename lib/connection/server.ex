@@ -1,4 +1,4 @@
-defmodule RabbitMQStream.Connection.Lifecycle do
+defmodule RabbitMQStream.Connection.Server do
   @moduledoc false
 
   require Logger

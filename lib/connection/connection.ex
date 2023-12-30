@@ -92,7 +92,7 @@ defmodule RabbitMQStream.Connection do
           |> Keyword.merge(@opts)
           |> Keyword.merge(opts)
 
-        GenServer.start_link(RabbitMQStream.Connection.Lifecycle, opts, name: __MODULE__)
+        GenServer.start_link(RabbitMQStream.Connection.Server, opts, name: __MODULE__)
       end
 
       def child_spec(opts) do
