@@ -1,244 +1,261 @@
 defmodule RabbitMQStream.Connection.Lifecycle do
   @moduledoc false
 
-  defmacro __using__(_) do
-    quote location: :keep do
-      require Logger
-      use GenServer
+  require Logger
+  use GenServer
 
-      alias RabbitMQStream.Connection
-      alias RabbitMQStream.Connection.Handler
+  alias RabbitMQStream.Connection
+  alias RabbitMQStream.Connection.Handler
 
-      alias RabbitMQStream.Message.Buffer
+  alias RabbitMQStream.Message.Buffer
 
-      @impl true
-      def handle_call({:get_state}, _from, %Connection{} = conn) do
-        {:reply, conn, conn}
-      end
+  @impl GenServer
+  def init(opts) do
+    conn = %RabbitMQStream.Connection{
+      options: [
+        host: opts[:host] || "localhost",
+        port: opts[:port] || 5552,
+        vhost: opts[:vhost] || "/",
+        username: opts[:username] || "guest",
+        password: opts[:password] || "guest",
+        frame_max: opts[:frame_max] || 1_048_576,
+        heartbeat: opts[:heartbeat] || 60
+      ]
+    }
 
-      def handle_call({:connect}, from, %Connection{state: :closed} = conn) do
-        Logger.debug("Connecting to server: #{conn.options[:host]}:#{conn.options[:port]}")
+    if opts[:lazy] == true do
+      {:ok, conn}
+    else
+      {:ok, conn, {:continue, {:connect}}}
+    end
+  end
 
-        with {:ok, conn} <- Handler.connect(conn) do
-          Logger.debug("Connection stablished. Initiating properties exchange.")
+  @impl GenServer
+  def handle_call({:get_state}, _from, %Connection{} = conn) do
+    {:reply, conn, conn}
+  end
 
-          conn =
-            %{conn | connect_requests: [from]}
-            |> Handler.send_request(:peer_properties)
+  def handle_call({:connect}, from, %Connection{state: :closed} = conn) do
+    Logger.debug("Connecting to server: #{conn.options[:host]}:#{conn.options[:port]}")
 
-          {:noreply, conn}
-        else
-          err ->
-            Logger.error("Failed to connect to #{conn.options[:host]}:#{conn.options[:port]}")
-            {:reply, {:error, err}, conn}
-        end
-      end
+    with {:ok, conn} <- Handler.connect(conn) do
+      Logger.debug("Connection stablished. Initiating properties exchange.")
 
-      def handle_call({:connect}, _from, %Connection{state: :open} = conn) do
-        {:reply, :ok, conn}
-      end
+      conn =
+        %{conn | connect_requests: [from]}
+        |> Handler.send_request(:peer_properties)
 
-      def handle_call({:connect}, from, %Connection{} = conn) do
-        conn = %{conn | connect_requests: conn.connect_requests ++ [from]}
-        {:noreply, conn}
-      end
+      {:noreply, conn}
+    else
+      err ->
+        Logger.error("Failed to connect to #{conn.options[:host]}:#{conn.options[:port]}")
+        {:reply, {:error, err}, conn}
+    end
+  end
 
-      # Replies with `:ok` if the connection is already closed. Not sure if this behavior is the best.
-      def handle_call({:close, _reason, _code}, _from, %Connection{state: :closed} = conn) do
-        {:reply, :ok, conn}
-      end
+  def handle_call({:connect}, _from, %Connection{state: :open} = conn) do
+    {:reply, :ok, conn}
+  end
 
-      def handle_call(action, from, %Connection{state: state} = conn) when state != :open do
-        {:noreply, %{conn | request_buffer: :queue.in({:call, {action, from}}, conn.request_buffer)}}
-      end
+  def handle_call({:connect}, from, %Connection{} = conn) do
+    conn = %{conn | connect_requests: conn.connect_requests ++ [from]}
+    {:noreply, conn}
+  end
 
-      def handle_call({:close, reason, code}, from, %Connection{} = conn) do
-        Logger.debug("Connection close requested by client: #{reason} #{code}")
+  # Replies with `:ok` if the connection is already closed. Not sure if this behavior is the best.
+  def handle_call({:close, _reason, _code}, _from, %Connection{state: :closed} = conn) do
+    {:reply, :ok, conn}
+  end
 
-        conn =
-          %{conn | state: :closing}
-          |> Handler.push_request_tracker(:close, from)
-          |> Handler.send_request(:close, reason: reason, code: code)
+  def handle_call(action, from, %Connection{state: state} = conn) when state != :open do
+    {:noreply, %{conn | request_buffer: :queue.in({:call, {action, from}}, conn.request_buffer)}}
+  end
 
-        {:noreply, conn}
-      end
+  def handle_call({:close, reason, code}, from, %Connection{} = conn) do
+    Logger.debug("Connection close requested by client: #{reason} #{code}")
 
-      def handle_call({:subscribe, opts}, from, %Connection{} = conn) do
-        subscription_id = conn.subscriber_sequence
+    conn =
+      %{conn | state: :closing}
+      |> Handler.push_request_tracker(:close, from)
+      |> Handler.send_request(:close, reason: reason, code: code)
 
-        conn =
-          conn
-          |> Handler.push_request_tracker(:subscribe, from, {subscription_id, opts[:pid]})
-          |> Handler.send_request(:subscribe, opts ++ [subscriber_sum: 1, subscription_id: subscription_id])
+    {:noreply, conn}
+  end
 
-        {:noreply, conn}
-      end
+  def handle_call({:subscribe, opts}, from, %Connection{} = conn) do
+    subscription_id = conn.subscriber_sequence
 
-      def handle_call({:unsubscribe, opts}, from, %Connection{} = conn) do
-        conn =
-          conn
-          |> Handler.push_request_tracker(:unsubscribe, from, opts[:subscription_id])
-          |> Handler.send_request(:unsubscribe, opts)
+    conn =
+      conn
+      |> Handler.push_request_tracker(:subscribe, from, {subscription_id, opts[:pid]})
+      |> Handler.send_request(:subscribe, opts ++ [subscriber_sum: 1, subscription_id: subscription_id])
 
-        {:noreply, conn}
-      end
+    {:noreply, conn}
+  end
 
-      def handle_call({command, opts}, from, %Connection{} = conn)
-          when command in [
-                 :query_offset,
-                 :delete_publisher,
-                 :query_metadata,
-                 :query_publisher_sequence,
-                 :delete_stream,
-                 :create_stream
-               ] do
-        conn =
-          conn
-          |> Handler.push_request_tracker(command, from)
-          |> Handler.send_request(command, opts)
+  def handle_call({:unsubscribe, opts}, from, %Connection{} = conn) do
+    conn =
+      conn
+      |> Handler.push_request_tracker(:unsubscribe, from, opts[:subscription_id])
+      |> Handler.send_request(:unsubscribe, opts)
 
-        {:noreply, conn}
-      end
+    {:noreply, conn}
+  end
 
-      def handle_cast({:store_offset, opts}, %Connection{} = conn) do
-        conn =
-          conn
-          |> Handler.send_request(:store_offset, opts)
+  def handle_call({command, opts}, from, %Connection{} = conn)
+      when command in [
+             :query_offset,
+             :delete_publisher,
+             :query_metadata,
+             :query_publisher_sequence,
+             :delete_stream,
+             :create_stream
+           ] do
+    conn =
+      conn
+      |> Handler.push_request_tracker(command, from)
+      |> Handler.send_request(command, opts)
 
-        {:noreply, conn}
-      end
+    {:noreply, conn}
+  end
 
-      def handle_call({:declare_publisher, opts}, from, %Connection{} = conn) do
-        conn =
-          conn
-          |> Handler.push_request_tracker(:declare_publisher, from, conn.publisher_sequence)
-          |> Handler.send_request(:declare_publisher, opts ++ [publisher_sum: 1])
+  def handle_call({:declare_publisher, opts}, from, %Connection{} = conn) do
+    conn =
+      conn
+      |> Handler.push_request_tracker(:declare_publisher, from, conn.publisher_sequence)
+      |> Handler.send_request(:declare_publisher, opts ++ [publisher_sum: 1])
 
-        {:noreply, conn}
-      end
+    {:noreply, conn}
+  end
 
-      @impl true
-      def handle_cast(action, %Connection{state: state} = conn) when state != :open do
-        {:noreply, %{conn | request_buffer: :queue.in({:cast, action}, conn.request_buffer)}}
-      end
+  @impl GenServer
+  def handle_cast(action, %Connection{state: state} = conn) when state != :open do
+    {:noreply, %{conn | request_buffer: :queue.in({:cast, action}, conn.request_buffer)}}
+  end
 
-      def handle_cast({:publish, opts}, %Connection{} = conn) do
-        {_wait, opts} = Keyword.pop(opts, :wait, false)
+  def handle_cast({:store_offset, opts}, %Connection{} = conn) do
+    conn =
+      conn
+      |> Handler.send_request(:store_offset, opts)
 
-        # conn =
-        #   if wait do
-        #     publishing_ids = Enum.map(opts[:published_messages], fn {id, _} -> id end)
-        #     publish_tracker = PublishingTracker.push(conn.publish_tracker, opts[:publisher_id], publishing_ids, from)
-        #     %{conn | publish_tracker: publish_tracker}
-        #   else
-        #     conn
-        #   end
+    {:noreply, conn}
+  end
 
-        conn =
-          conn
-          |> Handler.send_request(:publish, opts ++ [correlation_sum: 0])
+  def handle_cast({:publish, opts}, %Connection{} = conn) do
+    {_wait, opts} = Keyword.pop(opts, :wait, false)
 
-        {:noreply, conn}
-      end
+    # conn =
+    #   if wait do
+    #     publishing_ids = Enum.map(opts[:published_messages], fn {id, _} -> id end)
+    #     publish_tracker = PublishingTracker.push(conn.publish_tracker, opts[:publisher_id], publishing_ids, from)
+    #     %{conn | publish_tracker: publish_tracker}
+    #   else
+    #     conn
+    #   end
 
-      def handle_cast({:credit, opts}, %Connection{} = conn) do
-        conn =
-          conn
-          |> Handler.send_request(:credit, opts)
+    conn =
+      conn
+      |> Handler.send_request(:publish, opts ++ [correlation_sum: 0])
 
-        {:noreply, conn}
-      end
+    {:noreply, conn}
+  end
 
-      @impl true
-      def handle_info({:tcp, _socket, data}, conn) do
-        {commands, frames_buffer} =
-          data
-          |> Buffer.incoming_data(conn.frames_buffer)
-          |> Buffer.all_commands()
+  def handle_cast({:credit, opts}, %Connection{} = conn) do
+    conn =
+      conn
+      |> Handler.send_request(:credit, opts)
 
-        conn = %{conn | frames_buffer: frames_buffer}
+    {:noreply, conn}
+  end
 
-        conn = Enum.reduce(commands, conn, &Handler.handle_message/2)
+  @impl GenServer
+  def handle_info({:tcp, _socket, data}, conn) do
+    {commands, frames_buffer} =
+      data
+      |> Buffer.incoming_data(conn.frames_buffer)
+      |> Buffer.all_commands()
 
-        cond do
-          conn.state == :closed ->
-            {:noreply, conn, :hibernate}
+    conn = %{conn | frames_buffer: frames_buffer}
 
-          true ->
-            {:noreply, conn}
-        end
-      end
+    conn = Enum.reduce(commands, conn, &Handler.handle_message/2)
 
-      def handle_info({:tcp_closed, _socket}, conn) do
-        if conn.state == :connecting do
-          Logger.warning(
-            "The connection was closed by the host, after the socket was already open, while running the authentication sequence. This could be caused by the server not having Stream Plugin active"
-          )
-        end
-
-        conn = %{conn | socket: nil, state: :closed} |> Handler.handle_closed(:tcp_closed)
-
+    cond do
+      conn.state == :closed ->
         {:noreply, conn, :hibernate}
-      end
 
-      def handle_info({:tcp_error, _socket, reason}, conn) do
-        conn = %{conn | socket: nil, state: :closed} |> Handler.handle_closed(reason)
-
+      true ->
         {:noreply, conn}
-      end
+    end
+  end
 
-      def handle_info({:heartbeat}, conn) do
-        conn = Handler.send_request(conn, :heartbeat, correlation_sum: 0)
+  def handle_info({:tcp_closed, _socket}, conn) do
+    if conn.state == :connecting do
+      Logger.warning(
+        "The connection was closed by the host, after the socket was already open, while running the authentication sequence. This could be caused by the server not having Stream Plugin active"
+      )
+    end
 
-        Process.send_after(self(), {:heartbeat}, conn.options[:heartbeat] * 1000)
+    conn = %{conn | socket: nil, state: :closed} |> Handler.handle_closed(:tcp_closed)
 
-        {:noreply, conn}
-      end
+    {:noreply, conn, :hibernate}
+  end
 
-      def handle_info(:flush_request_buffer, %Connection{state: :closed} = conn) do
-        Logger.warning("Connection is closed. Ignoring flush buffer request.")
-        {:noreply, conn}
-      end
+  def handle_info({:tcp_error, _socket, reason}, conn) do
+    conn = %{conn | socket: nil, state: :closed} |> Handler.handle_closed(reason)
 
-      # I'm not really sure how to test this behavior at the moment.
-      def handle_info(:flush_request_buffer, %Connection{} = conn) do
-        # There is probably a better way to reprocess the buffer, but I'm not sure how to do at the moment.
-        conn =
-          :queue.fold(
-            fn
-              {:call, {action, from}}, conn ->
-                {:noreply, conn} = handle_call(action, from, conn)
-                conn
+    {:noreply, conn}
+  end
 
-              {:cast, action}, conn ->
-                {:noreply, conn} = handle_cast(action, conn)
-                conn
-            end,
-            conn,
-            conn.request_buffer
-          )
+  def handle_info({:heartbeat}, conn) do
+    conn = Handler.send_request(conn, :heartbeat, correlation_sum: 0)
 
-        {:noreply, %{conn | request_buffer: :queue.new()}}
-      end
+    Process.send_after(self(), {:heartbeat}, conn.options[:heartbeat] * 1000)
 
-      @impl true
-      def handle_continue({:connect}, %Connection{state: :closed} = conn) do
-        Logger.debug("Connecting to server: #{conn.options[:host]}:#{conn.options[:port]}")
+    {:noreply, conn}
+  end
 
-        with {:ok, conn} <- Handler.connect(conn) do
-          Logger.debug("Connection stablished. Initiating properties exchange.")
+  def handle_info(:flush_request_buffer, %Connection{state: :closed} = conn) do
+    Logger.warning("Connection is closed. Ignoring flush buffer request.")
+    {:noreply, conn}
+  end
 
-          conn =
+  # I'm not really sure how to test this behavior at the moment.
+  def handle_info(:flush_request_buffer, %Connection{} = conn) do
+    # There is probably a better way to reprocess the buffer, but I'm not sure how to do at the moment.
+    conn =
+      :queue.fold(
+        fn
+          {:call, {action, from}}, conn ->
+            {:noreply, conn} = handle_call(action, from, conn)
             conn
-            |> Handler.send_request(:peer_properties)
 
-          {:noreply, conn}
-        else
-          _ ->
-            Logger.error("Failed to connect to #{conn.options[:host]}:#{conn.options[:port]}")
-            {:noreply, conn}
-        end
-      end
+          {:cast, action}, conn ->
+            {:noreply, conn} = handle_cast(action, conn)
+            conn
+        end,
+        conn,
+        conn.request_buffer
+      )
+
+    {:noreply, %{conn | request_buffer: :queue.new()}}
+  end
+
+  @impl GenServer
+  def handle_continue({:connect}, %Connection{state: :closed} = conn) do
+    Logger.debug("Connecting to server: #{conn.options[:host]}:#{conn.options[:port]}")
+
+    with {:ok, conn} <- Handler.connect(conn) do
+      Logger.debug("Connection stablished. Initiating properties exchange.")
+
+      conn =
+        conn
+        |> Handler.send_request(:peer_properties)
+
+      {:noreply, conn}
+    else
+      _ ->
+        Logger.error("Failed to connect to #{conn.options[:host]}:#{conn.options[:port]}")
+        {:noreply, conn}
     end
   end
 end

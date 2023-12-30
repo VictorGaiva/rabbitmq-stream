@@ -81,7 +81,6 @@ defmodule RabbitMQStream.Connection do
 
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts] do
-      use RabbitMQStream.Connection.Lifecycle
       import RabbitMQStream.Connection.Helpers
 
       @behaviour RabbitMQStream.Connection
@@ -93,32 +92,15 @@ defmodule RabbitMQStream.Connection do
           |> Keyword.merge(@opts)
           |> Keyword.merge(opts)
 
-        GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+        GenServer.start_link(RabbitMQStream.Connection.Lifecycle, opts, name: __MODULE__)
+      end
+
+      def child_spec(opts) do
+        %{id: __MODULE__, start: {__MODULE__, :start_link, [opts]}}
       end
 
       def stop(reason \\ :normal, timeout \\ :infinity) do
         GenServer.stop(__MODULE__, reason, timeout)
-      end
-
-      @impl true
-      def init(opts) do
-        conn = %RabbitMQStream.Connection{
-          options: [
-            host: opts[:host] || "localhost",
-            port: opts[:port] || 5552,
-            vhost: opts[:vhost] || "/",
-            username: opts[:username] || "guest",
-            password: opts[:password] || "guest",
-            frame_max: opts[:frame_max] || 1_048_576,
-            heartbeat: opts[:heartbeat] || 60
-          ]
-        }
-
-        if opts[:lazy] == true do
-          {:ok, conn}
-        else
-          {:ok, conn, {:continue, {:connect}}}
-        end
       end
 
       def connect() do
