@@ -309,4 +309,12 @@ defmodule RabbitMQStream.Connection.Handler do
 
     conn
   end
+
+  def connect(%Connection{} = conn) do
+    with {:ok, socket} <-
+           :gen_tcp.connect(String.to_charlist(conn.options[:host]), conn.options[:port], [:binary, active: true]),
+         :ok <- :gen_tcp.controlling_process(socket, self()) do
+      {:ok, %{conn | socket: socket, state: :connecting}}
+    end
+  end
 end

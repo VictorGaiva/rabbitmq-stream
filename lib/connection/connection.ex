@@ -82,6 +82,8 @@ defmodule RabbitMQStream.Connection do
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts] do
       use RabbitMQStream.Connection.Lifecycle
+      import RabbitMQStream.Connection.Helpers
+
       @behaviour RabbitMQStream.Connection
       @opts opts
 

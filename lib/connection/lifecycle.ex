@@ -6,8 +6,9 @@ defmodule RabbitMQStream.Connection.Lifecycle do
       require Logger
       use GenServer
 
-      alias RabbitMQStream.Connection.Handler
       alias RabbitMQStream.Connection
+      alias RabbitMQStream.Connection.Handler
+
       alias RabbitMQStream.Message.Buffer
 
       @impl true
@@ -18,13 +19,11 @@ defmodule RabbitMQStream.Connection.Lifecycle do
       def handle_call({:connect}, from, %Connection{state: :closed} = conn) do
         Logger.debug("Connecting to server: #{conn.options[:host]}:#{conn.options[:port]}")
 
-        with {:ok, socket} <-
-               :gen_tcp.connect(String.to_charlist(conn.options[:host]), conn.options[:port], [:binary, active: true]),
-             :ok <- :gen_tcp.controlling_process(socket, self()) do
+        with {:ok, conn} <- Handler.connect(conn) do
           Logger.debug("Connection stablished. Initiating properties exchange.")
 
           conn =
-            %{conn | socket: socket, state: :connecting, connect_requests: [from]}
+            %{conn | connect_requests: [from]}
             |> Handler.send_request(:peer_properties)
 
           {:noreply, conn}
@@ -170,14 +169,6 @@ defmodule RabbitMQStream.Connection.Lifecycle do
         end
       end
 
-      def handle_info({:heartbeat}, conn) do
-        conn = Handler.send_request(conn, :heartbeat, correlation_sum: 0)
-
-        Process.send_after(self(), {:heartbeat}, conn.options[:heartbeat] * 1000)
-
-        {:noreply, conn}
-      end
-
       def handle_info({:tcp_closed, _socket}, conn) do
         if conn.state == :connecting do
           Logger.warning(
@@ -192,6 +183,14 @@ defmodule RabbitMQStream.Connection.Lifecycle do
 
       def handle_info({:tcp_error, _socket, reason}, conn) do
         conn = %{conn | socket: nil, state: :closed} |> Handler.handle_closed(reason)
+
+        {:noreply, conn}
+      end
+
+      def handle_info({:heartbeat}, conn) do
+        conn = Handler.send_request(conn, :heartbeat, correlation_sum: 0)
+
+        Process.send_after(self(), {:heartbeat}, conn.options[:heartbeat] * 1000)
 
         {:noreply, conn}
       end
@@ -226,13 +225,11 @@ defmodule RabbitMQStream.Connection.Lifecycle do
       def handle_continue({:connect}, %Connection{state: :closed} = conn) do
         Logger.debug("Connecting to server: #{conn.options[:host]}:#{conn.options[:port]}")
 
-        with {:ok, socket} <-
-               :gen_tcp.connect(String.to_charlist(conn.options[:host]), conn.options[:port], [:binary, active: true]),
-             :ok <- :gen_tcp.controlling_process(socket, self()) do
+        with {:ok, conn} <- Handler.connect(conn) do
           Logger.debug("Connection stablished. Initiating properties exchange.")
 
           conn =
-            %{conn | socket: socket, state: :connecting}
+            conn
             |> Handler.send_request(:peer_properties)
 
           {:noreply, conn}
@@ -242,10 +239,6 @@ defmodule RabbitMQStream.Connection.Lifecycle do
             {:noreply, conn}
         end
       end
-
-      defguard is_offset(offset)
-               when offset in [:first, :last, :next] or
-                      (is_tuple(offset) and tuple_size(offset) == 2 and elem(offset, 0) in [:offset, :timestamp])
     end
   end
 end
