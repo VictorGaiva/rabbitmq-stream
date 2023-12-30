@@ -2,10 +2,12 @@ defmodule RabbitMQStream.Connection.Server do
   @moduledoc false
 
   require Logger
+
   use GenServer
+  use RabbitMQStream.Connection.Handler
 
   alias RabbitMQStream.Connection
-  alias RabbitMQStream.Connection.Handler
+  alias RabbitMQStream.Connection.Helpers
 
   alias RabbitMQStream.Message.Buffer
 
@@ -38,12 +40,12 @@ defmodule RabbitMQStream.Connection.Server do
   def handle_call({:connect}, from, %Connection{state: :closed} = conn) do
     Logger.debug("Connecting to server: #{conn.options[:host]}:#{conn.options[:port]}")
 
-    with {:ok, conn} <- Handler.connect(conn) do
+    with {:ok, conn} <- connect(conn) do
       Logger.debug("Connection stablished. Initiating properties exchange.")
 
       conn =
         %{conn | connect_requests: [from]}
-        |> Handler.send_request(:peer_properties)
+        |> send_request(:peer_properties)
 
       {:noreply, conn}
     else
@@ -76,8 +78,8 @@ defmodule RabbitMQStream.Connection.Server do
 
     conn =
       %{conn | state: :closing}
-      |> Handler.push_request_tracker(:close, from)
-      |> Handler.send_request(:close, reason: reason, code: code)
+      |> Helpers.push_request_tracker(:close, from)
+      |> send_request(:close, reason: reason, code: code)
 
     {:noreply, conn}
   end
@@ -87,8 +89,8 @@ defmodule RabbitMQStream.Connection.Server do
 
     conn =
       conn
-      |> Handler.push_request_tracker(:subscribe, from, {subscription_id, opts[:pid]})
-      |> Handler.send_request(:subscribe, opts ++ [subscriber_sum: 1, subscription_id: subscription_id])
+      |> Helpers.push_request_tracker(:subscribe, from, {subscription_id, opts[:pid]})
+      |> send_request(:subscribe, opts ++ [subscriber_sum: 1, subscription_id: subscription_id])
 
     {:noreply, conn}
   end
@@ -96,8 +98,8 @@ defmodule RabbitMQStream.Connection.Server do
   def handle_call({:unsubscribe, opts}, from, %Connection{} = conn) do
     conn =
       conn
-      |> Handler.push_request_tracker(:unsubscribe, from, opts[:subscription_id])
-      |> Handler.send_request(:unsubscribe, opts)
+      |> Helpers.push_request_tracker(:unsubscribe, from, opts[:subscription_id])
+      |> send_request(:unsubscribe, opts)
 
     {:noreply, conn}
   end
@@ -113,8 +115,8 @@ defmodule RabbitMQStream.Connection.Server do
            ] do
     conn =
       conn
-      |> Handler.push_request_tracker(command, from)
-      |> Handler.send_request(command, opts)
+      |> Helpers.push_request_tracker(command, from)
+      |> send_request(command, opts)
 
     {:noreply, conn}
   end
@@ -122,8 +124,8 @@ defmodule RabbitMQStream.Connection.Server do
   def handle_call({:declare_publisher, opts}, from, %Connection{} = conn) do
     conn =
       conn
-      |> Handler.push_request_tracker(:declare_publisher, from, conn.publisher_sequence)
-      |> Handler.send_request(:declare_publisher, opts ++ [publisher_sum: 1])
+      |> Helpers.push_request_tracker(:declare_publisher, from, conn.publisher_sequence)
+      |> send_request(:declare_publisher, opts ++ [publisher_sum: 1])
 
     {:noreply, conn}
   end
@@ -136,7 +138,7 @@ defmodule RabbitMQStream.Connection.Server do
   def handle_cast({:store_offset, opts}, %Connection{} = conn) do
     conn =
       conn
-      |> Handler.send_request(:store_offset, opts)
+      |> send_request(:store_offset, opts)
 
     {:noreply, conn}
   end
@@ -155,7 +157,7 @@ defmodule RabbitMQStream.Connection.Server do
 
     conn =
       conn
-      |> Handler.send_request(:publish, opts ++ [correlation_sum: 0])
+      |> send_request(:publish, opts ++ [correlation_sum: 0])
 
     {:noreply, conn}
   end
@@ -163,7 +165,7 @@ defmodule RabbitMQStream.Connection.Server do
   def handle_cast({:credit, opts}, %Connection{} = conn) do
     conn =
       conn
-      |> Handler.send_request(:credit, opts)
+      |> send_request(:credit, opts)
 
     {:noreply, conn}
   end
@@ -177,7 +179,7 @@ defmodule RabbitMQStream.Connection.Server do
 
     conn = %{conn | frames_buffer: frames_buffer}
 
-    conn = Enum.reduce(commands, conn, &Handler.handle_message/2)
+    conn = Enum.reduce(commands, conn, &handle_message/2)
 
     cond do
       conn.state == :closed ->
@@ -195,19 +197,19 @@ defmodule RabbitMQStream.Connection.Server do
       )
     end
 
-    conn = %{conn | socket: nil, state: :closed} |> Handler.handle_closed(:tcp_closed)
+    conn = %{conn | socket: nil, state: :closed} |> handle_closed(:tcp_closed)
 
     {:noreply, conn, :hibernate}
   end
 
   def handle_info({:tcp_error, _socket, reason}, conn) do
-    conn = %{conn | socket: nil, state: :closed} |> Handler.handle_closed(reason)
+    conn = %{conn | socket: nil, state: :closed} |> handle_closed(reason)
 
     {:noreply, conn}
   end
 
   def handle_info({:heartbeat}, conn) do
-    conn = Handler.send_request(conn, :heartbeat, correlation_sum: 0)
+    conn = send_request(conn, :heartbeat, correlation_sum: 0)
 
     Process.send_after(self(), {:heartbeat}, conn.options[:heartbeat] * 1000)
 
@@ -244,12 +246,12 @@ defmodule RabbitMQStream.Connection.Server do
   def handle_continue({:connect}, %Connection{state: :closed} = conn) do
     Logger.debug("Connecting to server: #{conn.options[:host]}:#{conn.options[:port]}")
 
-    with {:ok, conn} <- Handler.connect(conn) do
+    with {:ok, conn} <- connect(conn) do
       Logger.debug("Connection stablished. Initiating properties exchange.")
 
       conn =
         conn
-        |> Handler.send_request(:peer_properties)
+        |> send_request(:peer_properties)
 
       {:noreply, conn}
     else
@@ -257,5 +259,56 @@ defmodule RabbitMQStream.Connection.Server do
         Logger.error("Failed to connect to #{conn.options[:host]}:#{conn.options[:port]}")
         {:noreply, conn}
     end
+  end
+
+  defp connect(%Connection{} = conn) do
+    with {:ok, socket} <-
+           :gen_tcp.connect(String.to_charlist(conn.options[:host]), conn.options[:port], [:binary, active: true]),
+         :ok <- :gen_tcp.controlling_process(socket, self()) do
+      {:ok, %{conn | socket: socket, state: :connecting}}
+    end
+  end
+
+  defp handle_closed(%Connection{} = conn, reason) do
+    for request <- conn.connect_requests do
+      GenServer.reply(request, {:error, :closed})
+    end
+
+    for {client, _data} <- Map.values(conn.request_tracker) do
+      GenServer.reply(client, {:error, reason})
+    end
+
+    %{conn | request_tracker: %{}, connect_requests: []}
+  end
+
+  defp send_request(%Connection{} = conn, command, opts \\ []) do
+    {correlation_sum, opts} = Keyword.pop(opts, :correlation_sum, 1)
+    {publisher_sum, opts} = Keyword.pop(opts, :publisher_sum, 0)
+    {subscriber_sum, opts} = Keyword.pop(opts, :subscriber_sum, 0)
+
+    frame =
+      conn
+      |> Message.Request.new!(command, opts)
+      |> Encoder.encode!()
+
+    :ok = :gen_tcp.send(conn.socket, frame)
+
+    correlation_sequence = conn.correlation_sequence + correlation_sum
+    publisher_sequence = conn.publisher_sequence + publisher_sum
+    subscriber_sequence = conn.subscriber_sequence + subscriber_sum
+
+    %{
+      conn
+      | correlation_sequence: correlation_sequence,
+        publisher_sequence: publisher_sequence,
+        subscriber_sequence: subscriber_sequence
+    }
+  end
+
+  defp send_response(%Connection{} = conn, command, opts) do
+    frame = Message.Response.new!(conn, command, opts) |> Encoder.encode!()
+    :ok = :gen_tcp.send(conn.socket, frame)
+
+    conn
   end
 end
