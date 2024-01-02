@@ -184,17 +184,26 @@ defmodule RabbitMQStream.Message.Decoder do
     %{request | data: data}
   end
 
-  def parse(%Request{command: :deliver} = request, buffer) do
+  def parse(%Request{version: 1, command: :deliver} = request, buffer) do
     <<subscription_id::unsigned-integer-size(8), rest::binary>> = buffer
 
-    osiris_chunk =
-      if rest != "" do
-        RabbitMQStream.OsirisChunk.decode!(rest)
-      else
-        nil
-      end
+    osiris_chunk = RabbitMQStream.OsirisChunk.decode!(rest)
 
     data = %DeliverData{subscription_id: subscription_id, osiris_chunk: osiris_chunk}
+
+    %{request | data: data}
+  end
+
+  def parse(%Request{version: 2, command: :deliver} = request, buffer) do
+    <<subscription_id::unsigned-integer-size(8), committed_offset::unsigned-integer-size(64), rest::binary>> = buffer
+
+    osiris_chunk = RabbitMQStream.OsirisChunk.decode!(rest)
+
+    data = %DeliverData{
+      subscription_id: subscription_id,
+      committed_offset: committed_offset,
+      osiris_chunk: osiris_chunk
+    }
 
     %{request | data: data}
   end

@@ -267,11 +267,14 @@ defmodule RabbitMQStream.Message.Data do
 
   defmodule DeliverData do
     @moduledoc false
+    @enforce_keys [:subscription_id, :osiris_chunk]
     @type t :: %{
+            committed_offset: non_neg_integer() | nil,
             subscription_id: non_neg_integer(),
-            osiris_chunk: RabbitMQStream.OsirisChunk.t() | nil
+            osiris_chunk: RabbitMQStream.OsirisChunk.t()
           }
     defstruct [
+      :committed_offset,
       :subscription_id,
       :osiris_chunk
     ]
