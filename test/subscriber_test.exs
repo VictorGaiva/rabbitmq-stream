@@ -88,20 +88,39 @@ defmodule RabbitMQStreamTest.Subscriber do
   @stream "subscriber-test-stream-10"
   @reference_name "reference-10"
   test "a message should be received by a persistent subscriber" do
+    SupervisedConnection.delete_stream(@stream)
+
     {:ok, _publisher} =
       SupervisorPublisher.start_link(reference_name: @reference_name, stream_name: @stream)
 
     {:ok, _subscriber} =
       Subscriber.start_link(
-        initial_offset: :first,
+        initial_offset: :next,
         stream_name: @stream,
-        private: self()
+        private: self(),
+        offset_tracking: [count: [store_after: 1]]
       )
 
     message1 = "Subscriber Test: 1"
+    message2 = "Subscriber Test: 2"
 
     SupervisorPublisher.publish(message1)
     assert_receive {:handle_chunk, [^message1]}, 500
+
+    SupervisorPublisher.publish(message2)
+    assert_receive {:handle_chunk, [^message2]}, 500
+
+    :ok = GenServer.stop(Subscriber, :normal)
+
+    {:ok, _subscriber} =
+      Subscriber.start_link(
+        initial_offset: :next,
+        stream_name: @stream,
+        private: self(),
+        offset_tracking: [count: [store_after: 1]]
+      )
+
+    assert_receive {:handle_chunk, [^message2]}, 500
 
     SupervisedConnection.delete_stream(@stream)
   end

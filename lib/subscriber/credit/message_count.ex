@@ -7,7 +7,17 @@ defmodule RabbitMQStream.Subscriber.FlowControl.MessageCount do
   Adds credits after the amount of consumed credit reaches a certain threshold.
 
   ## Usage
+      defmodule MyApp.MySubscriber do
+        alias RabbitMQStream.Subscriber.FlowControl
 
+        use RabbitMQStream.Subscriber,
+          offset_tracking: [FlowControl.MessageCount, credit_after: {:count, 1}]
+
+        @impl true
+        def handle_chunk(_chunk, _subscriber) do
+          :ok
+        end
+      end
 
   ## Parameters
 

@@ -11,7 +11,7 @@ defmodule RabbitMQStream.Subscriber.OffsetTracking.CountStrategy do
         alias RabbitMQStream.Subscriber.OffsetTracking
 
         use RabbitMQStream.Subscriber,
-          offset_strategy: [OffsetTracking.CountStrategy, store_after: 50_000]
+          offset_tracking: [OffsetTracking.CountStrategy, store_after: 50]
 
         @impl true
         def handle_chunk(_chunk, _subscriber) do
@@ -27,7 +27,7 @@ defmodule RabbitMQStream.Subscriber.OffsetTracking.CountStrategy do
   """
 
   def init(opts \\ []) do
-    store_after = Keyword.get(opts, :store_after, 50_000)
+    store_after = Keyword.get(opts, :store_after, 50)
     {0, store_after}
   end
 
