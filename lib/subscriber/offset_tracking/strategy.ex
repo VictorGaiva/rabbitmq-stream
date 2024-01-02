@@ -3,11 +3,14 @@ defmodule RabbitMQStream.Subscriber.OffsetTracking.Strategy do
 
   @moduledoc """
   Behavior for offset tracking strategies.
+  If you pass multiple strategies to the subscriber, which will be executed in order, and
+  and halt after the first one that returns a `:store` request.
 
   ## Existing Strategies
+  You can use the default strategies by passing a shorthand alias:
 
-  * `RabbitMQStream.Subscriber.OffsetTracking.IntervalStrategy`
-  * `RabbitMQStream.Subscriber.OffsetTracking.CountStrategy`
+  * `interval` : `RabbitMQStream.Subscriber.OffsetTracking.IntervalStrategy`
+  * `after` : `RabbitMQStream.Subscriber.OffsetTracking.CountStrategy`
 
   """
 
@@ -45,4 +48,53 @@ defmodule RabbitMQStream.Subscriber.OffsetTracking.Strategy do
   """
   @callback run(state :: term(), subscription :: RabbitMQStream.Subscriber.t()) ::
               {:store, state :: term()} | {:skip, state :: term()}
+
+  @defaults %{
+    count: RabbitMQStream.Subscriber.OffsetTracking.CountStrategy,
+    interval: RabbitMQStream.Subscriber.OffsetTracking.IntervalStrategy
+  }
+  @doc false
+  def init(strategies, extra_opts \\ []) do
+    strategies
+    |> List.wrap()
+    |> Enum.map(fn
+      {strategy, opts} when is_list(opts) and is_atom(strategy) ->
+        strategy = @defaults[strategy] || strategy
+
+        {strategy, strategy.init(Keyword.merge(extra_opts, opts))}
+
+      strategy when is_atom(strategy) ->
+        strategy = @defaults[strategy] || strategy
+
+        {strategy, strategy.init(extra_opts)}
+    end)
+  end
+
+  @doc false
+  def run(%RabbitMQStream.Subscriber{last_offset: nil} = state), do: state
+
+  def run(%RabbitMQStream.Subscriber{} = state) do
+    {_, offset_tracking} =
+      Enum.reduce(
+        state.offset_tracking,
+        {:cont, []},
+        fn
+          {strategy, track_state}, {:cont, acc} ->
+            case strategy.run(track_state, state) do
+              {:store, new_track_state} ->
+                state.connection.store_offset(state.stream_name, state.offset_reference, state.last_offset)
+
+                {:halt, [{strategy, new_track_state} | acc]}
+
+              {:skip, new_track_state} ->
+                {:cont, [{strategy, new_track_state} | acc]}
+            end
+
+          state, {:halt, acc} ->
+            {:halt, [state | acc]}
+        end
+      )
+
+    %{state | offset_tracking: offset_tracking}
+  end
 end

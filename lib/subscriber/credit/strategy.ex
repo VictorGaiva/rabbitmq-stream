@@ -5,8 +5,9 @@ defmodule RabbitMQStream.Subscriber.FlowControl.Strategy do
   Behavior for flow control strategies.
 
   ## Existing Strategies
+  You can use the default strategies by passing a shorthand alias:
 
-  * `RabbitMQStream.Subscriber.FlowControl.MessageCount`
+  * `count` : `RabbitMQStream.Subscriber.FlowControl.MessageCount`
 
   """
 
@@ -29,4 +30,38 @@ defmodule RabbitMQStream.Subscriber.FlowControl.Strategy do
   """
   @callback run(state :: term(), subscription :: RabbitMQStream.Subscriber.t()) ::
               {:credit, amount :: non_neg_integer(), state :: term()} | {:skip, state :: term()}
+
+  @defaults %{
+    count: RabbitMQStream.Subscriber.FlowControl.MessageCount
+  }
+  @doc false
+  def init([{strategy, opts}], subscriber_opts) do
+    strategy = @defaults[strategy] || strategy
+
+    {strategy, strategy.init(Keyword.merge(subscriber_opts, opts))}
+  end
+
+  def init(false, _) do
+    false
+  end
+
+  def init(strategy, subscriber_opts) do
+    strategy = @defaults[strategy] || strategy
+
+    {strategy, strategy.init(subscriber_opts)}
+  end
+
+  @doc false
+  def run(%RabbitMQStream.Subscriber{flow_control: {strategy, flow_state}} = state) do
+    case strategy.run(flow_state, state) do
+      {:credit, amount, new_flow_control} ->
+        state.connection.credit(state.id, amount)
+        %{state | flow_control: {strategy, new_flow_control}, credits: state.credits + amount}
+
+      {:skip, new_flow_control} ->
+        %{state | flow_control: {strategy, new_flow_control}}
+    end
+  end
+
+  def run(%RabbitMQStream.Subscriber{flow_control: false} = state), do: state
 end

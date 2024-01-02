@@ -16,7 +16,7 @@ defmodule RabbitMQStream.Subscriber.OffsetTracking.IntervalStrategy do
         alias RabbitMQStream.Subscriber.OffsetTracking
 
         use RabbitMQStream.Subscriber,
-          offset_strategy: [OffsetTracking.IntervalStrategy, interval: 10_000]
+          offset_tracking: [OffsetTracking.IntervalStrategy, interval: 10_000]
 
         @impl true
         def handle_chunk(_chunk, _subscriber) do
