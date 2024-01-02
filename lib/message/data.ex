@@ -265,6 +265,40 @@ defmodule RabbitMQStream.Message.Data do
     defstruct []
   end
 
+  defmodule RouteRequestData do
+    @moduledoc false
+    @enforce_keys [:routing_key, :super_stream]
+    @type t :: %{
+            routing_key: String.t(),
+            super_stream: String.t()
+          }
+    defstruct [
+      :routing_key,
+      :super_stream
+    ]
+  end
+
+  defmodule RouteResponseData do
+    @moduledoc false
+    @enforce_keys [:stream]
+    @type t :: %{stream: String.t()}
+    defstruct [:stream]
+  end
+
+  defmodule PartitionsQueryRequestData do
+    @moduledoc false
+    @enforce_keys [:super_stream]
+    @type t :: %{super_stream: String.t()}
+    defstruct [:super_stream]
+  end
+
+  defmodule PartitionsQueryRequestData do
+    @moduledoc false
+    @enforce_keys [:stream]
+    @type t :: %{stream: String.t()}
+    defstruct [:stream]
+  end
+
   defmodule DeliverData do
     @moduledoc false
     @enforce_keys [:subscription_id, :osiris_chunk]
