@@ -20,30 +20,30 @@ defmodule RabbitMQStream.Message.Response do
     :code
   ])
 
-  def new!(%Connection{} = conn, :tune, correlation_id: correlation_id) do
+  def new!(%Connection{options: options}, :tune, correlation_id: correlation_id) do
     %Response{
-      version: conn.version,
+      version: 1,
       command: :tune,
       correlation_id: correlation_id,
       data: %TuneData{
-        frame_max: conn.options[:frame_max],
-        heartbeat: conn.options[:heartbeat]
+        frame_max: options[:frame_max],
+        heartbeat: options[:heartbeat]
       }
     }
   end
 
-  def new!(%Connection{} = conn, :heartbeat, correlation_id: correlation_id) do
+  def new!(%Connection{}, :heartbeat, correlation_id: correlation_id) do
     %Response{
-      version: conn.version,
+      version: 1,
       command: :heartbeat,
       correlation_id: correlation_id,
       data: %HeartbeatData{}
     }
   end
 
-  def new!(%Connection{} = conn, :close, correlation_id: correlation_id, code: code) do
+  def new!(%Connection{}, :close, correlation_id: correlation_id, code: code) do
     %Response{
-      version: conn.version,
+      version: 1,
       correlation_id: correlation_id,
       command: :close,
       data: %CloseData{},

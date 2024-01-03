@@ -273,7 +273,6 @@ defmodule RabbitMQStream.Connection do
   @type t() :: %RabbitMQStream.Connection{
           options: connection_options,
           socket: :gen_tcp.socket(),
-          version: 1,
           state: :closed | :connecting | :open | :closing,
           correlation_sequence: integer(),
           publisher_sequence: non_neg_integer(),
@@ -293,7 +292,6 @@ defmodule RabbitMQStream.Connection do
   defstruct [
     :socket,
     options: [],
-    version: 1,
     correlation_sequence: 1,
     publisher_sequence: 1,
     subscriber_sequence: 1,
