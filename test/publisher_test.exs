@@ -1,8 +1,6 @@
 defmodule RabbitMQStreamTest.Publisher do
   use ExUnit.Case, async: false
 
-  alias RabbitMQStream.Connection
-
   defmodule SupervisedConnection do
     use RabbitMQStream.Connection
   end
@@ -46,7 +44,7 @@ defmodule RabbitMQStreamTest.Publisher do
         stream_name: @stream
       )
 
-    assert %{sequence: 1} = SupervisorPublisher.get_state()
+    assert %{sequence: 1} = :sys.get_state(Process.whereis(SupervisorPublisher))
     SupervisedConnection.delete_stream(@stream)
   end
 
@@ -59,19 +57,19 @@ defmodule RabbitMQStreamTest.Publisher do
         stream_name: @stream
       )
 
-    %{sequence: sequence} = SupervisorPublisher.get_state()
+    %{sequence: sequence} = :sys.get_state(Process.whereis(SupervisorPublisher))
 
     SupervisorPublisher.publish(inspect(%{message: "Hello, world!"}))
 
     sequence = sequence + 1
 
-    assert %{sequence: ^sequence} = SupervisorPublisher.get_state()
+    assert %{sequence: ^sequence} = :sys.get_state(Process.whereis(SupervisorPublisher))
 
     SupervisorPublisher.publish(inspect(%{message: "Hello, world2!"}))
 
     sequence = sequence + 1
 
-    assert %{sequence: ^sequence} = SupervisorPublisher.get_state()
+    assert %{sequence: ^sequence} = :sys.get_state(Process.whereis(SupervisorPublisher))
 
     SupervisedConnection.delete_stream(@stream)
   end
@@ -88,7 +86,7 @@ defmodule RabbitMQStreamTest.Publisher do
     SupervisorPublisher.publish(inspect(%{message: "Hello, world!"}))
     SupervisorPublisher.publish(inspect(%{message: "Hello, world2!"}))
 
-    %{sequence: sequence} = SupervisorPublisher.get_state()
+    %{sequence: sequence} = :sys.get_state(Process.whereis(SupervisorPublisher))
 
     assert :ok = SupervisorPublisher.stop()
 
@@ -98,7 +96,7 @@ defmodule RabbitMQStreamTest.Publisher do
         stream_name: @stream
       )
 
-    assert %{sequence: ^sequence} = SupervisorPublisher.get_state()
+    assert %{sequence: ^sequence} = :sys.get_state(Process.whereis(SupervisorPublisher))
 
     SupervisedConnection.delete_stream(@stream)
   end

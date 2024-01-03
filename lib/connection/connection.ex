@@ -197,10 +197,12 @@ defmodule RabbitMQStream.Connection do
         GenServer.cast(__MODULE__, {:credit, subscription_id: subscription_id, credit: credit})
       end
 
-      if Mix.env() == :test do
-        def get_state() do
-          GenServer.call(__MODULE__, {:get_state})
-        end
+      def route(routing_key, super_stream) when is_binary(routing_key) and is_binary(super_stream) do
+        GenServer.call(__MODULE__, {:route, routing_key: routing_key, super_stream: super_stream})
+      end
+
+      def partitions(stream_name) when is_binary(stream_name) do
+        GenServer.call(__MODULE__, {:partitions, stream_name: stream_name})
       end
     end
   end

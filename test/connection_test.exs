@@ -10,15 +10,15 @@ defmodule RabbitMQStreamTest.Connection do
   test "should open and close the connection" do
     {:ok, _} = SupervisedConnection.start_link(host: "localhost", vhost: "/", lazy: true)
 
-    assert %Connection{state: :closed} = SupervisedConnection.get_state()
+    assert %Connection{state: :closed} = :sys.get_state(Process.whereis(SupervisedConnection))
 
     assert :ok = SupervisedConnection.connect()
 
-    assert %Connection{state: :open} = SupervisedConnection.get_state()
+    assert %Connection{state: :open} = :sys.get_state(Process.whereis(SupervisedConnection))
 
     assert :ok = SupervisedConnection.close()
 
-    assert %Connection{state: :closed} = SupervisedConnection.get_state()
+    assert %Connection{state: :closed} = :sys.get_state(Process.whereis(SupervisedConnection))
 
     assert :ok = SupervisedConnection.close()
   end

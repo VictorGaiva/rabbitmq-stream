@@ -24,7 +24,9 @@ defmodule RabbitMQStream.Message.Request do
     PublishData,
     SubscribeRequestData,
     UnsubscribeRequestData,
-    CreditRequestData
+    CreditRequestData,
+    RouteRequestData,
+    PartitionsQueryRequestData
   }
 
   defstruct [
@@ -266,6 +268,29 @@ defmodule RabbitMQStream.Message.Request do
       data: %CreditRequestData{
         credit: opts[:credit],
         subscription_id: opts[:subscription_id]
+      }
+    }
+  end
+
+  def new!(%Connection{} = conn, :route, opts) do
+    %Request{
+      version: conn.version,
+      command: :route,
+      correlation_id: conn.correlation_sequence,
+      data: %RouteRequestData{
+        super_stream: opts[:super_stream],
+        routing_key: opts[:routing_key]
+      }
+    }
+  end
+
+  def new!(%Connection{} = conn, :partitions, opts) do
+    %Request{
+      version: conn.version,
+      command: :partitions,
+      correlation_id: conn.correlation_sequence,
+      data: %PartitionsQueryRequestData{
+        super_stream: opts[:super_stream]
       }
     }
   end

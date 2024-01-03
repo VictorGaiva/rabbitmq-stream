@@ -4,22 +4,22 @@ defmodule RabbitMQStream.Message.Encoder do
   alias RabbitMQStream.Message.{Response, Request, Frame}
 
   def encode!(command) do
-    payload = encode_payload!(command)
+    payload = encode_data(command)
 
     wrap(command, payload)
   end
 
-  defp encode_payload!(%Request{command: :peer_properties, data: data}) do
+  defp encode_data(%Request{command: :peer_properties, data: data}) do
     properties = encode_map(data.peer_properties)
 
     <<properties::binary>>
   end
 
-  defp encode_payload!(%Request{command: :sasl_handshake}) do
+  defp encode_data(%Request{command: :sasl_handshake}) do
     <<>>
   end
 
-  defp encode_payload!(%Request{command: :sasl_authenticate, data: data}) do
+  defp encode_data(%Request{command: :sasl_authenticate, data: data}) do
     mechanism = encode_string(data.mechanism)
 
     credentials =
@@ -28,40 +28,40 @@ defmodule RabbitMQStream.Message.Encoder do
     <<mechanism::binary, credentials::binary>>
   end
 
-  defp encode_payload!(%Request{command: :open, data: data}) do
+  defp encode_data(%Request{command: :open, data: data}) do
     vhost = encode_string(data.vhost)
 
     <<vhost::binary>>
   end
 
-  defp encode_payload!(%Request{command: :heartbeat}) do
+  defp encode_data(%Request{command: :heartbeat}) do
     <<>>
   end
 
-  defp encode_payload!(%Request{command: :tune, data: data}) do
+  defp encode_data(%Request{command: :tune, data: data}) do
     <<data.heartbeat::unsigned-integer-size(32)>>
   end
 
-  defp encode_payload!(%Request{command: :close, data: data}) do
+  defp encode_data(%Request{command: :close, data: data}) do
     reason = encode_string(data.reason)
 
     <<data.code::unsigned-integer-size(16), reason::binary>>
   end
 
-  defp encode_payload!(%Request{command: :create_stream, data: data}) do
+  defp encode_data(%Request{command: :create_stream, data: data}) do
     stream_name = encode_string(data.stream_name)
     arguments = encode_map(data.arguments)
 
     <<stream_name::binary, arguments::binary>>
   end
 
-  defp encode_payload!(%Request{command: :delete_stream, data: data}) do
+  defp encode_data(%Request{command: :delete_stream, data: data}) do
     stream_name = encode_string(data.stream_name)
 
     <<stream_name::binary>>
   end
 
-  defp encode_payload!(%Request{command: :store_offset, data: data}) do
+  defp encode_data(%Request{command: :store_offset, data: data}) do
     offset_reference = encode_string(data.offset_reference)
     stream_name = encode_string(data.stream_name)
 
@@ -72,7 +72,7 @@ defmodule RabbitMQStream.Message.Encoder do
     >>
   end
 
-  defp encode_payload!(%Request{command: :query_offset, data: data}) do
+  defp encode_data(%Request{command: :query_offset, data: data}) do
     offset_reference = encode_string(data.offset_reference)
     stream_name = encode_string(data.stream_name)
 
@@ -82,7 +82,7 @@ defmodule RabbitMQStream.Message.Encoder do
     >>
   end
 
-  defp encode_payload!(%Request{command: :declare_publisher, data: data}) do
+  defp encode_data(%Request{command: :declare_publisher, data: data}) do
     publisher_reference = encode_string(data.publisher_reference)
     stream_name = encode_string(data.stream_name)
 
@@ -93,11 +93,11 @@ defmodule RabbitMQStream.Message.Encoder do
     >>
   end
 
-  defp encode_payload!(%Request{command: :delete_publisher, data: data}) do
+  defp encode_data(%Request{command: :delete_publisher, data: data}) do
     <<data.publisher_id::unsigned-integer-size(8)>>
   end
 
-  defp encode_payload!(%Request{command: :query_metadata, data: data}) do
+  defp encode_data(%Request{command: :query_metadata, data: data}) do
     streams =
       data.streams
       |> Enum.map(&encode_string/1)
@@ -106,14 +106,14 @@ defmodule RabbitMQStream.Message.Encoder do
     <<streams::binary>>
   end
 
-  defp encode_payload!(%Request{command: :query_publisher_sequence, data: data}) do
+  defp encode_data(%Request{command: :query_publisher_sequence, data: data}) do
     publisher_reference = encode_string(data.publisher_reference)
     stream_name = encode_string(data.stream_name)
 
     <<publisher_reference::binary, stream_name::binary>>
   end
 
-  defp encode_payload!(%Request{command: :publish, data: data}) do
+  defp encode_data(%Request{command: :publish, data: data}) do
     messages =
       encode_array(
         for {publishing_id, message} <- data.published_messages do
@@ -124,7 +124,7 @@ defmodule RabbitMQStream.Message.Encoder do
     <<data.publisher_id::unsigned-integer-size(8), messages::binary>>
   end
 
-  defp encode_payload!(%Request{command: :subscribe, data: data}) do
+  defp encode_data(%Request{command: :subscribe, data: data}) do
     stream_name = encode_string(data.stream_name)
 
     offset =
@@ -147,38 +147,38 @@ defmodule RabbitMQStream.Message.Encoder do
     >>
   end
 
-  defp encode_payload!(%Request{command: :unsubscribe, data: data}) do
+  defp encode_data(%Request{command: :unsubscribe, data: data}) do
     <<data.subscription_id::unsigned-integer-size(8)>>
   end
 
-  defp encode_payload!(%Request{command: :credit, data: data}) do
+  defp encode_data(%Request{command: :credit, data: data}) do
     <<
       data.subscription_id::unsigned-integer-size(8),
       data.credit::unsigned-integer-size(16)
     >>
   end
 
-  defp encode_payload!(%Request{command: :route, data: data}) do
+  defp encode_data(%Request{command: :route, data: data}) do
     routing_key = encode_string(data.routing_key)
     super_stream = encode_string(data.super_stream)
 
     <<routing_key::binary, super_stream::binary>>
   end
 
-  defp encode_payload!(%Request{command: :partitions, data: data}) do
+  defp encode_data(%Request{command: :partitions, data: data}) do
     super_stream = encode_string(data.super_stream)
 
     <<super_stream::binary>>
   end
 
-  defp encode_payload!(%Response{command: :tune, data: data}) do
+  defp encode_data(%Response{command: :tune, data: data}) do
     <<
       data.frame_max::unsigned-integer-size(32),
       data.heartbeat::unsigned-integer-size(32)
     >>
   end
 
-  defp encode_payload!(%Response{command: :close, code: code}) do
+  defp encode_data(%Response{command: :close, code: code}) do
     <<
       Frame.atom_to_response_code(code)::unsigned-integer-size(16)
     >>

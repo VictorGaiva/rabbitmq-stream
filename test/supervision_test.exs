@@ -44,13 +44,13 @@ defmodule RabbitMQStreamTest.Supervision do
     :ok = SupervisedConnection.connect()
     assert {:ok, _publisher} = SupervisorPublisher.start_link(reference_name: @reference_name, stream_name: @stream)
 
-    %{sequence: sequence} = SupervisorPublisher.get_state()
+    %{sequence: sequence} = :sys.get_state(Process.whereis(SupervisorPublisher))
 
     assert :ok = SupervisorPublisher.publish("Hello, world!")
 
     sequence = sequence + 1
 
-    assert %{sequence: ^sequence} = SupervisorPublisher.get_state()
+    assert %{sequence: ^sequence} = :sys.get_state(Process.whereis(SupervisorPublisher))
     SupervisedConnection.delete_stream(@stream)
   end
 

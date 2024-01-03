@@ -33,10 +33,6 @@ defmodule RabbitMQStream.Connection.Server do
   end
 
   @impl GenServer
-  def handle_call({:get_state}, _from, %Connection{} = conn) do
-    {:reply, conn, conn}
-  end
-
   def handle_call({:connect}, from, %Connection{state: :closed} = conn) do
     Logger.debug("Connecting to server: #{conn.options[:host]}:#{conn.options[:port]}")
 
@@ -111,7 +107,9 @@ defmodule RabbitMQStream.Connection.Server do
              :query_metadata,
              :query_publisher_sequence,
              :delete_stream,
-             :create_stream
+             :create_stream,
+             :route,
+             :partitions
            ] do
     conn =
       conn

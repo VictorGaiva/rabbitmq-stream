@@ -148,11 +148,6 @@ defmodule RabbitMQStream.Publisher do
       end
 
       @impl true
-      def handle_call({:get_state}, _from, state) do
-        {:reply, state, state}
-      end
-
-      @impl true
       def handle_cast({:publish, message, nil}, %RabbitMQStream.Publisher{} = publisher) do
         publisher.connection.publish(publisher.id, publisher.sequence, message)
 
@@ -165,12 +160,6 @@ defmodule RabbitMQStream.Publisher do
       def terminate(_reason, state) do
         state.connection.delete_publisher(state.id)
         :ok
-      end
-
-      if Mix.env() == :test do
-        def get_state() do
-          GenServer.call(__MODULE__, {:get_state})
-        end
       end
     end
   end

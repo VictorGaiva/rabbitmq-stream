@@ -545,6 +545,18 @@ defmodule RabbitMQStream.Message.Data do
     %OpenData{connection_properties: connection_properties}
   end
 
+  def decode_data(%Response{command: :route}, buffer) do
+    {"", stream} = fetch_string(buffer)
+
+    %RouteResponseData{stream: stream}
+  end
+
+  def decode_data(%Response{command: :partitions}, buffer) do
+    {"", stream} = fetch_string(buffer)
+
+    %RouteResponseData{stream: stream}
+  end
+
   def fetch_string(<<size::integer-size(16), text::binary-size(size), rest::binary>>) do
     {rest, to_string(text)}
   end
