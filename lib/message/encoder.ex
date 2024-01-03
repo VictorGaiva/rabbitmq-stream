@@ -158,6 +158,19 @@ defmodule RabbitMQStream.Message.Encoder do
     >>
   end
 
+  defp encode_payload!(%Request{command: :route, data: data}) do
+    routing_key = encode_string(data.routing_key)
+    super_stream = encode_string(data.super_stream)
+
+    <<routing_key::binary, super_stream::binary>>
+  end
+
+  defp encode_payload!(%Request{command: :partitions, data: data}) do
+    super_stream = encode_string(data.super_stream)
+
+    <<super_stream::binary>>
+  end
+
   defp encode_payload!(%Response{command: :tune, data: data}) do
     <<
       data.frame_max::unsigned-integer-size(32),
@@ -195,7 +208,9 @@ defmodule RabbitMQStream.Message.Encoder do
               :query_metadata,
               :query_publisher_sequence,
               :subscribe,
-              :unsubscribe
+              :unsubscribe,
+              :route,
+              :partitions
             ] do
     <<
       Frame.command_to_code(command)::unsigned-integer-size(16),

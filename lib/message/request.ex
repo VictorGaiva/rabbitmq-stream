@@ -13,13 +13,13 @@ defmodule RabbitMQStream.Message.Request do
     SaslHandshakeData,
     HeartbeatData,
     CloseData,
-    CreateStreamData,
-    DeleteStreamData,
-    StoreOffsetData,
-    QueryOffsetData,
-    DeclarePublisherData,
-    DeletePublisherData,
-    QueryMetadataData,
+    CreateStreamRequestData,
+    DeleteStreamRequestData,
+    StoreOffsetRequestData,
+    QueryOffsetRequestData,
+    DeclarePublisherRequestData,
+    DeletePublisherRequestData,
+    QueryMetadataRequestData,
     QueryPublisherSequenceData,
     PublishData,
     SubscribeRequestData,
@@ -131,7 +131,7 @@ defmodule RabbitMQStream.Message.Request do
       version: conn.version,
       command: :create_stream,
       correlation_id: conn.correlation_sequence,
-      data: %CreateStreamData{
+      data: %CreateStreamRequestData{
         stream_name: opts[:name],
         arguments: opts[:arguments] || []
       }
@@ -143,7 +143,7 @@ defmodule RabbitMQStream.Message.Request do
       version: conn.version,
       command: :delete_stream,
       correlation_id: conn.correlation_sequence,
-      data: %DeleteStreamData{
+      data: %DeleteStreamRequestData{
         stream_name: opts[:name]
       }
     }
@@ -154,7 +154,7 @@ defmodule RabbitMQStream.Message.Request do
       version: conn.version,
       command: :store_offset,
       correlation_id: conn.correlation_sequence,
-      data: %StoreOffsetData{
+      data: %StoreOffsetRequestData{
         stream_name: opts[:stream_name],
         offset_reference: opts[:offset_reference],
         offset: opts[:offset]
@@ -167,7 +167,7 @@ defmodule RabbitMQStream.Message.Request do
       version: conn.version,
       command: :query_offset,
       correlation_id: conn.correlation_sequence,
-      data: %QueryOffsetData{
+      data: %QueryOffsetRequestData{
         stream_name: opts[:stream_name],
         offset_reference: opts[:offset_reference]
       }
@@ -179,7 +179,7 @@ defmodule RabbitMQStream.Message.Request do
       version: conn.version,
       command: :declare_publisher,
       correlation_id: conn.correlation_sequence,
-      data: %DeclarePublisherData{
+      data: %DeclarePublisherRequestData{
         id: conn.publisher_sequence,
         publisher_reference: opts[:publisher_reference],
         stream_name: opts[:stream_name]
@@ -192,7 +192,7 @@ defmodule RabbitMQStream.Message.Request do
       version: conn.version,
       command: :delete_publisher,
       correlation_id: conn.correlation_sequence,
-      data: %DeletePublisherData{
+      data: %DeletePublisherRequestData{
         publisher_id: opts[:publisher_id]
       }
     }
@@ -203,7 +203,7 @@ defmodule RabbitMQStream.Message.Request do
       version: conn.version,
       command: :query_metadata,
       correlation_id: conn.correlation_sequence,
-      data: %QueryMetadataData{
+      data: %QueryMetadataRequestData{
         streams: opts[:streams]
       }
     }

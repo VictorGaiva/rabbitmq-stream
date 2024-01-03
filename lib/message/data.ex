@@ -1,5 +1,7 @@
 defmodule RabbitMQStream.Message.Data do
   @moduledoc false
+  alias RabbitMQStream.Message.{Response, Request, Frame}
+
   defmodule TuneData do
     @moduledoc false
 
@@ -56,7 +58,7 @@ defmodule RabbitMQStream.Message.Data do
     ]
   end
 
-  defmodule CreateStreamData do
+  defmodule CreateStreamRequestData do
     @moduledoc false
 
     defstruct [
@@ -65,7 +67,13 @@ defmodule RabbitMQStream.Message.Data do
     ]
   end
 
-  defmodule DeleteStreamData do
+  defmodule CreateStreamResponseData do
+    @moduledoc false
+
+    defstruct []
+  end
+
+  defmodule DeleteStreamRequestData do
     @moduledoc false
 
     defstruct [
@@ -73,7 +81,15 @@ defmodule RabbitMQStream.Message.Data do
     ]
   end
 
-  defmodule StoreOffsetData do
+  defmodule DeleteStreamResponseData do
+    @moduledoc false
+
+    defstruct [
+      :stream_name
+    ]
+  end
+
+  defmodule StoreOffsetRequestData do
     @moduledoc false
 
     defstruct [
@@ -83,22 +99,43 @@ defmodule RabbitMQStream.Message.Data do
     ]
   end
 
-  defmodule QueryOffsetData do
+  defmodule StoreOffsetResponseData do
+    @moduledoc false
+
+    defstruct []
+  end
+
+  defmodule QueryOffsetRequestData do
     @moduledoc false
 
     defstruct [
       :offset_reference,
-      :stream_name,
+      :stream_name
+    ]
+  end
+
+  defmodule QueryOffsetResponseData do
+    @moduledoc false
+
+    defstruct [
       :offset
     ]
   end
 
-  defmodule QueryMetadataData do
+  defmodule QueryMetadataRequestData do
     @moduledoc false
 
     defstruct [
-      :brokers,
       :streams
+    ]
+  end
+
+  defmodule QueryMetadataResponseData do
+    @moduledoc false
+
+    defstruct [
+      :streams,
+      :brokers
     ]
   end
 
@@ -106,11 +143,12 @@ defmodule RabbitMQStream.Message.Data do
     @moduledoc false
 
     defstruct [
-      :stream_name
+      :stream_name,
+      :code
     ]
   end
 
-  defmodule DeclarePublisherData do
+  defmodule DeclarePublisherRequestData do
     @moduledoc false
 
     defstruct [
@@ -120,12 +158,22 @@ defmodule RabbitMQStream.Message.Data do
     ]
   end
 
-  defmodule DeletePublisherData do
+  defmodule DeclarePublisherResponseData do
     @moduledoc false
 
-    defstruct [
-      :publisher_id
-    ]
+    defstruct []
+  end
+
+  defmodule DeletePublisherRequestData do
+    @moduledoc false
+
+    defstruct [:publisher_id]
+  end
+
+  defmodule DeletePublisherResponseData do
+    @moduledoc false
+
+    defstruct []
   end
 
   defmodule BrokerData do
@@ -292,7 +340,7 @@ defmodule RabbitMQStream.Message.Data do
     defstruct [:super_stream]
   end
 
-  defmodule PartitionsQueryRequestData do
+  defmodule PartitionsQueryResponseData do
     @moduledoc false
     @enforce_keys [:stream]
     @type t :: %{stream: String.t()}
@@ -314,24 +362,141 @@ defmodule RabbitMQStream.Message.Data do
     ]
   end
 
-  def decode_data(:close, ""), do: %CloseData{}
-  def decode_data(:create_stream, ""), do: %CreateStreamData{}
-  def decode_data(:delete_stream, ""), do: %DeleteStreamData{}
-  def decode_data(:declare_publisher, ""), do: %DeclarePublisherData{}
-  def decode_data(:delete_publisher, ""), do: %DeletePublisherData{}
-  def decode_data(:subscribe, ""), do: %SubscribeResponseData{}
-  def decode_data(:unsubscribe, ""), do: %UnsubscribeResponseData{}
-  def decode_data(:credit, ""), do: %CreditResponseData{}
+  def decode_data(%{command: :heartbeat}, ""), do: %HeartbeatData{}
+  def decode_data(%Response{command: :close}, ""), do: %CloseData{}
 
-  def decode_data(:query_offset, <<offset::unsigned-integer-size(64)>>) do
-    %QueryOffsetData{offset: offset}
+  def decode_data(%Response{command: :create_stream}, ""), do: %CreateStreamResponseData{}
+  def decode_data(%Response{command: :delete_stream}, ""), do: %DeleteStreamResponseData{}
+  def decode_data(%Response{command: :declare_publisher}, ""), do: %DeclarePublisherResponseData{}
+  def decode_data(%Response{command: :delete_publisher}, ""), do: %DeletePublisherResponseData{}
+  def decode_data(%Response{command: :subscribe}, ""), do: %SubscribeResponseData{}
+  def decode_data(%Response{command: :unsubscribe}, ""), do: %UnsubscribeResponseData{}
+  def decode_data(%Response{command: :credit}, ""), do: %CreditResponseData{}
+  def decode_data(%Response{command: :store_offset}, ""), do: %StoreOffsetResponseData{}
+
+  def decode_data(%Request{command: :publish_confirm}, buffer) do
+    <<publisher_id::unsigned-integer-size(8), buffer::binary>> = buffer
+
+    {"", publishing_ids} =
+      decode_array(buffer, fn buffer, acc ->
+        <<publishing_id::unsigned-integer-size(64), buffer::binary>> = buffer
+        {buffer, [publishing_id] ++ acc}
+      end)
+
+    %PublishConfirmData{publisher_id: publisher_id, publishing_ids: publishing_ids}
   end
 
-  def decode_data(:query_publisher_sequence, <<sequence::unsigned-integer-size(64)>>) do
+  def decode_data(%Response{command: :publish_error}, buffer) do
+    <<publisher_id::unsigned-integer-size(8), buffer::binary>> = buffer
+
+    {"", errors} =
+      decode_array(buffer, fn buffer, acc ->
+        <<
+          publishing_id::unsigned-integer-size(64),
+          code::unsigned-integer-size(16),
+          buffer::binary
+        >> = buffer
+
+        entry = %PublishErrorData.Error{
+          code: Frame.response_code_to_atom(code),
+          publishing_id: publishing_id
+        }
+
+        {buffer, [entry] ++ acc}
+      end)
+
+    %PublishErrorData{publisher_id: publisher_id, errors: errors}
+  end
+
+  def decode_data(%Request{version: 1, command: :deliver}, buffer) do
+    <<subscription_id::unsigned-integer-size(8), rest::binary>> = buffer
+
+    osiris_chunk = RabbitMQStream.OsirisChunk.decode!(rest)
+
+    %DeliverData{subscription_id: subscription_id, osiris_chunk: osiris_chunk}
+  end
+
+  def decode_data(%Request{version: 2, command: :deliver}, buffer) do
+    <<subscription_id::unsigned-integer-size(8), committed_offset::unsigned-integer-size(64), rest::binary>> = buffer
+
+    osiris_chunk = RabbitMQStream.OsirisChunk.decode!(rest)
+
+    %DeliverData{
+      subscription_id: subscription_id,
+      committed_offset: committed_offset,
+      osiris_chunk: osiris_chunk
+    }
+  end
+
+  def decode_data(%{command: :query_metadata}, buffer) do
+    {buffer, brokers} =
+      decode_array(buffer, fn buffer, acc ->
+        <<reference::unsigned-integer-size(16), buffer::binary>> = buffer
+
+        <<size::integer-size(16), host::binary-size(size), buffer::binary>> = buffer
+
+        <<port::unsigned-integer-size(32), buffer::binary>> = buffer
+
+        data = %BrokerData{
+          reference: reference,
+          host: host,
+          port: port
+        }
+
+        {buffer, [data] ++ acc}
+      end)
+
+    {"", streams} =
+      decode_array(buffer, fn buffer, acc ->
+        <<
+          size::integer-size(16),
+          name::binary-size(size),
+          code::unsigned-integer-size(16),
+          leader::unsigned-integer-size(16),
+          buffer::binary
+        >> = buffer
+
+        {buffer, replicas} =
+          decode_array(buffer, fn buffer, acc ->
+            <<replica::unsigned-integer-size(16), buffer::binary>> = buffer
+
+            {buffer, [replica] ++ acc}
+          end)
+
+        data = %StreamData{
+          code: code,
+          name: name,
+          leader: leader,
+          replicas: replicas
+        }
+
+        {buffer, [data] ++ acc}
+      end)
+
+    %QueryMetadataResponseData{brokers: brokers, streams: streams}
+  end
+
+  def decode_data(%Request{command: :close}, <<code::unsigned-integer-size(16), buffer::binary>>) do
+    {"", reason} = fetch_string(buffer)
+
+    %CloseData{code: code, reason: reason}
+  end
+
+  def decode_data(%{command: :metadata_update}, <<code::unsigned-integer-size(16), buffer::binary>>) do
+    {"", stream_name} = fetch_string(buffer)
+
+    %MetadataUpdateData{stream_name: stream_name, code: code}
+  end
+
+  def decode_data(%{command: :query_offset}, <<offset::unsigned-integer-size(64)>>) do
+    %QueryOffsetResponseData{offset: offset}
+  end
+
+  def decode_data(%Response{command: :query_publisher_sequence}, <<sequence::unsigned-integer-size(64)>>) do
     %QueryPublisherSequenceData{sequence: sequence}
   end
 
-  def decode_data(:peer_properties, buffer) do
+  def decode_data(%{command: :peer_properties}, buffer) do
     {"", peer_properties} =
       decode_array(buffer, fn buffer, acc ->
         {buffer, key} = fetch_string(buffer)
@@ -343,7 +508,7 @@ defmodule RabbitMQStream.Message.Data do
     %PeerPropertiesData{peer_properties: peer_properties}
   end
 
-  def decode_data(:sasl_handshake, buffer) do
+  def decode_data(%{command: :sasl_handshake}, buffer) do
     {"", mechanisms} =
       decode_array(buffer, fn buffer, acc ->
         {buffer, value} = fetch_string(buffer)
@@ -353,15 +518,15 @@ defmodule RabbitMQStream.Message.Data do
     %SaslHandshakeData{mechanisms: mechanisms}
   end
 
-  def decode_data(:sasl_authenticate, buffer) do
+  def decode_data(%{command: :sasl_authenticate}, buffer) do
     %SaslAuthenticateData{sasl_opaque_data: buffer}
   end
 
-  def decode_data(:tune, <<frame_max::unsigned-integer-size(32), heartbeat::unsigned-integer-size(32)>>) do
+  def decode_data(%{command: :tune}, <<frame_max::unsigned-integer-size(32), heartbeat::unsigned-integer-size(32)>>) do
     %TuneData{frame_max: frame_max, heartbeat: heartbeat}
   end
 
-  def decode_data(:open, buffer) do
+  def decode_data(%{command: :open}, buffer) do
     connection_properties =
       if buffer != "" do
         {"", connection_properties} =
