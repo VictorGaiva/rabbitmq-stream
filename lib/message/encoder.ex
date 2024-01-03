@@ -113,11 +113,28 @@ defmodule RabbitMQStream.Message.Encoder do
     <<publisher_reference::binary, stream_name::binary>>
   end
 
-  defp encode_data(%Request{command: :publish, data: data}) do
+  defp encode_data(%Request{version: 1, command: :publish, data: data}) do
     messages =
       encode_array(
         for {publishing_id, message} <- data.published_messages do
           <<publishing_id::unsigned-integer-size(64), encode_bytes(message)::binary>>
+        end
+      )
+
+    <<data.publisher_id::unsigned-integer-size(8), messages::binary>>
+  end
+
+  defp encode_data(%Request{version: 2, command: :publish, data: data}) do
+    # filter_value = encode_string(data.filter_value)
+
+    messages =
+      encode_array(
+        for {publishing_id, message} <- data.published_messages do
+          <<
+            publishing_id::unsigned-integer-size(64),
+            # filter_value::binary,
+            encode_bytes(message)::binary
+          >>
         end
       )
 

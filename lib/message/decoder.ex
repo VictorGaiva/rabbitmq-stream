@@ -48,7 +48,7 @@ defmodule RabbitMQStream.Message.Decoder do
     }
   end
 
-  def parse(%Response{command: command} = response, buffer)
+  def parse(%{command: command} = response, buffer)
       when command in [:close, :query_metadata] do
     <<correlation_id::unsigned-integer-size(32), buffer::binary>> = buffer
 
@@ -56,7 +56,15 @@ defmodule RabbitMQStream.Message.Decoder do
   end
 
   def parse(%{command: command} = action, buffer)
-      when command in [:tune, :heartbeat, :metadata_update, :publish_confirm, :publish_error, :deliver, :store_offset] do
+      when command in [
+             :tune,
+             :heartbeat,
+             :metadata_update,
+             :publish_confirm,
+             :publish_error,
+             :deliver,
+             :store_offset
+           ] do
     %{action | data: Message.Data.decode_data(action, buffer)}
   end
 end

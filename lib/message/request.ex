@@ -22,6 +22,7 @@ defmodule RabbitMQStream.Message.Request do
     QueryMetadataRequestData,
     QueryPublisherSequenceData,
     PublishData,
+    PublishDataV2,
     SubscribeRequestData,
     UnsubscribeRequestData,
     CreditRequestData,
@@ -230,6 +231,18 @@ defmodule RabbitMQStream.Message.Request do
       data: %PublishData{
         publisher_id: opts[:publisher_id],
         published_messages: opts[:published_messages]
+      }
+    }
+  end
+
+  def new!(%Connection{}, :publish_v2, opts) do
+    %Request{
+      version: 2,
+      command: :publish,
+      data: %PublishDataV2{
+        publisher_id: opts[:publisher_id],
+        published_messages: opts[:published_messages],
+        filter_value: opts[:filter_value] || "test123321123"
       }
     }
   end

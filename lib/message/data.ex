@@ -216,6 +216,16 @@ defmodule RabbitMQStream.Message.Data do
     ]
   end
 
+  defmodule PublishDataV2 do
+    @moduledoc false
+
+    defstruct [
+      :publisher_id,
+      :published_messages,
+      :filter_value
+    ]
+  end
+
   defmodule PublishErrorData do
     @moduledoc false
 

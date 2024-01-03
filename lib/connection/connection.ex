@@ -172,7 +172,7 @@ defmodule RabbitMQStream.Connection do
                  publisher_id <= 255 do
         GenServer.cast(
           __MODULE__,
-          {:publish, publisher_id: publisher_id, published_messages: [{publishing_id, message}], wait: true}
+          {:publish, publisher_id: publisher_id, published_messages: [{publishing_id, message}]}
         )
       end
 

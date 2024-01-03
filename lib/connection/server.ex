@@ -107,9 +107,7 @@ defmodule RabbitMQStream.Connection.Server do
              :query_metadata,
              :query_publisher_sequence,
              :delete_stream,
-             :create_stream,
-             :route,
-             :partitions
+             :create_stream
            ] do
     conn =
       conn
@@ -117,6 +115,23 @@ defmodule RabbitMQStream.Connection.Server do
       |> send_request(command, opts)
 
     {:noreply, conn}
+  end
+
+  def handle_call({command, opts}, from, %Connection{peer_properties: %{"version" => version}} = conn)
+      when command in [:route, :partitions] and version >= [3, 11] do
+    conn =
+      conn
+      |> Helpers.push_request_tracker(command, from)
+      |> send_request(command, opts)
+
+    {:noreply, conn}
+  end
+
+  def handle_call({command, _opts}, _from, %Connection{peer_properties: %{"version" => version}} = conn)
+      when command in [:route, :partitions] and version <= [3, 11] do
+    Logger.error("Command #{command} is not supported by the server version #{version}")
+
+    {:reply, {:error, :unsupported}, conn}
   end
 
   def handle_call({:declare_publisher, opts}, from, %Connection{} = conn) do
@@ -142,17 +157,6 @@ defmodule RabbitMQStream.Connection.Server do
   end
 
   def handle_cast({:publish, opts}, %Connection{} = conn) do
-    {_wait, opts} = Keyword.pop(opts, :wait, false)
-
-    # conn =
-    #   if wait do
-    #     publishing_ids = Enum.map(opts[:published_messages], fn {id, _} -> id end)
-    #     publish_tracker = PublishingTracker.push(conn.publish_tracker, opts[:publisher_id], publishing_ids, from)
-    #     %{conn | publish_tracker: publish_tracker}
-    #   else
-    #     conn
-    #   end
-
     conn =
       conn
       |> send_request(:publish, opts ++ [correlation_sum: 0])

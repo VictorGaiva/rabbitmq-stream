@@ -121,7 +121,20 @@ defmodule RabbitMQStream.Connection.Handler do
         Logger.debug("Exchange successful.")
         Logger.debug("Initiating SASL handshake.")
 
-        %{conn | peer_properties: response.data.peer_properties}
+        peer_properties =
+          response.data.peer_properties
+          |> Enum.map(fn
+            {"version", value} ->
+              version = value |> String.split(".") |> Enum.map(&String.to_integer/1)
+
+              {"version", version}
+
+            entry ->
+              entry
+          end)
+          |> Map.new()
+
+        %{conn | peer_properties: peer_properties}
         |> send_request(:sasl_handshake)
       end
 
