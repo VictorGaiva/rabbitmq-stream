@@ -7,20 +7,48 @@ defmodule RabbitMQStreamTest.Connection do
     use RabbitMQStream.Connection
   end
 
-  test "should open and close the connection" do
-    {:ok, _} = SupervisedConnection.start_link(host: "localhost", vhost: "/", lazy: true)
+  defmodule SupervisedSSLConnection do
+    use RabbitMQStream.Connection,
+      port: 5551,
+      transport: :ssl,
+      ssl_opts: [
+        keyfile: "services/cert/client_box_key.pem",
+        certfile: "services/cert/client_box_certificate.pem",
+        cacertfile: "services/cert/ca_certificate.pem",
+        verify: :verify_peer
+      ]
+  end
 
-    assert %Connection{state: :closed} = :sys.get_state(Process.whereis(SupervisedConnection))
+  test "should open and close the connection" do
+    {:ok, conn} = SupervisedConnection.start_link(host: "localhost", vhost: "/", lazy: true)
+
+    assert %Connection{state: :closed} = :sys.get_state(conn)
 
     assert :ok = SupervisedConnection.connect()
 
-    assert %Connection{state: :open} = :sys.get_state(Process.whereis(SupervisedConnection))
+    assert %Connection{state: :open} = :sys.get_state(conn)
 
     assert :ok = SupervisedConnection.close()
 
-    assert %Connection{state: :closed} = :sys.get_state(Process.whereis(SupervisedConnection))
+    assert %Connection{state: :closed} = :sys.get_state(conn)
 
     assert :ok = SupervisedConnection.close()
+  end
+
+  test "should open and close a ssl connection" do
+    {:ok, conn} = SupervisedSSLConnection.start_link(host: "localhost", vhost: "/", lazy: true)
+
+    assert %Connection{state: :closed} = :sys.get_state(conn)
+
+    assert :ok = SupervisedSSLConnection.connect()
+
+    assert %Connection{state: :open} = :sys.get_state(conn)
+
+    assert :ok = SupervisedSSLConnection.close()
+
+    assert %Connection{state: :closed} = :sys.get_state(conn)
+
+    assert :ok = SupervisedSSLConnection.close()
   end
 
   test "should correctly answer to parallel `connect` requests" do

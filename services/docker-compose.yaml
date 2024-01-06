@@ -1,0 +1,17 @@
+version: "3"
+services:
+  rabbitmq_stream:
+    container_name: rabbitmq_stream
+    image: rabbitmq:3.13-rc-management
+    restart: always
+    hostname: rabbitmq_stream
+    volumes:
+      - ./enabled_plugins:/etc/rabbitmq/enabled_plugins
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+      - ./cert:/etc/rabbitmq/cert
+    ports:
+      - 5553:5552
+      - 5551:5551
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest

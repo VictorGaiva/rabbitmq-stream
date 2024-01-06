@@ -103,6 +103,7 @@ defmodule RabbitMQStream.Connection do
           |> Keyword.put_new(:password, "guest")
           |> Keyword.put_new(:frame_max, 1_048_576)
           |> Keyword.put_new(:heartbeat, 60)
+          |> Keyword.put_new(:transport, :tcp)
 
         GenServer.start_link(RabbitMQStream.Connection.Client, options, name: __MODULE__)
       end
@@ -305,11 +306,13 @@ defmodule RabbitMQStream.Connection do
           request_buffer: :queue.queue({term(), pid()}),
           commands_buffer: :queue.queue({atom(), atom(), list({atom(), term()})}),
           # this should not be here. Should find a better way to return the close reason from the 'handler' module
-          close_reason: String.t() | atom() | nil
+          close_reason: String.t() | atom() | nil,
+          transport: RabbitMQStream.Connection.Transport.t()
         }
-
+  @enforce_keys [:transport, :options]
   defstruct [
     :socket,
+    :transport,
     options: [],
     correlation_sequence: 1,
     publisher_sequence: 1,

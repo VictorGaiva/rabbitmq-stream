@@ -13,7 +13,22 @@ defmodule RabbitMQStream.Connection.Client do
 
   @impl GenServer
   def init(options) do
-    conn = %RabbitMQStream.Connection{options: options}
+    {transport, options} = Keyword.pop(options, :transport, :tcp)
+
+    transport =
+      case transport do
+        :tcp -> RabbitMQStream.Connection.Transport.TCP
+        :ssl -> RabbitMQStream.Connection.Transport.SSL
+        transport -> transport
+      end
+
+    conn = %RabbitMQStream.Connection{options: options, transport: transport}
+
+    # Should this be here?
+    if transport == :ssl do
+      :ok = Application.ensure_loaded(:ssl)
+      :ok = Application.ensure_loaded(:crypto)
+    end
 
     if options[:lazy] == true do
       {:ok, conn}
@@ -170,7 +185,7 @@ defmodule RabbitMQStream.Connection.Client do
   end
 
   @impl GenServer
-  def handle_info({:tcp, _socket, data}, conn) do
+  def handle_info({key, _socket, data}, conn) when key in [:ssl, :tcp] do
     {commands, frames_buffer} =
       data
       |> Buffer.incoming_data(conn.frames_buffer)
@@ -187,18 +202,18 @@ defmodule RabbitMQStream.Connection.Client do
     |> handle_closing()
   end
 
-  def handle_info({:tcp_closed, _socket}, conn) do
+  def handle_info({key, _socket}, conn) when key in [:tcp_closed, :ssl_closed] do
     if conn.state == :connecting do
       Logger.warning(
         "The connection was closed by the host, after the socket was already open, while running the authentication sequence. This could be caused by the server not having Stream Plugin active"
       )
     end
 
-    %{conn | close_reason: :tcp_closed}
+    %{conn | close_reason: key}
     |> handle_closing()
   end
 
-  def handle_info({:tcp_error, _socket, reason}, conn) do
+  def handle_info({key, _socket, reason}, conn) when key in [:tcp_error, :ssl_error] do
     %{conn | close_reason: reason}
     |> handle_closing()
   end
@@ -257,9 +272,7 @@ defmodule RabbitMQStream.Connection.Client do
   end
 
   defp connect(%Connection{} = conn) do
-    with {:ok, socket} <-
-           :gen_tcp.connect(String.to_charlist(conn.options[:host]), conn.options[:port], [:binary, active: true]),
-         :ok <- :gen_tcp.controlling_process(socket, self()) do
+    with {:ok, socket} <- conn.transport.connect(conn.options) do
       {:ok, %{conn | socket: socket, state: :connecting}}
     end
   end
@@ -270,7 +283,7 @@ defmodule RabbitMQStream.Connection.Client do
     end
 
     if is_port(conn.socket) do
-      :ok = :gen_tcp.close(conn.socket)
+      :ok = conn.transport.close(conn.socket)
     end
 
     for {client, _data} <- Map.values(conn.request_tracker) do
@@ -314,7 +327,7 @@ defmodule RabbitMQStream.Connection.Client do
       |> Message.new_request(command, opts)
       |> Encoder.encode()
 
-    :ok = :gen_tcp.send(conn.socket, frame)
+    :ok = conn.transport.send(conn.socket, frame)
 
     correlation_sequence = conn.correlation_sequence + correlation_sum
     publisher_sequence = conn.publisher_sequence + publisher_sum
@@ -334,7 +347,7 @@ defmodule RabbitMQStream.Connection.Client do
       |> Message.new_response(command, opts)
       |> Encoder.encode()
 
-    :ok = :gen_tcp.send(conn.socket, frame)
+    :ok = conn.transport.send(conn.socket, frame)
 
     conn
   end

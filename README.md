@@ -104,6 +104,23 @@ You can configure a default Serializer module by passing it to the defaults conf
 ```elixir
 config :rabbitmq_stream, :defaults,
   serializer: Jason
-end```
+end
+```
+
+## TLS Support
+
+You can configure the RabbitmqStream to use TLS connections:
+
+```elixir
+coonfig :rabbitmq_stream, :defaults,
+  connection: [
+    transport: :ssl,
+    ssl_opts: [
+      keyfile: "services/cert/client_box_key.pem",
+      certfile: "services/cert/client_box_certificate.pem",
+      cacertfile: "services/cert/ca_certificate.pem"
+    ]
+  ]
+```
 
 For more information, check the [documentation](https://hexdocs.pm/rabbitmq_stream/).

@@ -8,6 +8,7 @@ Added support for RabbitMQ 3.13, with Route, Partitions and SuperStreams support
 
 - Added support for `:route`, `:partitions`, `:consumerupdate`, `:exchangecommandversions`, `:streamstats`, `:createsuperstream` and `:deletesuperstream` commands.
 - Added serialization options for encoding and decoding messages.
+- TLS Support
 
 ### 0.4.0 Changes
 
