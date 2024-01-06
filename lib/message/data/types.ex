@@ -1,4 +1,4 @@
-defmodule RabbitMQStream.Message.Data.Types do
+defmodule RabbitMQStream.Message.Types do
   @moduledoc false
 
   defmodule TuneData do
@@ -369,5 +369,69 @@ defmodule RabbitMQStream.Message.Data.Types do
       :subscription_id,
       :osiris_chunk
     ]
+  end
+
+  defmodule ExchangeCommandVersionsData do
+    @moduledoc false
+    @enforce_keys [:commands]
+    @type t :: %{
+            commands: [Command.t()]
+          }
+    defstruct [:commands]
+
+    defmodule Command do
+      @moduledoc false
+      @enforce_keys [:key, :min_version, :max_version]
+      @type t :: %{
+              key: RabbitMQStream.Message.Helpers.command(),
+              min_version: non_neg_integer(),
+              max_version: non_neg_integer()
+            }
+      defstruct [:key, :min_version, :max_version]
+    end
+
+    def new!(_opts \\ []) do
+      %__MODULE__{
+        # We only pass the commands for which we already support more versions
+        commands: [
+          %Command{key: :publish, min_version: 1, max_version: 2},
+          %Command{key: :deliver, min_version: 1, max_version: 2}
+        ]
+      }
+    end
+
+    def encode!(%__MODULE__{commands: commands}) do
+      RabbitMQStream.Message.Helpers.encode_array(
+        for command <- commands do
+          <<
+            RabbitMQStream.Message.Helpers.encode_command(command.key)::unsigned-integer-size(16),
+            command.min_version::unsigned-integer-size(16),
+            command.max_version::unsigned-integer-size(16)
+          >>
+        end
+      )
+    end
+
+    def decode!(buffer) do
+      {"", commands} =
+        RabbitMQStream.Message.Helpers.decode_array(buffer, fn buffer, acc ->
+          <<
+            key::unsigned-integer-size(16),
+            min_version::unsigned-integer-size(16),
+            max_version::unsigned-integer-size(16),
+            rest::binary
+          >> = buffer
+
+          value = %Command{
+            key: RabbitMQStream.Message.Helpers.decode_command(key),
+            min_version: min_version,
+            max_version: max_version
+          }
+
+          {rest, [value | acc]}
+        end)
+
+      %__MODULE__{commands: commands}
+    end
   end
 end

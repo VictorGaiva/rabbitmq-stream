@@ -35,7 +35,8 @@ defmodule RabbitMQStream.Message.Decoder do
              :sasl_authenticate,
              :open,
              :route,
-             :partitions
+             :partitions,
+             :exchange_command_versions
            ] do
     <<correlation_id::unsigned-integer-size(32), code::unsigned-integer-size(16), buffer::binary>> = buffer
 

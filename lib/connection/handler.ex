@@ -55,11 +55,9 @@ defmodule RabbitMQStream.Connection.Handler do
 
     {{pid, _data}, conn} = Helpers.pop_request_tracker(conn, :close, response.correlation_id)
 
-    conn = %{conn | state: :closed, socket: nil}
-
     GenServer.reply(pid, :ok)
 
-    conn
+    %{conn | state: :closing}
   end
 
   def handle_message(%Connection{} = conn, %Response{code: code})
@@ -77,7 +75,7 @@ defmodule RabbitMQStream.Connection.Handler do
       GenServer.reply(request, {:error, code})
     end
 
-    %{conn | state: :closed, socket: nil, connect_requests: []}
+    %{conn | state: :closing, close_reason: code}
   end
 
   def handle_message(%Connection{} = conn, %Response{command: :credit, code: code})
@@ -177,7 +175,7 @@ defmodule RabbitMQStream.Connection.Handler do
     send(self(), :flush_request_buffer)
 
     %{conn | state: :open, connect_requests: [], connection_properties: response.data.connection_properties}
-    # |> Helpers.push(:request, :exchange_command_versions)s
+    |> Helpers.push(:request, :exchange_command_versions)
   end
 
   def handle_message(%Connection{} = conn, %Response{command: :query_metadata} = response) do
@@ -240,6 +238,21 @@ defmodule RabbitMQStream.Connection.Handler do
     end
 
     %{conn | subscriptions: Map.drop(conn.subscriptions, [subscription_id])}
+  end
+
+  def handle_message(%Connection{} = conn, %Response{command: :exchange_command_versions} = response) do
+    {{pid, _}, conn} = Helpers.pop_request_tracker(conn, :exchange_command_versions, response.correlation_id)
+
+    if pid != nil do
+      GenServer.reply(pid, {:ok, response.data})
+    end
+
+    server_commands_versions =
+      Map.new(response.data.commands, fn command ->
+        {command.key, {command.min_version, command.max_version}}
+      end)
+
+    %{conn | server_commands_versions: server_commands_versions}
   end
 
   def handle_message(%Connection{} = conn, %Response{command: command} = response)

@@ -4,7 +4,7 @@ defmodule RabbitMQStream.Message do
 
   alias RabbitMQStream.Connection
 
-  alias RabbitMQStream.Message.Data.Types
+  alias RabbitMQStream.Message.Types
 
   defmodule Request do
     defstruct [
@@ -281,6 +281,15 @@ defmodule RabbitMQStream.Message do
       data: %Types.PartitionsQueryRequestData{
         super_stream: opts[:super_stream]
       }
+    }
+  end
+
+  def new_request(%Connection{} = conn, :exchange_command_versions, opts) do
+    %Request{
+      version: 1,
+      command: :exchange_command_versions,
+      correlation_id: conn.correlation_sequence,
+      data: Types.ExchangeCommandVersionsData.new!(opts)
     }
   end
 

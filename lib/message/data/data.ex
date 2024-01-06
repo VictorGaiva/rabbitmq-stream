@@ -1,5 +1,5 @@
 defmodule RabbitMQStream.Message.Data do
-  alias RabbitMQStream.Message.Data.Types
+  alias RabbitMQStream.Message.Types
   alias RabbitMQStream.Message.{Response, Request}
   import RabbitMQStream.Message.Helpers
 
@@ -198,6 +198,10 @@ defmodule RabbitMQStream.Message.Data do
     %Types.RouteResponseData{stream: stream}
   end
 
+  def decode(%Response{command: :exchange_command_versions}, buffer) do
+    Types.ExchangeCommandVersionsData.decode!(buffer)
+  end
+
   def encode(%Response{command: :close, code: code}) do
     <<
       encode_code(code)::unsigned-integer-size(16)
@@ -382,6 +386,10 @@ defmodule RabbitMQStream.Message.Data do
     super_stream = encode_string(data.super_stream)
 
     <<super_stream::binary>>
+  end
+
+  def encode(%Request{command: :exchange_command_versions, data: data}) do
+    Types.ExchangeCommandVersionsData.encode!(data)
   end
 
   def encode(%Response{command: :tune, data: data}) do

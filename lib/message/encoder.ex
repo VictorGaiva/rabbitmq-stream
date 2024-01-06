@@ -34,7 +34,8 @@ defmodule RabbitMQStream.Message.Encoder do
               :subscribe,
               :unsubscribe,
               :route,
-              :partitions
+              :partitions,
+              :exchange_command_versions
             ] do
     <<
       encode_command(command)::unsigned-integer-size(16),

@@ -286,9 +286,13 @@ defmodule RabbitMQStream.Connection do
           brokers: %{integer() => BrokerData.t()},
           streams: %{String.t() => StreamData.t()},
           subscriptions: %{non_neg_integer() => pid()},
+          server_commands_versions: %{
+            RabbitMQStream.Message.Helpers.command() => {non_neg_integer(), non_neg_integer()}
+          },
           frames_buffer: RabbitMQStream.Message.Buffer.t(),
           request_buffer: :queue.queue({term(), pid()}),
           commands_buffer: :queue.queue({atom(), atom(), list({atom(), term()})}),
+          # this should not be here. Should find a better way to return the close reason from the 'handler' module
           close_reason: String.t() | atom() | nil
         }
 
@@ -307,6 +311,7 @@ defmodule RabbitMQStream.Connection do
     request_tracker: %{},
     brokers: %{},
     streams: %{},
+    server_commands_versions: [],
     request_buffer: :queue.new(),
     frames_buffer: RabbitMQStream.Message.Buffer.init(),
     commands_buffer: :queue.new(),

@@ -72,7 +72,7 @@ defmodule RabbitMQStream.Connection.Client do
     Logger.debug("Connection close requested by client: #{reason} #{code}")
 
     conn =
-      %{conn | state: :closing}
+      conn
       |> Helpers.push_request_tracker(:close, from)
       |> send_request(:close, reason: reason, code: code)
 
@@ -116,8 +116,8 @@ defmodule RabbitMQStream.Connection.Client do
     {:noreply, conn}
   end
 
-  def handle_call({command, opts}, from, %Connection{peer_properties: %{"version" => version}} = conn)
-      when command in [:route, :partitions] and version >= [3, 13] do
+  def handle_call({command, opts}, from, %Connection{} = conn)
+      when command in [:route, :partitions] and is_map_key(conn.server_commands_versions, command) do
     conn =
       conn
       |> Helpers.push_request_tracker(command, from)
@@ -127,8 +127,8 @@ defmodule RabbitMQStream.Connection.Client do
   end
 
   def handle_call({command, _opts}, _from, %Connection{peer_properties: %{"version" => version}} = conn)
-      when command in [:route, :partitions] and version <= [3, 13] do
-    Logger.error("Command #{command} is not supported by the server version #{version}")
+      when command in [:route, :partitions] do
+    Logger.error("Command #{command} is not supported by the server. Its current informed version is '#{version}'.")
 
     {:reply, {:error, :unsupported}, conn}
   end
@@ -157,8 +157,8 @@ defmodule RabbitMQStream.Connection.Client do
 
   def handle_cast({:publish, opts}, %Connection{} = conn) do
     conn =
-      case {opts[:message], conn.peer_properties["version"]} do
-        {{_, _, filter_value}, version} when is_binary(filter_value) and version < [3, 13] ->
+      case {opts[:message], conn.server_commands_versions[:publish]} do
+        {{_, _, filter_value}, {_, 2}} when is_binary(filter_value) ->
           Logger.error("Publishing a message with a `filter_value` is only supported by RabbitMQ on versions >= 3.13")
 
           conn
@@ -191,18 +191,10 @@ defmodule RabbitMQStream.Connection.Client do
     # A single frame can have multiple commands, and each might have multiple responses.
     # So we first handle each received command, and only then we 'flush', or send, each
     # command to the socket. This also would allow us to better test the 'handler' logic.
-    conn =
-      commands
-      |> Enum.reduce(conn, &Handler.handle_message(&2, &1))
-      |> flush_commands()
-
-    cond do
-      conn.state == :closing ->
-        {:noreply, handle_closed(conn), :hibernate}
-
-      true ->
-        {:noreply, conn}
-    end
+    commands
+    |> Enum.reduce(conn, &Handler.handle_message(&2, &1))
+    |> flush_commands()
+    |> handle_closing()
   end
 
   def handle_info({:tcp_closed, _socket}, conn) do
@@ -212,15 +204,13 @@ defmodule RabbitMQStream.Connection.Client do
       )
     end
 
-    conn = handle_closed(%{conn | close_reason: :tcp_closed})
-
-    {:noreply, conn, :hibernate}
+    %{conn | close_reason: :tcp_closed}
+    |> handle_closing()
   end
 
   def handle_info({:tcp_error, _socket, reason}, conn) do
-    conn = handle_closed(%{conn | close_reason: reason})
-
-    {:noreply, conn}
+    %{conn | close_reason: reason}
+    |> handle_closing()
   end
 
   def handle_info({:heartbeat}, conn) do
@@ -284,17 +274,25 @@ defmodule RabbitMQStream.Connection.Client do
     end
   end
 
-  defp handle_closed(%Connection{} = conn) do
+  defp handle_closing(%Connection{state: :closing} = conn) do
     for request <- conn.connect_requests do
       GenServer.reply(request, {:error, :closed})
     end
 
-    for {client, _data} <- Map.values(conn.request_tracker) do
-      GenServer.reply(client, {:error, conn.close_reason})
+    if is_port(conn.socket) do
+      :ok = :gen_tcp.close(conn.socket)
     end
 
-    %{conn | request_tracker: %{}, connect_requests: [], socket: nil, state: :closed, close_reason: nil}
+    for {client, _data} <- Map.values(conn.request_tracker) do
+      GenServer.reply(client, {:error, {:closed, conn.close_reason}})
+    end
+
+    conn = %{conn | request_tracker: %{}, connect_requests: [], socket: nil, state: :closed, close_reason: nil}
+
+    {:noreply, conn, :hibernate}
   end
+
+  defp handle_closing(conn), do: {:noreply, conn}
 
   defp send_request(%Connection{} = conn, command, opts \\ []) do
     conn
@@ -341,7 +339,11 @@ defmodule RabbitMQStream.Connection.Client do
   end
 
   defp send_command(%Connection{} = conn, {:response, command, opts}) do
-    frame = Message.new_response(conn, command, opts) |> Encoder.encode()
+    frame =
+      conn
+      |> Message.new_response(command, opts)
+      |> Encoder.encode()
+
     :ok = :gen_tcp.send(conn.socket, frame)
 
     conn

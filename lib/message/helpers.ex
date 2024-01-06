@@ -1,4 +1,57 @@
 defmodule RabbitMQStream.Message.Helpers do
+  @type command ::
+          :declare_publisher
+          | :publish
+          | :publish_confirm
+          | :publish_error
+          | :query_publisher_sequence
+          | :delete_publisher
+          | :subscribe
+          | :deliver
+          | :credit
+          | :store_offset
+          | :query_offset
+          | :unsubscribe
+          | :create_stream
+          | :delete_stream
+          | :query_metadata
+          | :metadata_update
+          | :peer_properties
+          | :sasl_handshake
+          | :sasl_authenticate
+          | :tune
+          | :open
+          | :close
+          | :heartbeat
+          | :route
+          | :partitions
+          | :consumer_update
+          | :exchange_command_versions
+          | :stream_stats
+          | :create_super_stream
+          | :delete_super_stream
+
+  @type response ::
+          :ok
+          | :stream_does_not_exist
+          | :subscription_id_already_exists
+          | :subscription_id_does_not_exist
+          | :stream_already_exists
+          | :stream_not_available
+          | :sasl_mechanism_not_supported
+          | :authentication_failure
+          | :sasl_error
+          | :sasl_challenge
+          | :sasl_authentication_failure_loopback
+          | :virtual_host_access_failure
+          | :unknown_frame
+          | :frame_too_large
+          | :internal_error
+          | :access_refused
+          | :precondition_failed
+          | :publisher_does_not_exist
+          | :no_offset
+
   @commands %{
     0x0001 => :declare_publisher,
     0x0002 => :publish,
@@ -117,16 +170,6 @@ defmodule RabbitMQStream.Message.Helpers do
 
   def decode_array("", _) do
     {"", []}
-  end
-
-  def decode_array(<<0::integer-size(32), buffer::binary>>, _) do
-    {buffer, []}
-  end
-
-  def decode_array(<<size::integer-size(32), buffer::binary>>, foo) do
-    Enum.reduce(0..(size - 1), {buffer, []}, fn _, {buffer, acc} ->
-      foo.(buffer, acc)
-    end)
   end
 
   def decode_array(<<0::integer-size(32), buffer::binary>>, _) do
