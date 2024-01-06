@@ -9,6 +9,7 @@ defmodule RabbitMQStreamTest.Supervision do
     use RabbitMQStream.Publisher,
       connection: RabbitMQStreamTest.Supervision.SupervisedConnection
 
+    @impl true
     def before_start(_opts, state) do
       state.connection.create_stream(state.stream_name)
 

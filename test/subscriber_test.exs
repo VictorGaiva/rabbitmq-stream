@@ -11,6 +11,7 @@ defmodule RabbitMQStreamTest.Subscriber do
     use RabbitMQStream.Publisher,
       connection: RabbitMQStreamTest.Subscriber.SupervisedConnection
 
+    @impl true
     def before_start(_opts, state) do
       state.connection.create_stream(state.stream_name)
 
@@ -20,7 +21,8 @@ defmodule RabbitMQStreamTest.Subscriber do
 
   defmodule Subscriber do
     use RabbitMQStream.Subscriber,
-      connection: RabbitMQStreamTest.Subscriber.SupervisedConnection
+      connection: RabbitMQStreamTest.Subscriber.SupervisedConnection,
+      decoder: Jason
 
     @impl true
     def handle_chunk(%OsirisChunk{data_entries: entries}, %{private: parent}) do
@@ -44,7 +46,7 @@ defmodule RabbitMQStreamTest.Subscriber do
 
     assert {:ok, subscription_id} = SupervisedConnection.subscribe(@stream, self(), :next, 999)
 
-    message = inspect(%{message: "Hello, world2!"})
+    message = Jason.encode!(%{message: "Hello, world2!"})
 
     SupervisorPublisher.publish(message)
 
@@ -67,13 +69,13 @@ defmodule RabbitMQStreamTest.Subscriber do
     SupervisedConnection.create_stream(@stream)
     assert {:ok, subscription_id} = SupervisedConnection.subscribe(@stream, self(), :next, 1)
 
-    message = inspect(%{message: "Hello, world1!"})
+    message = Jason.encode!(%{message: "Hello, world1!"})
 
     SupervisorPublisher.publish(message)
 
     assert_receive {:chunk, %OsirisChunk{data_entries: [^message]}}, 500
 
-    message = inspect(%{message: "Hello, world2!"})
+    message = Jason.encode!(%{message: "Hello, world2!"})
 
     SupervisorPublisher.publish(message)
 
@@ -91,7 +93,7 @@ defmodule RabbitMQStreamTest.Subscriber do
     SupervisedConnection.delete_stream(@stream)
 
     {:ok, _publisher} =
-      SupervisorPublisher.start_link(reference_name: @reference_name, stream_name: @stream)
+      SupervisorPublisher.start_link(reference_name: @reference_name, stream_name: @stream, encoder: Jason)
 
     {:ok, _subscriber} =
       Subscriber.start_link(
@@ -101,8 +103,8 @@ defmodule RabbitMQStreamTest.Subscriber do
         offset_tracking: [count: [store_after: 1]]
       )
 
-    message1 = "Subscriber Test: 1"
-    message2 = "Subscriber Test: 2"
+    message1 = %{"message" => "Subscriber Test: 1"}
+    message2 = %{"message" => "Subscriber Test: 2"}
 
     SupervisorPublisher.publish(message1)
     assert_receive {:handle_chunk, [^message1]}, 500

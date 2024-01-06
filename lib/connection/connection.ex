@@ -165,14 +165,15 @@ defmodule RabbitMQStream.Connection do
         )
       end
 
-      def publish(publisher_id, publishing_id, message)
+      def publish(publisher_id, publishing_id, message, filter_value \\ nil)
           when is_integer(publisher_id) and
                  is_binary(message) and
                  is_integer(publishing_id) and
+                 (filter_value == nil or is_binary(filter_value)) and
                  publisher_id <= 255 do
         GenServer.cast(
           __MODULE__,
-          {:publish, publisher_id: publisher_id, published_messages: [{publishing_id, message}]}
+          {:publish, publisher_id: publisher_id, messages: [{publishing_id, message, filter_value}]}
         )
       end
 

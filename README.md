@@ -99,4 +99,11 @@ end
 
 ```
 
+You can configure a default Serializer module by passing it to the defaults configuration option
+
+```elixir
+config :rabbitmq_stream, :defaults,
+  serializer: Jason
+end```
+
 For more information, check the [documentation](https://hexdocs.pm/rabbitmq_stream/).

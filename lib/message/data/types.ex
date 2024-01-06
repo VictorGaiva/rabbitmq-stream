@@ -211,7 +211,7 @@ defmodule RabbitMQStream.Message.Data.Types do
 
     defstruct [
       :publisher_id,
-      :published_messages
+      :messages
     ]
   end
 
@@ -220,7 +220,7 @@ defmodule RabbitMQStream.Message.Data.Types do
 
     defstruct [
       :publisher_id,
-      :published_messages,
+      :messages,
       :filter_value
     ]
   end

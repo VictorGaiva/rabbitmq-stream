@@ -218,19 +218,7 @@ defmodule RabbitMQStream.Message do
       command: :publish,
       data: %Types.PublishData{
         publisher_id: opts[:publisher_id],
-        published_messages: opts[:published_messages]
-      }
-    }
-  end
-
-  def new_request(%Connection{}, :publish_v2, opts) do
-    %Request{
-      version: 2,
-      command: :publish,
-      data: %Types.PublishV2Data{
-        publisher_id: opts[:publisher_id],
-        published_messages: opts[:published_messages],
-        filter_value: opts[:filter_value]
+        messages: opts[:messages]
       }
     }
   end

@@ -311,8 +311,11 @@ defmodule RabbitMQStream.Message.Data do
   def encode(%Request{version: 1, command: :publish, data: data}) do
     messages =
       encode_array(
-        for {publishing_id, message} <- data.published_messages do
-          <<publishing_id::unsigned-integer-size(64), encode_bytes(message)::binary>>
+        for {publishing_id, message, nil} <- data.messages do
+          <<
+            publishing_id::unsigned-integer-size(64),
+            encode_bytes(message)::binary
+          >>
         end
       )
 
@@ -320,14 +323,12 @@ defmodule RabbitMQStream.Message.Data do
   end
 
   def encode(%Request{version: 2, command: :publish, data: data}) do
-    # filter_value = encode_string(data.filter_value)
-
     messages =
       encode_array(
-        for {publishing_id, message} <- data.published_messages do
+        for {publishing_id, message, filter_value} <- data.messages do
           <<
             publishing_id::unsigned-integer-size(64),
-            # filter_value::binary,
+            encode_string(filter_value)::binary,
             encode_bytes(message)::binary
           >>
         end

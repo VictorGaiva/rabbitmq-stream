@@ -117,7 +117,7 @@ defmodule RabbitMQStream.Connection.Client do
   end
 
   def handle_call({command, opts}, from, %Connection{peer_properties: %{"version" => version}} = conn)
-      when command in [:route, :partitions] and version >= [3, 11] do
+      when command in [:route, :partitions] and version >= [3, 13] do
     conn =
       conn
       |> Helpers.push_request_tracker(command, from)
@@ -127,7 +127,7 @@ defmodule RabbitMQStream.Connection.Client do
   end
 
   def handle_call({command, _opts}, _from, %Connection{peer_properties: %{"version" => version}} = conn)
-      when command in [:route, :partitions] and version <= [3, 11] do
+      when command in [:route, :partitions] and version <= [3, 13] do
     Logger.error("Command #{command} is not supported by the server version #{version}")
 
     {:reply, {:error, :unsupported}, conn}
@@ -157,8 +157,16 @@ defmodule RabbitMQStream.Connection.Client do
 
   def handle_cast({:publish, opts}, %Connection{} = conn) do
     conn =
-      conn
-      |> send_request(:publish, opts ++ [correlation_sum: 0])
+      case {opts[:message], conn.peer_properties["version"]} do
+        {{_, _, filter_value}, version} when is_binary(filter_value) and version < [3, 13] ->
+          Logger.error("Publishing a message with a `filter_value` is only supported by RabbitMQ on versions >= 3.13")
+
+          conn
+
+        _ ->
+          conn
+          |> send_request(:publish, opts ++ [correlation_sum: 0])
+      end
 
     {:noreply, conn}
   end

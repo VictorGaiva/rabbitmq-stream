@@ -77,7 +77,8 @@ defmodule RabbitMQStream.Subscriber do
         initial_offset: :first,
         initial_credit: 50_000,
         offset_tracking: [count: [store_after: 50]],
-        flow_control: [count: [credit_after: {:count, 1}]]
+        flow_control: [count: [credit_after: {:count, 1}]],
+        serializer: Jason
 
   These options are overriden by the options passed to the `use` macro, which
   are overriden by the options passed to `start_link/1`.
@@ -89,13 +90,43 @@ defmodule RabbitMQStream.Subscriber do
             connection: MyApp.MyConnection,
             initial_credit: 50_000,
             # ...
-          ]
+          ],
+
   Globally configuring all subscribers ignores the following options:
 
     * `:stream_name`
     * `:offset_reference`
     * `:private`
 
+
+  ## Serialization
+
+  You can optionally define a callback to encode the message before publishing it.
+  It expects that the module you pass implements the `encode!/1` callback.
+
+  You can define it globally:
+
+        config :rabbitmq_stream, :defaults,
+          serializer: Jason
+
+  Or you can pass it as an option to the `use` macro:
+
+        defmodule MyApp.MySubscriber do
+          use RabbitMQStream.Subscriber,
+            serializer: Jason
+        end
+
+  You can also define it in the module itself:
+
+        defmodule MyApp.MySubscriber do
+          use RabbitMQStream.Subscriber,
+            serializer: __MODULE__
+
+          @impl true
+          def encode!(message) do
+            Jason.encode!(message)
+          end
+        end
   """
 
   defmacro __using__(opts) do
@@ -119,6 +150,7 @@ defmodule RabbitMQStream.Subscriber do
           Application.get_env(:rabbitmq_stream, :defaults, [])
           |> Keyword.get(:subscribers, [])
           |> Keyword.drop([:stream_name, :offset_reference, :private])
+          |> Keyword.merge(Application.get_env(:rabbitmq_stream, :defaults, []) |> Keyword.take([:serializer]))
           |> Keyword.merge(Application.get_env(:rabbitmq_stream, __MODULE__, []))
           |> Keyword.merge(@opts)
           |> Keyword.merge(opts)
@@ -138,6 +170,8 @@ defmodule RabbitMQStream.Subscriber do
 
         offset_reference = Keyword.get(opts, :offset_reference, Atom.to_string(__MODULE__))
 
+        decoder = Keyword.get(opts, :decoder, __MODULE__)
+
         state = %RabbitMQStream.Subscriber{
           stream_name: stream_name,
           connection: connection,
@@ -146,7 +180,8 @@ defmodule RabbitMQStream.Subscriber do
           offset_tracking: OffsetTracking.Strategy.init(offset_tracking, opts),
           flow_control: FlowControl.Strategy.init(flow_control, opts),
           credits: initial_credit,
-          initial_credit: initial_credit
+          initial_credit: initial_credit,
+          decoder: decoder
         }
 
         {:ok, state, {:continue, opts}}
@@ -191,6 +226,8 @@ defmodule RabbitMQStream.Subscriber do
 
       @impl true
       def handle_info({:chunk, %RabbitMQStream.OsirisChunk{} = chunk}, state) do
+        chunk = RabbitMQStream.OsirisChunk.decode_messages!(chunk, state.decoder)
+
         cond do
           function_exported?(__MODULE__, :handle_chunk, 1) ->
             apply(__MODULE__, :handle_chunk, [chunk])
@@ -239,10 +276,14 @@ defmodule RabbitMQStream.Subscriber do
       def handle_call(:get_credits, _from, state) do
         {:reply, state.credits, state}
       end
+
+      def decode!(message), do: message
+
+      defoverridable RabbitMQStream.Subscriber
     end
   end
 
-  @optional_callbacks handle_chunk: 1, handle_chunk: 2
+  @optional_callbacks handle_chunk: 1, handle_chunk: 2, decode!: 1
 
   @doc """
     The callback that is invoked when a chunk is received.
@@ -260,6 +301,8 @@ defmodule RabbitMQStream.Subscriber do
   @callback handle_chunk(chunk :: RabbitMQStream.OsirisChunk.t()) :: term()
   @callback handle_chunk(chunk :: RabbitMQStream.OsirisChunk.t(), state :: t()) :: term()
 
+  @callback decode!(message :: String.t()) :: term()
+
   defstruct [
     :offset_reference,
     :connection,
@@ -274,7 +317,8 @@ defmodule RabbitMQStream.Subscriber do
     #  which would them possibly cause the strategy to not work as expected.
     :credits,
     :initial_credit,
-    :private
+    :private,
+    :decoder
   ]
 
   @type t :: %__MODULE__{
@@ -287,7 +331,8 @@ defmodule RabbitMQStream.Subscriber do
           last_offset: non_neg_integer() | nil,
           private: any(),
           credits: non_neg_integer(),
-          initial_credit: non_neg_integer()
+          initial_credit: non_neg_integer(),
+          decoder: {module(), atom()} | (String.t() -> term()) | nil
         }
 
   @type subscriber_option ::
@@ -299,6 +344,7 @@ defmodule RabbitMQStream.Subscriber do
           | {:offset_tracking, [{RabbitMQStream.Subscriber.OffsetTracking.Strategy.t(), term()}]}
           | {:flow_control, {RabbitMQStream.Subscriber.FlowControl.Strategy.t(), term()}}
           | {:private, any()}
+          | {:decoder, {module(), atom()} | (String.t() -> term())}
 
   @type opts :: [subscriber_option()]
 end
