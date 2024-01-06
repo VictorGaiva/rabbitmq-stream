@@ -315,8 +315,8 @@ defmodule RabbitMQStream.Connection.Client do
 
     frame =
       conn
-      |> Message.Request.new!(command, opts)
-      |> Encoder.encode!()
+      |> Message.new_request(command, opts)
+      |> Encoder.encode()
 
     :ok = :gen_tcp.send(conn.socket, frame)
 
@@ -333,7 +333,7 @@ defmodule RabbitMQStream.Connection.Client do
   end
 
   defp send_command(%Connection{} = conn, {:response, command, opts}) do
-    frame = Message.Response.new!(conn, command, opts) |> Encoder.encode!()
+    frame = Message.new_response(conn, command, opts) |> Encoder.encode()
     :ok = :gen_tcp.send(conn.socket, frame)
 
     conn

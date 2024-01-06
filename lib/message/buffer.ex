@@ -1,6 +1,5 @@
 defmodule RabbitMQStream.Message.Buffer do
   @moduledoc false
-
   alias RabbitMQStream.Message.Decoder
 
   # The code in this module is a one to one translation of the RabbitMQ decoding code at
@@ -104,7 +103,7 @@ defmodule RabbitMQStream.Message.Buffer do
     frames
     |> Enum.reverse()
     |> Enum.reduce(queue, fn frame, acc ->
-      :queue.in(Decoder.parse(frame), acc)
+      :queue.in(Decoder.decode(frame), acc)
     end)
   end
 end

@@ -1,6 +1,4 @@
-defmodule RabbitMQStream.Message.Frame do
-  @moduledoc false
-
+defmodule RabbitMQStream.Message.Helpers do
   @commands %{
     0x0001 => :declare_publisher,
     0x0002 => :publish,
@@ -36,12 +34,12 @@ defmodule RabbitMQStream.Message.Frame do
 
   @codes Enum.into(@commands, %{}, fn {code, command} -> {command, code} end)
 
-  def command_to_code(command) do
+  def encode_command(command) do
     @codes[command]
   end
 
-  def code_to_command(code) do
-    @commands[code]
+  def decode_command(key) do
+    @commands[Bitwise.band(key, 0b0111_1111_1111_1111)]
   end
 
   @response_codes %{
@@ -68,11 +66,76 @@ defmodule RabbitMQStream.Message.Frame do
 
   @code_responses Enum.into(@response_codes, %{}, fn {code, command} -> {command, code} end)
 
-  def response_code_to_atom(code) do
+  def decode_code(code) do
     @response_codes[code]
   end
 
-  def atom_to_response_code(atom) do
+  def encode_code(atom) do
     @code_responses[atom]
+  end
+
+  def encode_string(value) when is_atom(value) do
+    encode_string(Atom.to_string(value))
+  end
+
+  def encode_string(nil) do
+    <<-1::integer-size(16)>>
+  end
+
+  def encode_string(str) do
+    <<byte_size(str)::integer-size(16), str::binary>>
+  end
+
+  def encode_bytes(bytes) do
+    <<byte_size(bytes)::integer-size(32), bytes::binary>>
+  end
+
+  def encode_array([]) do
+    <<0::integer-size(32)>>
+  end
+
+  def encode_array(arr) do
+    size = Enum.count(arr)
+    arr = arr |> Enum.reduce(&<>/2)
+
+    <<size::integer-size(32), arr::binary>>
+  end
+
+  def encode_map(nil) do
+    encode_array([])
+  end
+
+  def encode_map(list) do
+    list
+    |> Enum.map(fn {key, value} -> encode_string(key) <> encode_string(value) end)
+    |> encode_array()
+  end
+
+  def decode_string(<<size::integer-size(16), text::binary-size(size), rest::binary>>) do
+    {rest, to_string(text)}
+  end
+
+  def decode_array("", _) do
+    {"", []}
+  end
+
+  def decode_array(<<0::integer-size(32), buffer::binary>>, _) do
+    {buffer, []}
+  end
+
+  def decode_array(<<size::integer-size(32), buffer::binary>>, foo) do
+    Enum.reduce(0..(size - 1), {buffer, []}, fn _, {buffer, acc} ->
+      foo.(buffer, acc)
+    end)
+  end
+
+  def decode_array(<<0::integer-size(32), buffer::binary>>, _) do
+    {buffer, []}
+  end
+
+  def decode_array(<<size::integer-size(32), buffer::binary>>, foo) do
+    Enum.reduce(0..(size - 1), {buffer, []}, fn _, {buffer, acc} ->
+      foo.(buffer, acc)
+    end)
   end
 end
