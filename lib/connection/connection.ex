@@ -80,7 +80,7 @@ defmodule RabbitMQStream.Connection do
   """
 
   defmacro __using__(opts) do
-    quote bind_quoted: [opts: opts] do
+    quote bind_quoted: [opts: opts], location: :keep do
       import RabbitMQStream.Connection.Helpers
 
       @behaviour RabbitMQStream.Connection
@@ -92,7 +92,7 @@ defmodule RabbitMQStream.Connection do
           |> Keyword.merge(@opts)
           |> Keyword.merge(opts)
 
-        GenServer.start_link(RabbitMQStream.Connection.Server, opts, name: __MODULE__)
+        GenServer.start_link(RabbitMQStream.Connection.Client, opts, name: __MODULE__)
       end
 
       def child_spec(opts) do
@@ -286,7 +286,8 @@ defmodule RabbitMQStream.Connection do
           streams: %{String.t() => StreamData.t()},
           subscriptions: %{non_neg_integer() => pid()},
           frames_buffer: RabbitMQStream.Message.Buffer.t(),
-          request_buffer: :queue.queue({term(), pid()})
+          request_buffer: :queue.queue({term(), pid()}),
+          commands_buffer: :queue.queue({atom(), atom(), list({atom(), term()})})
         }
 
   defstruct [
@@ -305,6 +306,7 @@ defmodule RabbitMQStream.Connection do
     brokers: %{},
     streams: %{},
     request_buffer: :queue.new(),
-    frames_buffer: RabbitMQStream.Message.Buffer.init()
+    frames_buffer: RabbitMQStream.Message.Buffer.init(),
+    commands_buffer: :queue.new()
   ]
 end

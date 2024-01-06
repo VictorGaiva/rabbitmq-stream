@@ -13,6 +13,12 @@ defmodule RabbitMQStream.Connection.Helpers do
     {entry, %{conn | request_tracker: request_tracker}}
   end
 
+  def push(%Connection{} = conn, action, command, opts \\ []) do
+    commands_buffer = :queue.in({action, command, opts}, conn.commands_buffer)
+
+    %{conn | commands_buffer: commands_buffer}
+  end
+
   defguard is_offset(offset)
            when offset in [:first, :last, :next] or
                   (is_tuple(offset) and tuple_size(offset) == 2 and elem(offset, 0) in [:offset, :timestamp])

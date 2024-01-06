@@ -1,4 +1,4 @@
-defmodule RabbitMQStream.Connection.Server do
+defmodule RabbitMQStream.Connection.Client do
   @moduledoc false
 
   require Logger
@@ -40,7 +40,7 @@ defmodule RabbitMQStream.Connection.Server do
       Logger.debug("Connection stablished. Initiating properties exchange.")
 
       conn =
-        %{conn | connect_requests: [from]}
+        %{conn | connect_requests: [from | conn.connect_requests]}
         |> send_request(:peer_properties)
 
       {:noreply, conn}
@@ -56,8 +56,7 @@ defmodule RabbitMQStream.Connection.Server do
   end
 
   def handle_call({:connect}, from, %Connection{} = conn) do
-    conn = %{conn | connect_requests: conn.connect_requests ++ [from]}
-    {:noreply, conn}
+    {:noreply, %{conn | connect_requests: [from | conn.connect_requests]}}
   end
 
   # Replies with `:ok` if the connection is already closed. Not sure if this behavior is the best.
@@ -181,7 +180,13 @@ defmodule RabbitMQStream.Connection.Server do
 
     conn = %{conn | frames_buffer: frames_buffer}
 
-    conn = Enum.reduce(commands, conn, &handle_message/2)
+    # A single frame can have multiple commands, and each might have multiple responses.
+    # So we first handle each received command, and only then we 'flush', or send, each
+    # command to the socket. This also would allow us to better test the 'handler' logic.
+    conn =
+      commands
+      |> Enum.reduce(conn, &handle_message(&2, &1))
+      |> flush_commands()
 
     cond do
       conn.state == :closed ->
@@ -199,13 +204,13 @@ defmodule RabbitMQStream.Connection.Server do
       )
     end
 
-    conn = %{conn | socket: nil, state: :closed} |> handle_closed(:tcp_closed)
+    conn = handle_closed(conn, :tcp_closed)
 
     {:noreply, conn, :hibernate}
   end
 
   def handle_info({:tcp_error, _socket, reason}, conn) do
-    conn = %{conn | socket: nil, state: :closed} |> handle_closed(reason)
+    conn = handle_closed(conn, reason)
 
     {:noreply, conn}
   end
@@ -280,10 +285,30 @@ defmodule RabbitMQStream.Connection.Server do
       GenServer.reply(client, {:error, reason})
     end
 
-    %{conn | request_tracker: %{}, connect_requests: []}
+    %{conn | request_tracker: %{}, connect_requests: [], socket: nil, state: :closed}
   end
 
   defp send_request(%Connection{} = conn, command, opts \\ []) do
+    conn
+    |> Helpers.push(:request, command, opts)
+    |> flush_commands()
+  end
+
+  defp flush_commands(%Connection{} = conn) do
+    conn =
+      :queue.fold(
+        fn
+          command, conn ->
+            send_command(conn, command)
+        end,
+        conn,
+        conn.commands_buffer
+      )
+
+    %{conn | commands_buffer: :queue.new()}
+  end
+
+  defp send_command(%Connection{} = conn, {:request, command, opts}) do
     {correlation_sum, opts} = Keyword.pop(opts, :correlation_sum, 1)
     {publisher_sum, opts} = Keyword.pop(opts, :publisher_sum, 0)
     {subscriber_sum, opts} = Keyword.pop(opts, :subscriber_sum, 0)
@@ -307,7 +332,7 @@ defmodule RabbitMQStream.Connection.Server do
     }
   end
 
-  defp send_response(%Connection{} = conn, command, opts) do
+  defp send_command(%Connection{} = conn, {:response, command, opts}) do
     frame = Message.Response.new!(conn, command, opts) |> Encoder.encode!()
     :ok = :gen_tcp.send(conn.socket, frame)
 
