@@ -392,10 +392,37 @@ defmodule RabbitMQStream.Message.Types do
 
     def new!(_opts \\ []) do
       %__MODULE__{
-        # We only pass the commands for which we already support more versions
         commands: [
           %Command{key: :publish, min_version: 1, max_version: 2},
-          %Command{key: :deliver, min_version: 1, max_version: 2}
+          %Command{key: :deliver, min_version: 1, max_version: 2},
+          %Command{key: :declare_publisher, min_version: 1, max_version: 1},
+          %Command{key: :publish_confirm, min_version: 1, max_version: 1},
+          %Command{key: :publish_error, min_version: 1, max_version: 1},
+          %Command{key: :query_publisher_sequence, min_version: 1, max_version: 1},
+          %Command{key: :delete_publisher, min_version: 1, max_version: 1},
+          %Command{key: :subscribe, min_version: 1, max_version: 1},
+          %Command{key: :credit, min_version: 1, max_version: 1},
+          %Command{key: :store_offset, min_version: 1, max_version: 1},
+          %Command{key: :query_offset, min_version: 1, max_version: 1},
+          %Command{key: :unsubscribe, min_version: 1, max_version: 1},
+          %Command{key: :create_stream, min_version: 1, max_version: 1},
+          %Command{key: :delete_stream, min_version: 1, max_version: 1},
+          %Command{key: :query_metadata, min_version: 1, max_version: 1},
+          %Command{key: :metadata_update, min_version: 1, max_version: 1},
+          %Command{key: :peer_properties, min_version: 1, max_version: 1},
+          %Command{key: :sasl_handshake, min_version: 1, max_version: 1},
+          %Command{key: :sasl_authenticate, min_version: 1, max_version: 1},
+          %Command{key: :tune, min_version: 1, max_version: 1},
+          %Command{key: :open, min_version: 1, max_version: 1},
+          %Command{key: :close, min_version: 1, max_version: 1},
+          %Command{key: :heartbeat, min_version: 1, max_version: 1},
+          %Command{key: :route, min_version: 1, max_version: 1},
+          %Command{key: :partitions, min_version: 1, max_version: 1},
+          %Command{key: :consumer_update, min_version: 1, max_version: 1},
+          %Command{key: :exchange_command_versions, min_version: 1, max_version: 1},
+          %Command{key: :stream_stats, min_version: 1, max_version: 1},
+          %Command{key: :create_super_stream, min_version: 1, max_version: 1},
+          %Command{key: :delete_super_stream, min_version: 1, max_version: 1}
         ]
       }
     end
