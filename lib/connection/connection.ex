@@ -87,12 +87,24 @@ defmodule RabbitMQStream.Connection do
       @opts opts
 
       def start_link(opts \\ []) when is_list(opts) do
-        opts =
-          Application.get_env(:rabbitmq_stream, __MODULE__, [])
+        options =
+          Application.get_env(:rabbitmq_stream, :defaults, [])
+          |> Keyword.get(:connection, [])
+          |> Keyword.merge(Application.get_env(:rabbitmq_stream, __MODULE__, []))
           |> Keyword.merge(@opts)
           |> Keyword.merge(opts)
 
-        GenServer.start_link(RabbitMQStream.Connection.Client, opts, name: __MODULE__)
+        options =
+          options
+          |> Keyword.put_new(:host, "localhost")
+          |> Keyword.put_new(:port, 5552)
+          |> Keyword.put_new(:vhost, "/")
+          |> Keyword.put_new(:username, "guest")
+          |> Keyword.put_new(:password, "guest")
+          |> Keyword.put_new(:frame_max, 1_048_576)
+          |> Keyword.put_new(:heartbeat, 60)
+
+        GenServer.start_link(RabbitMQStream.Connection.Client, options, name: __MODULE__)
       end
 
       def child_spec(opts) do

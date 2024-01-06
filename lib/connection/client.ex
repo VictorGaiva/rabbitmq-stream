@@ -12,20 +12,10 @@ defmodule RabbitMQStream.Connection.Client do
   alias RabbitMQStream.Message.{Buffer, Encoder}
 
   @impl GenServer
-  def init(opts) do
-    conn = %RabbitMQStream.Connection{
-      options: [
-        host: opts[:host] || "localhost",
-        port: opts[:port] || 5552,
-        vhost: opts[:vhost] || "/",
-        username: opts[:username] || "guest",
-        password: opts[:password] || "guest",
-        frame_max: opts[:frame_max] || 1_048_576,
-        heartbeat: opts[:heartbeat] || 60
-      ]
-    }
+  def init(options) do
+    conn = %RabbitMQStream.Connection{options: options}
 
-    if opts[:lazy] == true do
+    if options[:lazy] == true do
       {:ok, conn}
     else
       {:ok, conn, {:continue, {:connect}}}
