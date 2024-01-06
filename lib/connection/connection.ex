@@ -287,7 +287,8 @@ defmodule RabbitMQStream.Connection do
           subscriptions: %{non_neg_integer() => pid()},
           frames_buffer: RabbitMQStream.Message.Buffer.t(),
           request_buffer: :queue.queue({term(), pid()}),
-          commands_buffer: :queue.queue({atom(), atom(), list({atom(), term()})})
+          commands_buffer: :queue.queue({atom(), atom(), list({atom(), term()})}),
+          close_reason: String.t() | atom() | nil
         }
 
   defstruct [
@@ -307,6 +308,7 @@ defmodule RabbitMQStream.Connection do
     streams: %{},
     request_buffer: :queue.new(),
     frames_buffer: RabbitMQStream.Message.Buffer.init(),
-    commands_buffer: :queue.new()
+    commands_buffer: :queue.new(),
+    close_reason: nil
   ]
 end

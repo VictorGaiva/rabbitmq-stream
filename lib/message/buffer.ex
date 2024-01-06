@@ -99,7 +99,9 @@ defmodule RabbitMQStream.Message.Buffer do
     # correctly insert them into the queue.
     #
     # This is different from the reference implementation, but necessary to
-    # maintain the order of commands received.
+    # maintain the order of commands received. The RabbitMQ's implementation
+    # might actually be wrong, since it doesn't seem to be used anywhere, and
+    # there are no tests for multiple frames in a single message.
     frames
     |> Enum.reverse()
     |> Enum.reduce(queue, fn frame, acc ->

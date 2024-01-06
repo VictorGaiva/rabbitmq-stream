@@ -4,12 +4,12 @@ defmodule RabbitMQStream.Connection.Client do
   require Logger
 
   use GenServer
-  use RabbitMQStream.Connection.Handler
 
   alias RabbitMQStream.Connection
-  alias RabbitMQStream.Connection.Helpers
+  alias RabbitMQStream.Connection.{Handler, Helpers}
 
-  alias RabbitMQStream.Message.Buffer
+  alias RabbitMQStream.Message
+  alias RabbitMQStream.Message.{Buffer, Encoder}
 
   @impl GenServer
   def init(opts) do
@@ -185,12 +185,12 @@ defmodule RabbitMQStream.Connection.Client do
     # command to the socket. This also would allow us to better test the 'handler' logic.
     conn =
       commands
-      |> Enum.reduce(conn, &handle_message(&2, &1))
+      |> Enum.reduce(conn, &Handler.handle_message(&2, &1))
       |> flush_commands()
 
     cond do
-      conn.state == :closed ->
-        {:noreply, conn, :hibernate}
+      conn.state == :closing ->
+        {:noreply, handle_closed(conn), :hibernate}
 
       true ->
         {:noreply, conn}
@@ -204,21 +204,21 @@ defmodule RabbitMQStream.Connection.Client do
       )
     end
 
-    conn = handle_closed(conn, :tcp_closed)
+    conn = handle_closed(%{conn | close_reason: :tcp_closed})
 
     {:noreply, conn, :hibernate}
   end
 
   def handle_info({:tcp_error, _socket, reason}, conn) do
-    conn = handle_closed(conn, reason)
+    conn = handle_closed(%{conn | close_reason: reason})
 
     {:noreply, conn}
   end
 
   def handle_info({:heartbeat}, conn) do
-    conn = send_request(conn, :heartbeat, correlation_sum: 0)
-
     Process.send_after(self(), {:heartbeat}, conn.options[:heartbeat] * 1000)
+
+    conn = send_request(conn, :heartbeat, correlation_sum: 0)
 
     {:noreply, conn}
   end
@@ -276,16 +276,16 @@ defmodule RabbitMQStream.Connection.Client do
     end
   end
 
-  defp handle_closed(%Connection{} = conn, reason) do
+  defp handle_closed(%Connection{} = conn) do
     for request <- conn.connect_requests do
       GenServer.reply(request, {:error, :closed})
     end
 
     for {client, _data} <- Map.values(conn.request_tracker) do
-      GenServer.reply(client, {:error, reason})
+      GenServer.reply(client, {:error, conn.close_reason})
     end
 
-    %{conn | request_tracker: %{}, connect_requests: [], socket: nil, state: :closed}
+    %{conn | request_tracker: %{}, connect_requests: [], socket: nil, state: :closed, close_reason: nil}
   end
 
   defp send_request(%Connection{} = conn, command, opts \\ []) do
