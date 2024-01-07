@@ -24,12 +24,6 @@ defmodule RabbitMQStream.Connection.Client do
 
     conn = %RabbitMQStream.Connection{options: options, transport: transport}
 
-    # Should this be here?
-    if transport == :ssl do
-      :ok = Application.ensure_loaded(:ssl)
-      :ok = Application.ensure_loaded(:crypto)
-    end
-
     if options[:lazy] == true do
       {:ok, conn}
     else
