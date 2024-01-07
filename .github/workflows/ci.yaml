@@ -32,7 +32,7 @@ jobs:
 
       - uses: isbang/compose-action@v1.5.1
         with:
-          compose-file: "./services/docker-compose.yml"
+          compose-file: "./services/docker-compose.yaml"
           services: |
             - rabbitmq_stream
 
