@@ -146,7 +146,7 @@ defmodule RabbitMQStream.Message.Data do
         {buffer, [{key, value} | acc]}
       end)
 
-    %Types.PeerPropertiesData{peer_properties: peer_properties}
+    %Types.PeerPropertiesData{peer_properties: Map.new(peer_properties)}
   end
 
   def decode(%{command: :sasl_handshake}, buffer) do

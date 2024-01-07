@@ -22,6 +22,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version: ["3_13", "3_12", "3_11", "3_10", "3_09"]
     steps:
       - uses: erlef/setup-beam@v1
         with:
@@ -33,6 +36,7 @@ jobs:
       - uses: isbang/compose-action@v1.5.1
         with:
           compose-file: "./services/docker-compose.yaml"
+          services: "rabbitmq_stream_${{ matrix.version }}"
 
       - name: Install Dependencies
         run: |

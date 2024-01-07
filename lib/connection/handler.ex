@@ -112,10 +112,18 @@ defmodule RabbitMQStream.Connection.Handler do
   end
 
   def handle_message(%Connection{} = conn, %Response{command: :peer_properties} = response) do
-    Logger.debug("Exchange successful.")
-    Logger.debug("Initiating SASL handshake.")
+    Logger.debug("Peer Properties exchange successful. Initiating SASL handshake.")
 
-    %{conn | peer_properties: response.data.peer_properties}
+    # We need to extract the base version from the version string so we can compare
+    # make decisions based on the version of the server.
+    version =
+      ~r/(\d+)\.(\d+)\.(\d+)/
+      |> Regex.run(response.data.peer_properties["version"], capture: :all_but_first)
+      |> Enum.map(&String.to_integer/1)
+
+    peer_properties = Map.put(response.data.peer_properties, "base-version", version)
+
+    %{conn | peer_properties: peer_properties}
     |> Helpers.push(:request, :sasl_handshake)
   end
 
@@ -152,7 +160,12 @@ defmodule RabbitMQStream.Connection.Handler do
     |> Helpers.push(:request, :open)
   end
 
-  def handle_message(%Connection{} = conn, %Response{command: :open} = response) do
+  # If the server has a version lower than 3.13, this is the 'terminating' response.
+  def handle_message(
+        %Connection{peer_properties: %{"base-version" => version}} = conn,
+        %Response{command: :open} = response
+      )
+      when version < [3, 13] do
     Logger.debug("Successfully opened connection with vhost: \"#{conn.options[:vhost]}\"")
 
     for request <- conn.connect_requests do
@@ -162,6 +175,18 @@ defmodule RabbitMQStream.Connection.Handler do
     send(self(), :flush_request_buffer)
 
     %{conn | state: :open, connect_requests: [], connection_properties: response.data.connection_properties}
+  end
+
+  def handle_message(
+        %Connection{peer_properties: %{"base-version" => version}} = conn,
+        %Response{command: :open} = response
+      )
+      when version >= [3, 13] do
+    Logger.debug(
+      "Successfully opened connection with vhost: \"#{conn.options[:vhost]}\". Initiating command version exchange."
+    )
+
+    %{conn | connection_properties: response.data.connection_properties}
     |> Helpers.push(:request, :exchange_command_versions)
   end
 
@@ -227,6 +252,7 @@ defmodule RabbitMQStream.Connection.Handler do
     %{conn | subscriptions: Map.drop(conn.subscriptions, [subscription_id])}
   end
 
+  # If the server has a version 3.12 or higher, this is the 'terminating' response.
   def handle_message(%Connection{} = conn, %Response{command: :exchange_command_versions} = response) do
     {{pid, _}, conn} = Helpers.pop_request_tracker(conn, :exchange_command_versions, response.correlation_id)
 
@@ -239,7 +265,12 @@ defmodule RabbitMQStream.Connection.Handler do
         {command.key, {command.min_version, command.max_version}}
       end)
 
-    %{conn | server_commands_versions: server_commands_versions}
+    for request <- conn.connect_requests do
+      GenServer.reply(request, :ok)
+    end
+
+    send(self(), :flush_request_buffer)
+    %{conn | state: :open, connect_requests: [], server_commands_versions: server_commands_versions}
   end
 
   def handle_message(%Connection{} = conn, %Response{command: command} = response)
