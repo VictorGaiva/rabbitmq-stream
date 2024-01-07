@@ -9,6 +9,7 @@ on:
       - "mix.exs"
       - "mix.lock"
       - "test/**"
+      - ".github/workflows/ci.yaml"
   push:
     branches:
       - main
@@ -16,6 +17,7 @@ on:
       - "lib/**"
       - "mix.exs"
       - "mix.lock"
+      - ".github/workflows/ci.yaml"
 
 jobs:
   test:
