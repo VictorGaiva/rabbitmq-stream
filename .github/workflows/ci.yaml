@@ -20,11 +20,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    services:
-      rabbitmq:
-        image: rabbitmq:3.11
-        ports:
-          - 5552:5552
     steps:
       - uses: erlef/setup-beam@v1
         with:
@@ -33,10 +28,11 @@ jobs:
       
       - uses: actions/checkout@v3
 
-      - name: Enable rabbitmq management plugin
-        run: |
-          DOCKER_NAME=$(docker ps --filter ancestor=rabbitmq:3.11 --format "{{.Names}}")
-          docker exec $DOCKER_NAME rabbitmq-plugins enable rabbitmq_stream
+      - uses: isbang/compose-action@v1.5.1
+        with:
+          compose-file: "./services/docker-compose.yml"
+          services:
+            - rabbitmq_stream
 
       - name: Install Dependencies
         run: |
