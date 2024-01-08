@@ -7,6 +7,16 @@ defmodule RabbitMQStream.Message do
   alias RabbitMQStream.Message.Types
 
   defmodule Request do
+    @type t :: %__MODULE__{
+            version: non_neg_integer,
+            correlation_id: non_neg_integer,
+            command: atom,
+            data: term(),
+            code: non_neg_integer
+          }
+
+    @enforce_keys [:command, :version]
+
     defstruct [
       :version,
       :correlation_id,
@@ -17,6 +27,15 @@ defmodule RabbitMQStream.Message do
   end
 
   defmodule Response do
+    @type t :: %__MODULE__{
+            version: non_neg_integer,
+            correlation_id: non_neg_integer,
+            command: atom,
+            data: Types.t(),
+            code: non_neg_integer
+          }
+
+    @enforce_keys [:command, :version]
     defstruct [
       :version,
       :command,
@@ -91,7 +110,7 @@ defmodule RabbitMQStream.Message do
       version: 1,
       correlation_id: conn.correlation_sequence,
       command: :open,
-      data: %Types.OpenData{
+      data: %Types.OpenRequestData{
         vhost: conn.options[:vhost]
       }
     }
@@ -228,13 +247,7 @@ defmodule RabbitMQStream.Message do
       version: 1,
       command: :subscribe,
       correlation_id: conn.correlation_sequence,
-      data: %Types.SubscribeRequestData{
-        credit: opts[:credit],
-        offset: opts[:offset],
-        properties: opts[:properties],
-        stream_name: opts[:stream_name],
-        subscription_id: opts[:subscription_id]
-      }
+      data: Types.SubscribeRequestData.new!(opts)
     }
   end
 
@@ -321,6 +334,18 @@ defmodule RabbitMQStream.Message do
       command: :close,
       data: %Types.CloseData{},
       code: code
+    }
+  end
+
+  def new_response(%Connection{}, :consumer_update, opts) do
+    %Response{
+      version: 1,
+      correlation_id: opts[:correlation_id],
+      command: :consumer_update,
+      data: %Types.ConsumerUpdateResponseData{
+        offset: opts[:offset]
+      },
+      code: opts[:code]
     }
   end
 end

@@ -5,6 +5,7 @@ defmodule RabbitMQStream.Connection.Client do
 
   use GenServer
 
+  alias RabbitMQStream.Message.Request
   alias RabbitMQStream.Connection
   alias RabbitMQStream.Connection.{Handler, Helpers}
 
@@ -178,6 +179,14 @@ defmodule RabbitMQStream.Connection.Client do
     {:noreply, conn}
   end
 
+  def handle_cast({:respond, %Request{} = request, opts}, %Connection{} = conn) do
+    conn =
+      conn
+      |> send_response(request.command, [correlation_id: request.correlation_id] ++ opts)
+
+    {:noreply, conn}
+  end
+
   @impl GenServer
   def handle_info({key, _socket, data}, conn) when key in [:ssl, :tcp] do
     {commands, frames_buffer} =
@@ -294,6 +303,12 @@ defmodule RabbitMQStream.Connection.Client do
   defp send_request(%Connection{} = conn, command, opts \\ []) do
     conn
     |> Helpers.push(:request, command, opts)
+    |> flush_commands()
+  end
+
+  defp send_response(%Connection{} = conn, command, opts) do
+    conn
+    |> Helpers.push(:response, command, opts)
     |> flush_commands()
   end
 

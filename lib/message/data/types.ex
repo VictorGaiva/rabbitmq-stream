@@ -253,21 +253,14 @@ defmodule RabbitMQStream.Message.Types do
   end
 
   defmodule SubscribeRequestData do
-    @moduledoc false
-    # Supported properties:
+    @moduledoc """
+    Supported properties:
 
-    # * `single-active-consumer`: set to `true` to enable https://blog.rabbitmq.com/posts/2022/07/rabbitmq-3-11-feature-preview-single-active-consumer-for-streams/[single active consumer] for this subscription.
-    # * `super-stream`: set to the name of the super stream the subscribed is a partition of.
-    # * `filter.` (e.g. `filter.0`, `filter.1`, etc): prefix to use to define filter values for the subscription.
-    # * `match-unfiltered`: whether to return messages without any filter value or not.
-
-    @type t :: %{
-            subscription_id: non_neg_integer(),
-            stream_name: String.t(),
-            offset: RabbitMQStream.Connection.offset(),
-            credit: non_neg_integer(),
-            properties: %{String.t() => String.t()}
-          }
+    * `single-active-consumer`: set to `true` to enable [single active consumer](https://blog.rabbitmq.com/posts/2022/07/rabbitmq-3-11-feature-preview-single-active-consumer-for-streams/) for this subscription.
+    * `super-stream`: set to the name of the super stream the subscribed is a partition of.
+    * `filter.` (e.g. `filter.0`, `filter.1`, etc): prefix to use to define filter values for the subscription.
+    * `match-unfiltered`: whether to return messages without any filter value or not.
+    """
 
     defstruct [
       :subscription_id,
@@ -275,6 +268,58 @@ defmodule RabbitMQStream.Message.Types do
       :offset,
       :credit,
       :properties
+    ]
+
+    @type t :: %{
+            subscription_id: non_neg_integer(),
+            stream_name: String.t(),
+            offset: RabbitMQStream.Connection.offset(),
+            credit: non_neg_integer(),
+            properties: [property()]
+          }
+
+    @type property ::
+            {:single_active_consumer, String.t()}
+            | {:super_stream, String.t()}
+            | {:filter, [String.t()]}
+            | {:match_unfiltered, boolean()}
+
+    def new!(opts) do
+      %__MODULE__{
+        credit: opts[:credit],
+        offset: opts[:offset],
+        properties: opts[:properties],
+        stream_name: opts[:stream_name],
+        subscription_id: opts[:subscription_id]
+      }
+    end
+  end
+
+  defmodule ConsumerUpdateRequestData do
+    @moduledoc false
+    @enforce_keys [:subscription_id, :active]
+
+    @type t :: %{
+            subscription_id: non_neg_integer(),
+            active: boolean()
+          }
+
+    defstruct [
+      :subscription_id,
+      :active
+    ]
+  end
+
+  defmodule ConsumerUpdateResponseData do
+    @moduledoc false
+    @enforce_keys [:offset]
+
+    @type t :: %{
+            offset: RabbitMQStream.Connection.offset()
+          }
+
+    defstruct [
+      :offset
     ]
   end
 
@@ -383,7 +428,7 @@ defmodule RabbitMQStream.Message.Types do
       @moduledoc false
       @enforce_keys [:key, :min_version, :max_version]
       @type t :: %{
-              key: RabbitMQStream.Message.Helpers.command(),
+              key: Helpers.command(),
               min_version: non_neg_integer(),
               max_version: non_neg_integer()
             }
@@ -425,40 +470,6 @@ defmodule RabbitMQStream.Message.Types do
           %Command{key: :delete_super_stream, min_version: 1, max_version: 1}
         ]
       }
-    end
-
-    def encode!(%__MODULE__{commands: commands}) do
-      RabbitMQStream.Message.Helpers.encode_array(
-        for command <- commands do
-          <<
-            RabbitMQStream.Message.Helpers.encode_command(command.key)::unsigned-integer-size(16),
-            command.min_version::unsigned-integer-size(16),
-            command.max_version::unsigned-integer-size(16)
-          >>
-        end
-      )
-    end
-
-    def decode!(buffer) do
-      {"", commands} =
-        RabbitMQStream.Message.Helpers.decode_array(buffer, fn buffer, acc ->
-          <<
-            key::unsigned-integer-size(16),
-            min_version::unsigned-integer-size(16),
-            max_version::unsigned-integer-size(16),
-            rest::binary
-          >> = buffer
-
-          value = %Command{
-            key: RabbitMQStream.Message.Helpers.decode_command(key),
-            min_version: min_version,
-            max_version: max_version
-          }
-
-          {rest, [value | acc]}
-        end)
-
-      %__MODULE__{commands: commands}
     end
   end
 end

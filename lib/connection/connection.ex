@@ -190,11 +190,11 @@ defmodule RabbitMQStream.Connection do
         )
       end
 
-      def subscribe(stream_name, pid, offset, credit, properties \\ %{})
+      def subscribe(stream_name, pid, offset, credit, properties \\ [])
           when is_binary(stream_name) and
                  is_integer(credit) and
                  is_offset(offset) and
-                 is_map(properties) and
+                 is_list(properties) and
                  is_pid(pid) and
                  credit >= 0 do
         GenServer.call(
@@ -217,6 +217,10 @@ defmodule RabbitMQStream.Connection do
 
       def partitions(stream_name) when is_binary(stream_name) do
         GenServer.call(__MODULE__, {:partitions, stream_name: stream_name})
+      end
+
+      def respond(request, opts) when is_list(opts) do
+        GenServer.cast(__MODULE__, {:respond, request, opts})
       end
     end
   end
@@ -275,6 +279,16 @@ defmodule RabbitMQStream.Connection do
 
   @callback unsubscribe(subscription_id :: non_neg_integer()) ::
               :ok | {:error, reason :: atom()}
+
+  @doc """
+    The server will sometimes send a request to the client, which we must send a response to.
+
+    And example request is the 'ConsumerUpdate', where the server expects a response with the
+    offset. So the connection sends the request to the subscription handler, which then calls
+    this function to send the response back to the server.
+  """
+  @callback respond(request :: RabbitMQStream.Message.Request.t(), opts :: Keyword.t()) :: :ok
+
   @doc """
     Adds the specified amount of credits to the subscription under the given `subscription_id`.
 
@@ -288,7 +302,7 @@ defmodule RabbitMQStream.Connection do
           options: connection_options,
           socket: :gen_tcp.socket(),
           state: :closed | :connecting | :open | :closing,
-          correlation_sequence: integer(),
+          correlation_sequence: non_neg_integer(),
           publisher_sequence: non_neg_integer(),
           subscriber_sequence: non_neg_integer(),
           peer_properties: [[String.t()]],

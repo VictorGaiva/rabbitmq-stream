@@ -25,10 +25,10 @@
 | open                    | ✔️          | 3.9             |
 | close                   | ✔️          | 3.9             |
 | heartbeat               | ✔️          | 3.9             |
-| exchangecommandversions | ✔️          | 3.11            |
+| consumerupdate          | ✔️          | 3.11            |
+| streamstats             | ❌          | 3.11            |
+| createsuperstream       | ❌          | 3.11            |
+| deletesuperstream       | ❌          | 3.11            |
+| exchangecommandversions | ✔️          | 3.13            |
 | route                   | ❌          | 3.13            |
 | partitions              | ❌          | 3.13            |
-| consumerupdate          | ❌          | 3.13            |
-| streamstats             | ❌          | 3.13            |
-| createsuperstream       | ❌          | 3.13            |
-| deletesuperstream       | ❌          | 3.13            |

@@ -181,4 +181,24 @@ defmodule RabbitMQStream.Message.Helpers do
       foo.(buffer, acc)
     end)
   end
+
+  def encode_offset(offset) do
+    case offset do
+      :first -> <<1::unsigned-integer-size(16)>>
+      :last -> <<2::unsigned-integer-size(16)>>
+      :next -> <<3::unsigned-integer-size(16)>>
+      {:offset, offset} -> <<4::unsigned-integer-size(16), offset::unsigned-integer-size(64)>>
+      {:timestamp, timestamp} -> <<5::unsigned-integer-size(16), timestamp::integer-size(64)>>
+    end
+  end
+
+  def decode_offset(buffer) do
+    case buffer do
+      <<1::unsigned-integer-size(16), rest::binary>> -> {rest, :first}
+      <<2::unsigned-integer-size(16), rest::binary>> -> {rest, :last}
+      <<3::unsigned-integer-size(16), rest::binary>> -> {rest, :next}
+      <<4::unsigned-integer-size(16), offset::unsigned-integer-size(64), rest::binary>> -> {rest, {:offset, offset}}
+      <<5::unsigned-integer-size(16), timestamp::integer-size(64), rest::binary>> -> {rest, {:timestamp, timestamp}}
+    end
+  end
 end

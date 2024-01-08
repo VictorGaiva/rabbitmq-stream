@@ -283,4 +283,18 @@ defmodule RabbitMQStream.Connection.Handler do
 
     conn
   end
+
+  # We forward the request because the subscriber is the one responsible for
+  # deciding how to respond to the request.
+  def handle_message(%Connection{} = conn, %Request{command: :consumer_update} = request) do
+    subscription_pid = Map.get(conn.subscriptions, request.data.subscription_id)
+
+    if subscription_pid != nil do
+      send(subscription_pid, {:command, request})
+      conn
+    else
+      conn
+      |> Helpers.push(:response, :consumer_update, correlation_id: request.correlation_id, code: :internal_error)
+    end
+  end
 end

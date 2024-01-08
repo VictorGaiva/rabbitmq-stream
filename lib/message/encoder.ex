@@ -49,13 +49,14 @@ defmodule RabbitMQStream.Message.Encoder do
     <<encode_command(command)::unsigned-integer-size(16), version::unsigned-integer-size(16)>>
   end
 
-  defp bake_header(%Response{command: command, version: version, correlation_id: correlation_id})
-       when command in [:close] do
+  defp bake_header(%Response{command: command, version: version, correlation_id: correlation_id, code: code})
+       when command in [:close, :consumer_update] do
     <<
       0b1::1,
       encode_command(command)::unsigned-integer-size(15),
       version::unsigned-integer-size(16),
-      correlation_id::unsigned-integer-size(32)
+      correlation_id::unsigned-integer-size(32),
+      encode_code(code)::unsigned-integer-size(16)
     >>
   end
 

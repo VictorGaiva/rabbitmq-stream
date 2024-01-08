@@ -4,13 +4,14 @@ defmodule RabbitMQStream.Message.Decoder do
   alias RabbitMQStream.Message.Data
 
   alias RabbitMQStream.Message.{Response, Request}
+  import Bitwise
 
   def decode(buffer) do
     <<key::unsigned-integer-size(16), version::unsigned-integer-size(16), buffer::binary>> = buffer
 
     command = decode_command(key)
 
-    if Bitwise.band(key, 0b1000_0000_0000_0000) > 0 do
+    if (key &&& 0b1000_0000_0000_0000) > 0 do
       %Response{version: version, command: command}
     else
       %Request{version: version, command: command}
@@ -36,23 +37,22 @@ defmodule RabbitMQStream.Message.Decoder do
              :open,
              :route,
              :partitions,
-             :exchange_command_versions
+             :exchange_command_versions,
+             :consumer_update
            ] do
     <<correlation_id::unsigned-integer-size(32), code::unsigned-integer-size(16), buffer::binary>> = buffer
 
-    %{
-      response
-      | data: Data.decode(response, buffer),
-        correlation_id: correlation_id,
-        code: decode_code(code)
-    }
+    response = %{response | correlation_id: correlation_id, code: decode_code(code)}
+
+    %{response | data: Data.decode(response, buffer)}
   end
 
   def decode(%{command: command} = response, buffer)
-      when command in [:close, :query_metadata] do
+      when command in [:close, :query_metadata, :consumer_update] do
     <<correlation_id::unsigned-integer-size(32), buffer::binary>> = buffer
 
-    %{response | data: Data.decode(response, buffer), correlation_id: correlation_id}
+    response = %{response | correlation_id: correlation_id}
+    %{response | data: Data.decode(response, buffer)}
   end
 
   def decode(%{command: command} = action, buffer)

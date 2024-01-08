@@ -183,7 +183,7 @@ defmodule RabbitMQStream.Message.Data do
         []
       end
 
-    %Types.OpenData{connection_properties: connection_properties}
+    %Types.OpenResponseData{connection_properties: connection_properties}
   end
 
   def decode(%Response{command: :route}, buffer) do
@@ -199,13 +199,41 @@ defmodule RabbitMQStream.Message.Data do
   end
 
   def decode(%Response{command: :exchange_command_versions}, buffer) do
-    Types.ExchangeCommandVersionsData.decode!(buffer)
+    {"", commands} =
+      decode_array(buffer, fn buffer, acc ->
+        <<
+          key::unsigned-integer-size(16),
+          min_version::unsigned-integer-size(16),
+          max_version::unsigned-integer-size(16),
+          rest::binary
+        >> = buffer
+
+        value = %Types.ExchangeCommandVersionsData.Command{
+          key: decode_command(key),
+          min_version: min_version,
+          max_version: max_version
+        }
+
+        {rest, [value | acc]}
+      end)
+
+    %Types.ExchangeCommandVersionsData{commands: commands}
   end
 
-  def encode(%Response{command: :close, code: code}) do
-    <<
-      encode_code(code)::unsigned-integer-size(16)
-    >>
+  def decode(%Response{command: :consumer_update}, buffer) do
+    {"", offset} = decode_offset(buffer)
+
+    %Types.ConsumerUpdateResponseData{offset: offset}
+  end
+
+  def decode(%Request{command: :consumer_update}, buffer) do
+    <<subscription_id::unsigned-integer-size(8), flag::unsigned-integer-size(8)>> = buffer
+
+    %Types.ConsumerUpdateRequestData{subscription_id: subscription_id, active: flag == 1}
+  end
+
+  def encode(%Response{command: :close}) do
+    <<>>
   end
 
   def encode(%Request{command: :peer_properties, data: data}) do
@@ -344,16 +372,25 @@ defmodule RabbitMQStream.Message.Data do
   def encode(%Request{command: :subscribe, data: data}) do
     stream_name = encode_string(data.stream_name)
 
-    offset =
-      case data.offset do
-        :first -> <<1::unsigned-integer-size(16)>>
-        :last -> <<2::unsigned-integer-size(16)>>
-        :next -> <<3::unsigned-integer-size(16)>>
-        {:offset, offset} -> <<4::unsigned-integer-size(16), offset::unsigned-integer-size(64)>>
-        {:timestamp, timestamp} -> <<5::unsigned-integer-size(16), timestamp::integer-size(64)>>
-      end
+    offset = encode_offset(data.offset)
 
-    properties = encode_map(data.properties)
+    properties =
+      Enum.reduce(data.properties, [], fn
+        {:filter, entries}, acc ->
+          filter =
+            for {entry, i} <- Enum.with_index(entries) do
+              {"filter.#{i}", entry}
+            end
+
+          [filter | acc]
+
+        {:single_active_consumer, name}, acc ->
+          [{"single-active-consumer", true}, {"name", name} | acc]
+
+        {key, value}, acc ->
+          [{String.replace(key, "_", "-"), value} | acc]
+      end)
+      |> encode_map()
 
     <<
       data.subscription_id::unsigned-integer-size(8),
@@ -389,7 +426,15 @@ defmodule RabbitMQStream.Message.Data do
   end
 
   def encode(%Request{command: :exchange_command_versions, data: data}) do
-    Types.ExchangeCommandVersionsData.encode!(data)
+    encode_array(
+      for command <- data.commands do
+        <<
+          encode_command(command.key)::unsigned-integer-size(16),
+          command.min_version::unsigned-integer-size(16),
+          command.max_version::unsigned-integer-size(16)
+        >>
+      end
+    )
   end
 
   def encode(%Response{command: :tune, data: data}) do
@@ -397,5 +442,15 @@ defmodule RabbitMQStream.Message.Data do
       data.frame_max::unsigned-integer-size(32),
       data.heartbeat::unsigned-integer-size(32)
     >>
+  end
+
+  def encode(%Response{command: :consumer_update, data: data, code: :ok}) do
+    encode_offset(data.offset)
+  end
+
+  def encode(%Response{command: :consumer_update}) do
+    # The server expects an offset even if the response is not :ok.
+    # So we send a default one.
+    encode_offset(:next)
   end
 end

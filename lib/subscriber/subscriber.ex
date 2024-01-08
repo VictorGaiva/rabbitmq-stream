@@ -128,12 +128,12 @@ defmodule RabbitMQStream.Subscriber do
           end
         end
   """
-
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts], location: :keep do
       use GenServer
       @behaviour RabbitMQStream.Subscriber
       alias RabbitMQStream.Subscriber.{FlowControl, OffsetTracking}
+      alias RabbitMQStream.Message.Request
 
       @opts opts
 
@@ -172,6 +172,14 @@ defmodule RabbitMQStream.Subscriber do
 
         decoder = Keyword.get(opts, :decoder, __MODULE__)
 
+        # Prevent startup if 'single_active_consumer' is active, but there is no
+        # handle_update/2 callback defined.
+        if opts |> Keyword.get(:properties, []) |> Keyword.get(:single_active_consumer) != nil do
+          if not function_exported?(__MODULE__, :handle_update, 2) do
+            raise "handle_update/2 must be implemented when using single-active-consumer property"
+          end
+        end
+
         state = %RabbitMQStream.Subscriber{
           stream_name: stream_name,
           connection: connection,
@@ -181,14 +189,15 @@ defmodule RabbitMQStream.Subscriber do
           flow_control: FlowControl.Strategy.init(flow_control, opts),
           credits: initial_credit,
           initial_credit: initial_credit,
-          decoder: decoder
+          decoder: decoder,
+          properties: Keyword.get(opts, :properties, %{})
         }
 
-        {:ok, state, {:continue, opts}}
+        {:ok, state, {:continue, {:init, opts}}}
       end
 
       @impl true
-      def handle_continue(opts, state) do
+      def handle_continue({:init, opts}, state) do
         initial_offset = Keyword.get(opts, :initial_offset) || raise(":initial_offset is required")
 
         last_offset =
@@ -200,7 +209,7 @@ defmodule RabbitMQStream.Subscriber do
               initial_offset
           end
 
-        case state.connection.subscribe(state.stream_name, self(), last_offset, state.initial_credit) do
+        case state.connection.subscribe(state.stream_name, self(), last_offset, state.initial_credit, state.properties) do
           {:ok, id} ->
             last_offset =
               case last_offset do
@@ -219,6 +228,8 @@ defmodule RabbitMQStream.Subscriber do
       end
 
       @impl true
+      def terminate(_reason, %{id: nil}), do: :ok
+
       def terminate(_reason, state) do
         state.connection.unsubscribe(state.id)
         :ok
@@ -266,6 +277,27 @@ defmodule RabbitMQStream.Subscriber do
         {:noreply, FlowControl.Strategy.run(state)}
       end
 
+      def handle_info({:command, %Request{command: :consumer_update} = request}, state) do
+        if function_exported?(__MODULE__, :handle_update, 2) do
+          case apply(__MODULE__, :handle_update, [state, request.data.active]) do
+            {:ok, offset} ->
+              Logger.debug("Subscriber upgraded to active consumer")
+              state.connection.respond(request, offset: offset, code: :ok)
+              {:noreply, state}
+
+            {:error, reason} ->
+              Logger.error("Error updating consumer: #{inspect(reason)}")
+              state.connection.respond(request, code: :internal_error)
+
+              {:noreply, state}
+          end
+        else
+          Logger.error("handle_update/2 must be implemented when using single-active-consumer property")
+          state.connection.respond(request, code: :internal_error)
+          {:noreply, state}
+        end
+      end
+
       @impl true
       def handle_cast({:credit, amount}, state) do
         state.connection.credit(state.id, amount)
@@ -301,6 +333,9 @@ defmodule RabbitMQStream.Subscriber do
   @callback handle_chunk(chunk :: RabbitMQStream.OsirisChunk.t()) :: term()
   @callback handle_chunk(chunk :: RabbitMQStream.OsirisChunk.t(), state :: t()) :: term()
 
+  @callback handle_update(subscriber :: t(), flag :: boolean()) ::
+              {:ok, RabbitMQStream.Connection.offset()} | {:error, any()}
+
   @callback decode!(message :: String.t()) :: term()
 
   defstruct [
@@ -318,7 +353,8 @@ defmodule RabbitMQStream.Subscriber do
     :credits,
     :initial_credit,
     :private,
-    :decoder
+    :decoder,
+    :properties
   ]
 
   @type t :: %__MODULE__{
@@ -332,7 +368,8 @@ defmodule RabbitMQStream.Subscriber do
           private: any(),
           credits: non_neg_integer(),
           initial_credit: non_neg_integer(),
-          decoder: {module(), atom()} | (String.t() -> term()) | nil
+          decoder: {module(), atom()} | (String.t() -> term()) | nil,
+          properties: [RabbitMQStream.Message.Types.SubscribeRequestData.property()]
         }
 
   @type subscriber_option ::
@@ -345,6 +382,7 @@ defmodule RabbitMQStream.Subscriber do
           | {:flow_control, {RabbitMQStream.Subscriber.FlowControl.Strategy.t(), term()}}
           | {:private, any()}
           | {:decoder, {module(), atom()} | (String.t() -> term())}
+          | {:properties, [RabbitMQStream.Message.Types.SubscribeRequestData.property()]}
 
   @type opts :: [subscriber_option()]
 end
