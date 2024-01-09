@@ -129,7 +129,7 @@ defmodule RabbitMQStream.Message do
       version: 1,
       command: :close,
       correlation_id: conn.correlation_sequence,
-      data: %Types.CloseData{
+      data: %Types.CloseRequestData{
         code: opts[:code],
         reason: opts[:reason]
       }
@@ -224,7 +224,7 @@ defmodule RabbitMQStream.Message do
       version: 1,
       command: :query_publisher_sequence,
       correlation_id: conn.correlation_sequence,
-      data: %Types.QueryPublisherSequenceData{
+      data: %Types.QueryPublisherSequenceRequestData{
         stream_name: opts[:stream_name],
         publisher_reference: opts[:publisher_reference]
       }
@@ -332,7 +332,7 @@ defmodule RabbitMQStream.Message do
       version: 1,
       correlation_id: correlation_id,
       command: :close,
-      data: %Types.CloseData{},
+      data: %Types.CloseResponseData{},
       code: code
     }
   end

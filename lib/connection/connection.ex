@@ -310,8 +310,8 @@ defmodule RabbitMQStream.Connection do
           mechanisms: [String.t()],
           connect_requests: [pid()],
           request_tracker: %{{atom(), integer()} => {pid(), any()}},
-          brokers: %{integer() => BrokerData.t()},
-          streams: %{String.t() => StreamData.t()},
+          brokers: %{integer() => RabbitMQStream.Message.Types.QueryPublisherSequenceData.t()},
+          streams: %{String.t() => RabbitMQStream.Message.Types.QueryPublisherSequenceData.t()},
           subscriptions: %{non_neg_integer() => pid()},
           server_commands_versions: %{
             RabbitMQStream.Message.Helpers.command() => {non_neg_integer(), non_neg_integer()}

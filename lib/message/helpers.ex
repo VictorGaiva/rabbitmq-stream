@@ -31,7 +31,7 @@ defmodule RabbitMQStream.Message.Helpers do
           | :create_super_stream
           | :delete_super_stream
 
-  @type response ::
+  @type code ::
           :ok
           | :stream_does_not_exist
           | :subscription_id_already_exists

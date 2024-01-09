@@ -4,7 +4,7 @@ defmodule RabbitMQStream.Message.Data do
   import RabbitMQStream.Message.Helpers
 
   def decode(%{command: :heartbeat}, ""), do: %Types.HeartbeatData{}
-  def decode(%Response{command: :close}, ""), do: %Types.CloseData{}
+  def decode(%Response{command: :close}, ""), do: %Types.CloseResponseData{}
 
   def decode(%Response{command: :create_stream}, ""), do: %Types.CreateStreamResponseData{}
   def decode(%Response{command: :delete_stream}, ""), do: %Types.DeleteStreamResponseData{}
@@ -78,7 +78,7 @@ defmodule RabbitMQStream.Message.Data do
 
         <<port::unsigned-integer-size(32), buffer::binary>> = buffer
 
-        data = %Types.BrokerData{
+        data = %Types.QueryMetadataResponseData.BrokerData{
           reference: reference,
           host: host,
           port: port
@@ -104,7 +104,7 @@ defmodule RabbitMQStream.Message.Data do
             {buffer, [replica] ++ acc}
           end)
 
-        data = %Types.StreamData{
+        data = %Types.QueryMetadataResponseData.StreamData{
           code: code,
           name: name,
           leader: leader,
@@ -120,7 +120,7 @@ defmodule RabbitMQStream.Message.Data do
   def decode(%Request{command: :close}, <<code::unsigned-integer-size(16), buffer::binary>>) do
     {"", reason} = decode_string(buffer)
 
-    %Types.CloseData{code: code, reason: reason}
+    %Types.CloseRequestData{code: code, reason: reason}
   end
 
   def decode(%{command: :metadata_update}, <<code::unsigned-integer-size(16), buffer::binary>>) do
@@ -134,7 +134,7 @@ defmodule RabbitMQStream.Message.Data do
   end
 
   def decode(%Response{command: :query_publisher_sequence}, <<sequence::unsigned-integer-size(64)>>) do
-    %Types.QueryPublisherSequenceData{sequence: sequence}
+    %Types.QueryPublisherSequenceResponseData{sequence: sequence}
   end
 
   def decode(%{command: :peer_properties}, buffer) do
