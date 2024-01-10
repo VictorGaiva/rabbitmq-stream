@@ -154,4 +154,13 @@ defmodule RabbitMQStreamTest.Connection do
     :ok = SupervisedConnection.delete_stream(@stream)
     SupervisedConnection.close()
   end
+
+  @stream "test-store-07"
+  test "should get stream stats" do
+    {:ok, _} = SupervisedConnection.start_link(host: "localhost", vhost: "/")
+    :ok = SupervisedConnection.connect()
+    SupervisedConnection.delete_stream(@stream)
+    :ok = SupervisedConnection.create_stream(@stream)
+    {:ok, _data} = SupervisedConnection.stream_stats(@stream)
+  end
 end

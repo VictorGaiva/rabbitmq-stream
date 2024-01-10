@@ -232,6 +232,18 @@ defmodule RabbitMQStream.Message.Data do
     %Types.ConsumerUpdateRequestData{subscription_id: subscription_id, active: flag == 1}
   end
 
+  def decode(%Response{command: :stream_stats}, buffer) do
+    {"", stats} =
+      decode_array(buffer, fn buffer, acc ->
+        {buffer, key} = decode_string(buffer)
+        <<value::integer-size(64), buffer::binary>> = buffer
+
+        {buffer, [{key, value} | acc]}
+      end)
+
+    %Types.StreamStatsResponseData{stats: Map.new(stats)}
+  end
+
   def encode(%Response{command: :close}) do
     <<>>
   end
@@ -452,5 +464,9 @@ defmodule RabbitMQStream.Message.Data do
     # The server expects an offset even if the response is not :ok.
     # So we send a default one.
     encode_offset(:next)
+  end
+
+  def encode(%Request{command: :stream_stats, data: data}) do
+    encode_string(data.stream_name)
   end
 end

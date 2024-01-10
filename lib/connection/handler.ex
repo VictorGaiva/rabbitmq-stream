@@ -93,7 +93,8 @@ defmodule RabbitMQStream.Connection.Handler do
              :declare_publisher,
              :delete_publisher,
              :subscribe,
-             :unsubscribe
+             :unsubscribe,
+             :stream_stats
            ] and
              code not in [:ok, nil] do
     {{pid, _data}, conn} = Helpers.pop_request_tracker(conn, command, response.correlation_id)
@@ -271,6 +272,16 @@ defmodule RabbitMQStream.Connection.Handler do
 
     send(self(), :flush_request_buffer)
     %{conn | state: :open, connect_requests: [], server_commands_versions: server_commands_versions}
+  end
+
+  def handle_message(%Connection{} = conn, %Response{command: :stream_stats, data: data} = response) do
+    {{pid, _data}, conn} = Helpers.pop_request_tracker(conn, :stream_stats, response.correlation_id)
+
+    if pid != nil do
+      GenServer.reply(pid, {:ok, data})
+    end
+
+    conn
   end
 
   def handle_message(%Connection{} = conn, %Response{command: command} = response)

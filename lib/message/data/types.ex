@@ -534,4 +534,17 @@ defmodule RabbitMQStream.Message.Types do
       }
     end
   end
+
+  defmodule StreamStatsRequestData do
+    @moduledoc false
+    @enforce_keys [:stream_name]
+    @type t :: %{stream_name: String.t()}
+    defstruct [:stream_name]
+  end
+
+  defmodule StreamStatsResponseData do
+    @enforce_keys [:stats]
+    @type t :: %{stats: %{String.t() => integer()}}
+    defstruct [:stats]
+  end
 end

@@ -215,6 +215,10 @@ defmodule RabbitMQStream.Connection do
         GenServer.call(__MODULE__, {:route, routing_key: routing_key, super_stream: super_stream})
       end
 
+      def stream_stats(stream_name) when is_binary(stream_name) do
+        GenServer.call(__MODULE__, {:stream_stats, stream_name: stream_name})
+      end
+
       def partitions(stream_name) when is_binary(stream_name) do
         GenServer.call(__MODULE__, {:partitions, stream_name: stream_name})
       end

@@ -1,4 +1,5 @@
 defmodule RabbitMQStream.Consumer.LifeCycle do
+  @moduledoc false
   alias RabbitMQStream.Message.Request
   alias RabbitMQStream.Consumer.{FlowControl, OffsetTracking}
 
@@ -10,7 +11,7 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
     # Prevent startup if 'single_active_consumer' is active, but there is no
     # handle_update/2 callback defined.
     if Keyword.get(opts[:properties], :single_active_consumer) != nil do
-      if not function_exported?(__MODULE__, :handle_update, 2) do
+      if not function_exported?(opts[:consumer_module], :handle_update, 2) do
         raise "handle_update/2 must be implemented when using single-active-consumer property"
       end
     end

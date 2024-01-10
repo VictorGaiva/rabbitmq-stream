@@ -106,7 +106,8 @@ defmodule RabbitMQStream.Connection.Client do
              :query_metadata,
              :query_publisher_sequence,
              :delete_stream,
-             :create_stream
+             :create_stream,
+             :stream_stats
            ] do
     conn =
       conn

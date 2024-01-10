@@ -317,6 +317,17 @@ defmodule RabbitMQStream.Message do
     }
   end
 
+  def new_request(%Connection{} = conn, :stream_stats, opts) do
+    %Request{
+      version: 1,
+      command: :stream_stats,
+      correlation_id: conn.correlation_sequence,
+      data: %Types.StreamStatsRequestData{
+        stream_name: opts[:stream_name]
+      }
+    }
+  end
+
   def new_response(%Connection{options: options}, :tune, correlation_id: correlation_id) do
     %Response{
       version: 1,

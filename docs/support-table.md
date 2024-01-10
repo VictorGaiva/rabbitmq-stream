@@ -26,7 +26,7 @@
 | close                   | ✔️          | 3.9             |
 | heartbeat               | ✔️          | 3.9             |
 | consumerupdate          | ✔️          | 3.11            |
-| streamstats             | ❌          | 3.11            |
+| streamstats             | ✔️          | 3.11            |
 | createsuperstream       | ❌          | 3.11            |
 | deletesuperstream       | ❌          | 3.11            |
 | exchangecommandversions | ✔️          | 3.13            |
