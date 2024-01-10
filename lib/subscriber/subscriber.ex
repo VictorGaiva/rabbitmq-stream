@@ -3,7 +3,7 @@ defmodule RabbitMQStream.Subscriber do
   Used to declare a Persistent Subscriber module. It is able to process
   chunks by implementing the `handle_chunk/1` or `handle_chunk/2` callbacks.
 
-  ## Usage
+  # Usage
 
       defmodule MyApp.MySubscriber do
         use RabbitMQStream.Subscriber,
@@ -18,18 +18,26 @@ defmodule RabbitMQStream.Subscriber do
       end
 
 
-  ## Parameters
+  # Parameters
 
-    * `:connection` - The connection module to use. This is required.
-    * `:stream_name` - The name of the stream to subscribe to. This is required.
-    * `:initial_offset` - The initial offset to subscribe from. This is required.
-    * `:initial_credit` - The initial credit to request from the server. Defaults to `50_000`.
-    * `:offset_tracking` - Offset tracking strategies to use. Defaults to `[count: [store_after: 50]]`.
-    * `:flow_control` - Flow control strategy to use. Defaults to `[count: [credit_after: {:count, 1}]]`.
-    * `:private` - Private data that can hold any value, and is passed to the `handle_chunk/2` callback.
+  * `:connection` - The connection module to use. This is required.
+  * `:stream_name` - The name of the stream to subscribe to. This is required.
+  * `:initial_offset` - The initial offset to subscribe from. This is required.
+  * `:initial_credit` - The initial credit to request from the server. Defaults to `50_000`.
+  * `:offset_tracking` - Offset tracking strategies to use. Defaults to `[count: [store_after: 50]]`.
+  * `:flow_control` - Flow control strategy to use. Defaults to `[count: [credit_after: {:count, 1}]]`.
+  * `:private` - Private data that can hold any value, and is passed to the `handle_chunk/2` callback.
+  * `:serializer` - The module to use to decode the message. Defaults to `__MODULE__`,
+    which means that the subscriber will use the `decode!/1` callback to decode the message, which is implemented by default to return the message as is.
+
+  * `:properties` - Define the properties of the subscription. Can only have one option at a time.
+    * `:single_active_consumer`: set to `true` to enable [single active consumer](https://blog.rabbitmq.com/posts/2022/07/rabbitmq-3-11-feature-preview-single-active-consumer-for-streams/) for this subscription.
+    * `:super_stream`: set to the name of the super stream the subscribed is a partition of.
+    * `:filter`: List of strings that define the value of the filter_key to match.
+    * `:match_unfiltered`: whether to return messages without any filter value or not.
 
 
-  ## Offset Tracking
+  # Offset Tracking
 
   The subscriber is able to track its progress in the stream by storing its
   latests offset in the stream. Check [Offset Tracking with RabbitMQ Streams(https://blog.rabbitmq.com/posts/2021/09/rabbitmq-streams-offset-tracking/) for more information on
@@ -42,7 +50,7 @@ defmodule RabbitMQStream.Subscriber do
   `RabbitMQStream.Subscriber.OffsetTracking.CountStrategy`, which stores the
   offset after, by default, every 50_000 messages.
 
-  ## Flow Control
+  # Flow Control
 
   The RabbitMQ Streams server requires that the subscriber declares how many
   messages it is able to process at a time. This is done by informing an amount
@@ -67,7 +75,7 @@ defmodule RabbitMQStream.Subscriber do
   credits to the subscription.
 
 
-  ## Configuration
+  # Configuration
 
   You can configure each subscriber with:
 
@@ -94,39 +102,10 @@ defmodule RabbitMQStream.Subscriber do
 
   Globally configuring all subscribers ignores the following options:
 
-    * `:stream_name`
-    * `:offset_reference`
-    * `:private`
+  * `:stream_name`
+  * `:offset_reference`
+  * `:private`
 
-
-  ## Serialization
-
-  You can optionally define a callback to encode the message before publishing it.
-  It expects that the module you pass implements the `encode!/1` callback.
-
-  You can define it globally:
-
-        config :rabbitmq_stream, :defaults,
-          serializer: Jason
-
-  Or you can pass it as an option to the `use` macro:
-
-        defmodule MyApp.MySubscriber do
-          use RabbitMQStream.Subscriber,
-            serializer: Jason
-        end
-
-  You can also define it in the module itself:
-
-        defmodule MyApp.MySubscriber do
-          use RabbitMQStream.Subscriber,
-            serializer: __MODULE__
-
-          @impl true
-          def encode!(message) do
-            Jason.encode!(message)
-          end
-        end
   """
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts], location: :keep do
@@ -154,59 +133,47 @@ defmodule RabbitMQStream.Subscriber do
           |> Keyword.merge(Application.get_env(:rabbitmq_stream, __MODULE__, []))
           |> Keyword.merge(@opts)
           |> Keyword.merge(opts)
+          # |> Keyword.validate!([:connection, :stream_name, :initial_offset])
+          |> Keyword.put_new(:initial_credit, 50_000)
+          |> Keyword.put_new(:offset_tracking, count: [store_after: 50])
+          |> Keyword.put_new(:flow_control, count: [credit_after: {:count, 1}])
+          |> Keyword.put_new(:offset_reference, Atom.to_string(__MODULE__))
+          |> Keyword.put_new(:serializer, __MODULE__)
+          |> Keyword.put_new(:properties, [])
 
-        # opts = Keyword.merge(@opts, opts)
         GenServer.start_link(__MODULE__, opts, name: __MODULE__)
       end
 
       @impl true
       def init(opts \\ []) do
-        connection = Keyword.get(opts, :connection) || raise(":connection is required")
-        stream_name = Keyword.get(opts, :stream_name) || raise(":stream_name is required")
-        initial_credit = Keyword.get(opts, :initial_credit, 50_000)
-
-        offset_tracking = Keyword.get(opts, :offset_tracking, count: [store_after: 50])
-        flow_control = Keyword.get(opts, :flow_control, count: [credit_after: {:count, 1}])
-
-        offset_reference = Keyword.get(opts, :offset_reference, Atom.to_string(__MODULE__))
-
-        decoder = Keyword.get(opts, :decoder, __MODULE__)
-
         # Prevent startup if 'single_active_consumer' is active, but there is no
         # handle_update/2 callback defined.
-        if opts |> Keyword.get(:properties, []) |> Keyword.get(:single_active_consumer) != nil do
+        if Keyword.get(opts[:properties], :single_active_consumer) != nil do
           if not function_exported?(__MODULE__, :handle_update, 2) do
             raise "handle_update/2 must be implemented when using single-active-consumer property"
           end
         end
 
-        state = %RabbitMQStream.Subscriber{
-          stream_name: stream_name,
-          connection: connection,
-          offset_reference: offset_reference,
-          private: opts[:private],
-          offset_tracking: OffsetTracking.Strategy.init(offset_tracking, opts),
-          flow_control: FlowControl.Strategy.init(flow_control, opts),
-          credits: initial_credit,
-          initial_credit: initial_credit,
-          decoder: decoder,
-          properties: Keyword.get(opts, :properties, %{})
-        }
+        opts =
+          opts
+          |> Keyword.put(:credits, opts[:initial_credit])
+          |> Keyword.put(:offset_tracking, OffsetTracking.Strategy.init(opts[:offset_tracking], opts))
+          |> Keyword.put(:flow_control, FlowControl.Strategy.init(opts[:flow_control], opts))
+
+        state = struct(RabbitMQStream.Subscriber, opts)
 
         {:ok, state, {:continue, {:init, opts}}}
       end
 
       @impl true
       def handle_continue({:init, opts}, state) do
-        initial_offset = Keyword.get(opts, :initial_offset) || raise(":initial_offset is required")
-
         last_offset =
           case state.connection.query_offset(state.stream_name, state.offset_reference) do
             {:ok, offset} ->
               {:offset, offset}
 
             _ ->
-              initial_offset
+              opts[:initial_offset]
           end
 
         case state.connection.subscribe(state.stream_name, self(), last_offset, state.initial_credit, state.properties) do
@@ -237,7 +204,7 @@ defmodule RabbitMQStream.Subscriber do
 
       @impl true
       def handle_info({:chunk, %RabbitMQStream.OsirisChunk{} = chunk}, state) do
-        chunk = RabbitMQStream.OsirisChunk.decode_messages!(chunk, state.decoder)
+        chunk = RabbitMQStream.OsirisChunk.decode_messages!(chunk, state.serializer)
 
         cond do
           function_exported?(__MODULE__, :handle_chunk, 1) ->
@@ -259,10 +226,13 @@ defmodule RabbitMQStream.Subscriber do
             end
           end
 
-        credit = state.credits - chunk.num_entries
-
         state =
-          %{state | offset_tracking: offset_tracking, last_offset: chunk.chunk_id, credits: credit}
+          %{
+            state
+            | offset_tracking: offset_tracking,
+              last_offset: chunk.chunk_id,
+              credits: state.credits - chunk.num_entries
+          }
 
         state = state |> OffsetTracking.Strategy.run() |> FlowControl.Strategy.run()
 
@@ -315,7 +285,7 @@ defmodule RabbitMQStream.Subscriber do
     end
   end
 
-  @optional_callbacks handle_chunk: 1, handle_chunk: 2, decode!: 1
+  @optional_callbacks handle_chunk: 1, handle_chunk: 2, decode!: 1, handle_update: 2
 
   @doc """
     The callback that is invoked when a chunk is received.
@@ -353,7 +323,7 @@ defmodule RabbitMQStream.Subscriber do
     :credits,
     :initial_credit,
     :private,
-    :decoder,
+    :serializer,
     :properties
   ]
 
@@ -368,7 +338,7 @@ defmodule RabbitMQStream.Subscriber do
           private: any(),
           credits: non_neg_integer(),
           initial_credit: non_neg_integer(),
-          decoder: {module(), atom()} | (String.t() -> term()) | nil,
+          serializer: {module(), atom()} | (String.t() -> term()) | nil,
           properties: [RabbitMQStream.Message.Types.SubscribeRequestData.property()]
         }
 
@@ -381,7 +351,7 @@ defmodule RabbitMQStream.Subscriber do
           | {:offset_tracking, [{RabbitMQStream.Subscriber.OffsetTracking.Strategy.t(), term()}]}
           | {:flow_control, {RabbitMQStream.Subscriber.FlowControl.Strategy.t(), term()}}
           | {:private, any()}
-          | {:decoder, {module(), atom()} | (String.t() -> term())}
+          | {:serializer, {module(), atom()} | (String.t() -> term())}
           | {:properties, [RabbitMQStream.Message.Types.SubscribeRequestData.property()]}
 
   @type opts :: [subscriber_option()]

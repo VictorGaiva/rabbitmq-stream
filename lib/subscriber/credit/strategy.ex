@@ -4,7 +4,7 @@ defmodule RabbitMQStream.Subscriber.FlowControl.Strategy do
   @moduledoc """
   Behavior for flow control strategies.
 
-  ## Existing Strategies
+  # Existing Strategies
   You can use the default strategies by passing a shorthand alias:
 
   * `count` : `RabbitMQStream.Subscriber.FlowControl.MessageCount`
@@ -14,7 +14,7 @@ defmodule RabbitMQStream.Subscriber.FlowControl.Strategy do
   @doc """
   Initializes the strategy state.
 
-  ## Parameters
+  # Parameters
   * `opts` - a keyword list of the options passed to the subscriber,
       merged with the options passed to the strategy itself.
   """
@@ -23,7 +23,7 @@ defmodule RabbitMQStream.Subscriber.FlowControl.Strategy do
   @doc """
   Callback responsible for deciding whether to add more credit, based on its internal state.
 
-  ## Parameters
+  # Parameters
 
   * `state` - the state of the strategy
   * `subscription` - the state of the owner subscription process

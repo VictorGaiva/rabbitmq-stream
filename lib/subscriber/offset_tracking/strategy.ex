@@ -6,7 +6,7 @@ defmodule RabbitMQStream.Subscriber.OffsetTracking.Strategy do
   If you pass multiple strategies to the subscriber, which will be executed in order, and
   and halt after the first one that returns a `:store` request.
 
-  ## Existing Strategies
+  # Existing Strategies
   You can use the default strategies by passing a shorthand alias:
 
   * `interval` : `RabbitMQStream.Subscriber.OffsetTracking.IntervalStrategy`
@@ -19,7 +19,7 @@ defmodule RabbitMQStream.Subscriber.OffsetTracking.Strategy do
   @doc """
   Initializes the strategy state.
 
-  ## Parameters
+  # Parameters
   * `opts` - a keyword list of the options passed to the subscriber,
       merged with the options passed to the strategy itself.
   """
@@ -41,7 +41,7 @@ defmodule RabbitMQStream.Subscriber.OffsetTracking.Strategy do
   @doc """
   Callback responsible for deciding whether to store the offset, based on its internal state.
 
-  ## Parameters
+  # Parameters
 
   * `state` - the state of the strategy
   * `subscription` - the state of the owner subscription process

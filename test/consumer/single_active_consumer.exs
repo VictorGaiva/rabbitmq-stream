@@ -1,4 +1,4 @@
-defmodule RabbitMQStreamTest.SuperStreams do
+defmodule RabbitMQStreamTest.Consumer.SingleActiveConsumer do
   use ExUnit.Case, async: false
   require Logger
 

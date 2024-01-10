@@ -6,7 +6,7 @@ defmodule RabbitMQStream.Subscriber.FlowControl.MessageCount do
 
   Adds credits after the amount of consumed credit reaches a certain threshold.
 
-  ## Usage
+  # Usage
       defmodule MyApp.MySubscriber do
         alias RabbitMQStream.Subscriber.FlowControl
 
@@ -19,7 +19,7 @@ defmodule RabbitMQStream.Subscriber.FlowControl.MessageCount do
         end
       end
 
-  ## Parameters
+  # Parameters
 
   * `credit_after` - The type of computation performed to decide whether to add more credit.
       Can be one of:

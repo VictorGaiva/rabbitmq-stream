@@ -211,7 +211,7 @@ defmodule RabbitMQStream.OsirisChunk do
     }
   end
 
-  def decode_messages!(chunk, decoder) do
-    %{chunk | data_entries: Enum.map(chunk.data_entries, &decoder.decode!/1)}
+  def decode_messages!(chunk, serizalizer) do
+    %{chunk | data_entries: Enum.map(chunk.data_entries, &serizalizer.decode!/1)}
   end
 end

@@ -1,4 +1,4 @@
-defmodule RabbitMQStreamTest.Subscriber do
+defmodule RabbitMQStreamTest.Consumer do
   use ExUnit.Case, async: false
   alias RabbitMQStream.OsirisChunk
   require Logger
@@ -9,7 +9,7 @@ defmodule RabbitMQStreamTest.Subscriber do
 
   defmodule SupervisorPublisher do
     use RabbitMQStream.Publisher,
-      connection: RabbitMQStreamTest.Subscriber.SupervisedConnection
+      connection: SupervisedConnection
 
     @impl true
     def before_start(_opts, state) do
@@ -21,8 +21,8 @@ defmodule RabbitMQStreamTest.Subscriber do
 
   defmodule Subscriber do
     use RabbitMQStream.Subscriber,
-      connection: RabbitMQStreamTest.Subscriber.SupervisedConnection,
-      decoder: Jason
+      connection: SupervisedConnection,
+      serializer: Jason
 
     @impl true
     def handle_chunk(%OsirisChunk{data_entries: entries}, %{private: parent}) do
@@ -69,7 +69,7 @@ defmodule RabbitMQStreamTest.Subscriber do
     SupervisedConnection.create_stream(@stream)
     assert {:ok, subscription_id} = SupervisedConnection.subscribe(@stream, self(), :next, 1)
 
-    message = Jason.encode!(%{message: "Hello, world1!"})
+    message = Jason.encode!(%{message: "Hello, world!"})
 
     SupervisorPublisher.publish(message)
 
@@ -93,7 +93,7 @@ defmodule RabbitMQStreamTest.Subscriber do
     SupervisedConnection.delete_stream(@stream)
 
     {:ok, _publisher} =
-      SupervisorPublisher.start_link(reference_name: @reference_name, stream_name: @stream, encoder: Jason)
+      SupervisorPublisher.start_link(reference_name: @reference_name, stream_name: @stream, serializer: Jason)
 
     {:ok, _subscriber} =
       Subscriber.start_link(

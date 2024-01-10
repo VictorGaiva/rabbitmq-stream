@@ -3,7 +3,7 @@ defmodule RabbitMQStream.Connection do
   Responsible for encoding and decoding messages, opening and maintaining a socket connection to a single node.
   It connects to the RabbitMQ, and authenticates, and mantains the connection open with heartbeats.
 
-  ## Adding a connectiong to the supervision tree
+  # Adding a connectiong to the supervision tree
 
   You can define a connection with:
 
@@ -25,7 +25,7 @@ defmodule RabbitMQStream.Connection do
       end
 
 
-  ## Connection configuration
+  # Connection configuration
   The connection accept the following options:
 
   * `username` - The username to use for authentication. Defaults to `guest`.
@@ -38,14 +38,14 @@ defmodule RabbitMQStream.Connection do
   * `lazy` - If `true`, the connection won't starting until explicitly calling `connect/1`. Defaults to `false`.
 
 
-  ## Subscribing to messages
+  # Subscribing to messages
   You can subscribe to messages by calling `subscribe/5`:
 
       {:ok, _subscription_id} = MyApp.MyConnection.subscribe("stream-01", self(), :next, 999)
 
 
 
-  ## Configuration
+  # Configuration
   The configuration for the connection can be set in your `config.exs` file:
 
       config :rabbitmq_stream, MyApp.MyConnection,
@@ -74,7 +74,7 @@ defmodule RabbitMQStream.Connection do
   The precedence order is is the same order as the examples above, from top to bottom.
 
 
-  ## Buffering
+  # Buffering
 
   Any call or cast to the connection while it is not connected will be buffered and executed once the connection is open.
   """

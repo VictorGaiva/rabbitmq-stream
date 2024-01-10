@@ -11,7 +11,7 @@ defmodule RabbitMQStream.Subscriber.OffsetTracking.IntervalStrategy do
   timer that may be running when the strategy is returns a `:store`.
 
 
-  ## Usage
+  # Usage
       defmodule MyApp.MySubscriber do
         alias RabbitMQStream.Subscriber.OffsetTracking
 
@@ -25,7 +25,7 @@ defmodule RabbitMQStream.Subscriber.OffsetTracking.IntervalStrategy do
       end
 
 
-  ## Parameters
+  # Parameters
 
   * `interval` - the time in milliseconds before storing the offset
   """

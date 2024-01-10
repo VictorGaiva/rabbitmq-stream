@@ -382,13 +382,13 @@ defmodule RabbitMQStream.Message.Data do
               {"filter.#{i}", entry}
             end
 
-          [filter | acc]
+          filter ++ acc
 
         {:single_active_consumer, name}, acc ->
           [{"single-active-consumer", true}, {"name", name} | acc]
 
         {key, value}, acc ->
-          [{String.replace(key, "_", "-"), value} | acc]
+          [{String.replace("#{key}", "_", "-"), value} | acc]
       end)
       |> encode_map()
 

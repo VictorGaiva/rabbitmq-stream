@@ -6,7 +6,7 @@ defmodule RabbitMQStream.Subscriber.OffsetTracking.CountStrategy do
 
   Stores the offset after every `store_after` messages.
 
-  ## Usage
+  # Usage
       defmodule MyApp.MySubscriber do
         alias RabbitMQStream.Subscriber.OffsetTracking
 
@@ -20,7 +20,7 @@ defmodule RabbitMQStream.Subscriber.OffsetTracking.CountStrategy do
       end
 
 
-  ## Parameters
+  # Parameters
 
   * `store_after` - the number of messages to receive before storing the offset
 

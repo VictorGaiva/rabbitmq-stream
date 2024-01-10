@@ -2,7 +2,7 @@ defmodule RabbitMQStream.Publisher do
   @moduledoc """
   `RabbitMQStream.Publisher` allows you to define modules or processes that publish messages to a single stream.
 
-  ## Defining a publisher Module
+  # Defining a publisher Module
 
   A standalone publisher module can be defined with:
 
@@ -30,12 +30,13 @@ defmodule RabbitMQStream.Publisher do
 
   The standalone publisher starts its own `RabbitMQStream.Connection`, declaring itself and fetching its most recent `publishing_id`, and declaring the stream, if it does not exist.
 
-  ## Configuration
+  # Configuration
   The RabbitMQStream.Publisher accepts the following options:
 
-  * `stream_name` - The name of the stream to publish to. Required.
-  * `reference_name` - The string which is used by the server to prevent [Duplicate Message](https://blog.rabbitmq.com/posts/2021/07/rabbitmq-streams-message-deduplication/). Defaults to `__MODULE__.Publisher`.
-  * `connection` - The identifier for a `RabbitMQStream.Connection`.
+  * `:stream_name` - The name of the stream to publish to. Required.
+  * `:reference_name` - The string which is used by the server to prevent [Duplicate Message](https://blog.rabbitmq.com/posts/2021/07/rabbitmq-streams-message-deduplication/). Defaults to `__MODULE__.Publisher`.
+  * `:connection` - The identifier for a `RabbitMQStream.Connection`.
+  * `:serializer` - The module to use to decode the message. Defaults to `nil`, which means no encoding is done.
 
   You can also declare the configuration in your `config.exs`:
 
@@ -44,7 +45,7 @@ defmodule RabbitMQStream.Publisher do
         connection: MyApp.MyConnection
 
 
-  ## Setting up
+  # Setting up
 
   You can optionally define a `before_start/2` callback to perform setup logic, such as creating the stream, if it doesn't yet exists.
 
@@ -62,7 +63,7 @@ defmodule RabbitMQStream.Publisher do
         end
       end
 
-  ### Configuration
+  # Configuration
 
     You can configure each Publisher with:
 
@@ -84,34 +85,6 @@ defmodule RabbitMQStream.Publisher do
       * `:stream_name`
       * `:reference_name`
 
-  ## Serialization
-
-  You can optionally define a callback to encode the message before publishing it.
-  It expects that the module you pass implements the `encode!/1` callback.
-
-  You can define it globally:
-
-        config :rabbitmq_stream, :defaults,
-          serializer: Jason
-
-  Or you can pass it as an option to the `use` macro:
-
-        defmodule MyApp.MyPublisher do
-          use RabbitMQStream.Publisher,
-            serializer: Jason
-        end
-
-  You can also define it in the module itself:
-
-        defmodule MyApp.MyPublisher do
-          use RabbitMQStream.Publisher,
-            serializer: __MODULE__
-
-          @impl true
-          def encode!(message) do
-            Jason.encode!(message)
-          end
-        end
   """
 
   defmacro __using__(opts) do
@@ -143,15 +116,15 @@ defmodule RabbitMQStream.Publisher do
         GenServer.stop(__MODULE__)
       end
 
-      ## Callbacks
+      # Callbacks
       @impl true
       def init(opts \\ []) do
         reference_name = Keyword.get(opts, :reference_name, Atom.to_string(__MODULE__))
         connection = Keyword.get(opts, :connection) || raise(":connection is required")
         stream_name = Keyword.get(opts, :stream_name) || raise(":stream_name is required")
 
-        # An implemented `encode/1` callback takes precedence over the encoder option
-        encoder = Keyword.get(opts, :encoder, __MODULE__)
+        # An implemented `encode!/1` callback takes precedence over the serializer option
+        serializer = Keyword.get(opts, :serializer, __MODULE__)
 
         state = %RabbitMQStream.Publisher{
           id: nil,
@@ -159,7 +132,7 @@ defmodule RabbitMQStream.Publisher do
           stream_name: stream_name,
           connection: connection,
           reference_name: reference_name,
-          encoder: encoder
+          serializer: serializer
         }
 
         {:ok, state, {:continue, opts}}
@@ -182,7 +155,7 @@ defmodule RabbitMQStream.Publisher do
       def handle_cast({:publish, message}, %RabbitMQStream.Publisher{} = publisher) do
         filter_value = apply(__MODULE__, :filter_value, [message])
 
-        message = publisher.encoder.encode!(message)
+        message = publisher.serializer.encode!(message)
 
         publisher.connection.publish(publisher.id, publisher.sequence, message, filter_value)
 
@@ -211,7 +184,7 @@ defmodule RabbitMQStream.Publisher do
     :connection,
     :stream_name,
     :sequence,
-    :encoder,
+    :serializer,
     :id
   ]
 
@@ -221,7 +194,7 @@ defmodule RabbitMQStream.Publisher do
           connection: RabbitMQStream.Connection.t(),
           stream_name: String.t(),
           sequence: non_neg_integer() | nil,
-          encoder: (term() -> String.t()) | nil,
+          serializer: (term() -> String.t()) | nil,
           id: String.t() | nil
         }
 
@@ -231,7 +204,7 @@ defmodule RabbitMQStream.Publisher do
           {:stream_name, String.t()}
           | {:reference_name, String.t()}
           | {:connection, RabbitMQStream.Connection.t()}
-  @optional_callbacks [before_start: 2, filter_value: 1, encode!: 1]
+  @optional_callbacks [before_start: 2, filter_value: 1]
 
   @doc """
     Optional callback that is called after the process has started, but before the
@@ -242,6 +215,4 @@ defmodule RabbitMQStream.Publisher do
   @callback before_start(options(), t()) :: t()
 
   @callback filter_value(term()) :: String.t()
-
-  @callback encode!(term()) :: String.t()
 end

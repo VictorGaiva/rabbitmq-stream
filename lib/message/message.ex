@@ -231,6 +231,17 @@ defmodule RabbitMQStream.Message do
     }
   end
 
+  def new_request(%Connection{server_commands_versions: %{publish: {_, 2}}}, :publish, opts) do
+    %Request{
+      version: 2,
+      command: :publish,
+      data: %Types.PublishData{
+        publisher_id: opts[:publisher_id],
+        messages: opts[:messages]
+      }
+    }
+  end
+
   def new_request(%Connection{}, :publish, opts) do
     %Request{
       version: 1,
