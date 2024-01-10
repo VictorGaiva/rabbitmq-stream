@@ -233,13 +233,13 @@ defmodule RabbitMQStream.Connection.Handler do
   def handle_message(%Connection{} = conn, %Response{command: :subscribe} = response) do
     {{pid, data}, conn} = Helpers.pop_request_tracker(conn, :subscribe, response.correlation_id)
 
-    {subscription_id, subscriber} = data
+    {subscription_id, consumer} = data
 
     if pid != nil do
       GenServer.reply(pid, {:ok, subscription_id})
     end
 
-    %{conn | subscriptions: Map.put(conn.subscriptions, subscription_id, subscriber)}
+    %{conn | subscriptions: Map.put(conn.subscriptions, subscription_id, consumer)}
   end
 
   def handle_message(%Connection{} = conn, %Response{command: :unsubscribe} = response) do
@@ -284,7 +284,7 @@ defmodule RabbitMQStream.Connection.Handler do
     conn
   end
 
-  # We forward the request because the subscriber is the one responsible for
+  # We forward the request because the consumer is the one responsible for
   # deciding how to respond to the request.
   def handle_message(%Connection{} = conn, %Request{command: :consumer_update} = request) do
     subscription_pid = Map.get(conn.subscriptions, request.data.subscription_id)

@@ -17,9 +17,13 @@ The 'Message' module tree was refactored to make all the Encoding and Decoding l
 
 - Improved the cleanup logic for closing the connection.
 
+### 0.4.0 Breaking Changes
+
+- Renamed `RabbitMQStream.Subscriber` to `RabbitMQStream.Consumer`
+
 ## 0.3.0
 
-Added an implementation for a stream Subscriber, fixed bugs and improved the documentation.
+Added an implementation for a stream Consumer, fixed bugs and improved the documentation.
 
 ### 0.3.0 Features
 

@@ -1,5 +1,5 @@
-defmodule RabbitMQStream.Subscriber.OffsetTracking.IntervalStrategy do
-  @behaviour RabbitMQStream.Subscriber.OffsetTracking.Strategy
+defmodule RabbitMQStream.Consumer.OffsetTracking.IntervalStrategy do
+  @behaviour RabbitMQStream.Consumer.OffsetTracking.Strategy
 
   @moduledoc """
   Interval Strategy
@@ -12,10 +12,10 @@ defmodule RabbitMQStream.Subscriber.OffsetTracking.IntervalStrategy do
 
 
   # Usage
-      defmodule MyApp.MySubscriber do
-        alias RabbitMQStream.Subscriber.OffsetTracking
+      defmodule MyApp.MyConsumer do
+        alias RabbitMQStream.Consumer.OffsetTracking
 
-        use RabbitMQStream.Subscriber,
+        use RabbitMQStream.Consumer,
           offset_tracking: [OffsetTracking.IntervalStrategy, interval: 10_000]
 
         @impl true

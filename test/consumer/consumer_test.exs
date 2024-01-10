@@ -19,8 +19,8 @@ defmodule RabbitMQStreamTest.Consumer do
     end
   end
 
-  defmodule Subscriber do
-    use RabbitMQStream.Subscriber,
+  defmodule Consumer do
+    use RabbitMQStream.Consumer,
       connection: SupervisedConnection,
       serializer: Jason
 
@@ -39,7 +39,7 @@ defmodule RabbitMQStreamTest.Consumer do
     :ok
   end
 
-  @stream "subscriber-test-stream-01"
+  @stream "consumer-test-stream-01"
   @reference_name "reference-01"
   test "should publish and receive a message" do
     {:ok, _publisher} = SupervisorPublisher.start_link(reference_name: @reference_name, stream_name: @stream)
@@ -60,12 +60,12 @@ defmodule RabbitMQStreamTest.Consumer do
     SupervisedConnection.delete_stream(@stream)
   end
 
-  @stream "subscriber-test-stream-02"
+  @stream "consumer-test-stream-02"
   @reference_name "reference-02"
-  test "should credit a subscriber" do
+  test "should credit a consumer" do
     {:ok, _publisher} = SupervisorPublisher.start_link(reference_name: @reference_name, stream_name: @stream)
 
-    # We ensure the stream exists before subscribing
+    # We ensure the stream exists before consuming
     SupervisedConnection.create_stream(@stream)
     assert {:ok, subscription_id} = SupervisedConnection.subscribe(@stream, self(), :next, 1)
 
@@ -87,24 +87,24 @@ defmodule RabbitMQStreamTest.Consumer do
     SupervisedConnection.delete_stream(@stream)
   end
 
-  @stream "subscriber-test-stream-10"
+  @stream "consumer-test-stream-10"
   @reference_name "reference-10"
-  test "a message should be received by a persistent subscriber" do
+  test "a message should be received by a persistent consumer" do
     SupervisedConnection.delete_stream(@stream)
 
     {:ok, _publisher} =
       SupervisorPublisher.start_link(reference_name: @reference_name, stream_name: @stream, serializer: Jason)
 
     {:ok, _subscriber} =
-      Subscriber.start_link(
+      Consumer.start_link(
         initial_offset: :next,
         stream_name: @stream,
         private: self(),
         offset_tracking: [count: [store_after: 1]]
       )
 
-    message1 = %{"message" => "Subscriber Test: 1"}
-    message2 = %{"message" => "Subscriber Test: 2"}
+    message1 = %{"message" => "Consumer Test: 1"}
+    message2 = %{"message" => "Consumer Test: 2"}
 
     SupervisorPublisher.publish(message1)
     assert_receive {:handle_chunk, [^message1]}, 500
@@ -112,10 +112,10 @@ defmodule RabbitMQStreamTest.Consumer do
     SupervisorPublisher.publish(message2)
     assert_receive {:handle_chunk, [^message2]}, 500
 
-    :ok = GenServer.stop(Subscriber, :normal)
+    :ok = GenServer.stop(Consumer, :normal)
 
     {:ok, _subscriber} =
-      Subscriber.start_link(
+      Consumer.start_link(
         initial_offset: :next,
         stream_name: @stream,
         private: self(),

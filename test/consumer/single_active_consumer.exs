@@ -31,7 +31,7 @@ defmodule RabbitMQStreamTest.Consumer.SingleActiveConsumer do
   end
 
   defmodule Subs1 do
-    use RabbitMQStream.Subscriber,
+    use RabbitMQStream.Consumer,
       connection: Conn1,
       initial_offset: :next,
       stream_name: "super-stream-test-01",
@@ -52,7 +52,7 @@ defmodule RabbitMQStreamTest.Consumer.SingleActiveConsumer do
   end
 
   defmodule Subs2 do
-    use RabbitMQStream.Subscriber,
+    use RabbitMQStream.Consumer,
       connection: Conn2,
       initial_offset: :next,
       stream_name: "super-stream-test-01",
@@ -73,7 +73,7 @@ defmodule RabbitMQStreamTest.Consumer.SingleActiveConsumer do
   end
 
   defmodule Subs3 do
-    use RabbitMQStream.Subscriber,
+    use RabbitMQStream.Consumer,
       connection: Conn3,
       initial_offset: :next,
       stream_name: "super-stream-test-01",
@@ -119,12 +119,12 @@ defmodule RabbitMQStreamTest.Consumer.SingleActiveConsumer do
 
     assert_receive {{conn1, ^sub1}, "2"}, 500
 
-    # When calling .stop, the subscriber send a 'unsubscribe' request to the connection before closing.
-    # So we must first close the subscriber, then the connection.
+    # When calling .stop, the consumer send a 'unsubscribe' request to the connection before closing.
+    # So we must first close the consumer, then the connection.
     :ok = GenServer.stop(sub1)
     :ok = GenServer.stop(conn1)
 
-    # At this point, the newly selected subscriber should have received
+    # At this point, the newly selected consumer should have received
     # a 'consumer_update' request from the server and informed its current offset.
     # We are setting the defaults offset to ':last' in the `handle_update` callback above.
     # But a more realistic scenario would be to fetch the offset from the stream itself.

@@ -1,4 +1,4 @@
-# Subscribing to Messages
+# Consuming messages
 
 After defining a connection with:
 
@@ -8,7 +8,7 @@ defmodule MyApp.MyConnection do
 end
 ```
 
-You can subscribe to messages from a stream with:
+You can consume messages from a stream with:
 
 ```elixir
 {:ok, _subscription_id} = MyApp.MyConnection.subscribe("stream-01", self(), :next, 999)
@@ -20,18 +20,18 @@ The message will be received with the format `{:chunk, %RabbitMQStream.OsirisChu
 
 ### Persistent Subscription
 
-You can `use RabbitMQStream.Subscriber` to create a persistent subscription to a stream, which will automatically track the offset and credit.
-You can check more information about the `RabbitMQStream.Subscriber` in its documentation.
+You can `use RabbitMQStream.Consumer` to create a persistent subscription to a stream, which will automatically track the offset and credit.
+You can check more information about the `RabbitMQStream.Consumer` in its documentation.
 
 ```elixir
-defmodule MyApp.MySubscriber do
-  use RabbitMQStream.Subscriber,
+defmodule MyApp.MyConsumer do
+  use RabbitMQStream.Consumer,
     connection: MyApp.MyConnection,
     stream_name: "my_stream",
     initial_offset: :first
 
   @impl true
-  def handle_chunk(_chunk, _subscriber) do
+  def handle_chunk(_chunk, _consumer) do
     :ok
   end
 end
@@ -43,7 +43,7 @@ end
 An example `GenServer` handler that receives messages from a stream could be written like this:
 
 ```elixir
-defmodule MyApp.MySubscriber do
+defmodule MyApp.MyConsumer do
   use GenServer
   alias RabbitMQStream.OsirisChunk
 

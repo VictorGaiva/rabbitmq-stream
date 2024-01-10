@@ -1,4 +1,4 @@
-defmodule RabbitMQStream.Subscriber.FlowControl.Strategy do
+defmodule RabbitMQStream.Consumer.FlowControl.Strategy do
   @type t :: module()
 
   @moduledoc """
@@ -7,7 +7,7 @@ defmodule RabbitMQStream.Subscriber.FlowControl.Strategy do
   # Existing Strategies
   You can use the default strategies by passing a shorthand alias:
 
-  * `count` : `RabbitMQStream.Subscriber.FlowControl.MessageCount`
+  * `count` : `RabbitMQStream.Consumer.FlowControl.MessageCount`
 
   """
 
@@ -15,7 +15,7 @@ defmodule RabbitMQStream.Subscriber.FlowControl.Strategy do
   Initializes the strategy state.
 
   # Parameters
-  * `opts` - a keyword list of the options passed to the subscriber,
+  * `opts` - a keyword list of the options passed to the consumer,
       merged with the options passed to the strategy itself.
   """
   @callback init(opts :: term()) :: term()
@@ -28,31 +28,31 @@ defmodule RabbitMQStream.Subscriber.FlowControl.Strategy do
   * `state` - the state of the strategy
   * `subscription` - the state of the owner subscription process
   """
-  @callback run(state :: term(), subscription :: RabbitMQStream.Subscriber.t()) ::
+  @callback run(state :: term(), subscription :: RabbitMQStream.Consumer.t()) ::
               {:credit, amount :: non_neg_integer(), state :: term()} | {:skip, state :: term()}
 
   @defaults %{
-    count: RabbitMQStream.Subscriber.FlowControl.MessageCount
+    count: RabbitMQStream.Consumer.FlowControl.MessageCount
   }
   @doc false
-  def init([{strategy, opts}], subscriber_opts) do
+  def init([{strategy, opts}], consumer_opts) do
     strategy = @defaults[strategy] || strategy
 
-    {strategy, strategy.init(Keyword.merge(subscriber_opts, opts))}
+    {strategy, strategy.init(Keyword.merge(consumer_opts, opts))}
   end
 
   def init(false, _) do
     false
   end
 
-  def init(strategy, subscriber_opts) do
+  def init(strategy, consumer_opts) do
     strategy = @defaults[strategy] || strategy
 
-    {strategy, strategy.init(subscriber_opts)}
+    {strategy, strategy.init(consumer_opts)}
   end
 
   @doc false
-  def run(%RabbitMQStream.Subscriber{flow_control: {strategy, flow_state}} = state) do
+  def run(%RabbitMQStream.Consumer{flow_control: {strategy, flow_state}} = state) do
     case strategy.run(flow_state, state) do
       {:credit, amount, new_flow_control} ->
         state.connection.credit(state.id, amount)
@@ -63,5 +63,5 @@ defmodule RabbitMQStream.Subscriber.FlowControl.Strategy do
     end
   end
 
-  def run(%RabbitMQStream.Subscriber{flow_control: false} = state), do: state
+  def run(%RabbitMQStream.Consumer{flow_control: false} = state), do: state
 end

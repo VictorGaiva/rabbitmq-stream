@@ -70,7 +70,7 @@ defmodule RabbitMQStream.MixProject do
   defp extras do
     [
       "guides/introduction/getting-started.md",
-      "guides/tutorial/subscribing.md",
+      "guides/tutorial/consuming.md",
       "CHANGELOG.md"
     ]
   end
@@ -89,16 +89,16 @@ defmodule RabbitMQStream.MixProject do
       Client: [
         RabbitMQStream.Connection,
         RabbitMQStream.Publisher,
-        RabbitMQStream.Subscriber
+        RabbitMQStream.Consumer
       ],
       "Offset Tracking": [
-        RabbitMQStream.Subscriber.OffsetTracking.Strategy,
-        RabbitMQStream.Subscriber.OffsetTracking.CountStrategy,
-        RabbitMQStream.Subscriber.OffsetTracking.IntervalStrategy
+        RabbitMQStream.Consumer.OffsetTracking.Strategy,
+        RabbitMQStream.Consumer.OffsetTracking.CountStrategy,
+        RabbitMQStream.Consumer.OffsetTracking.IntervalStrategy
       ],
       "Flow Control": [
-        RabbitMQStream.Subscriber.FlowControl.Strategy,
-        RabbitMQStream.Subscriber.FlowControl.MessageCount
+        RabbitMQStream.Consumer.FlowControl.Strategy,
+        RabbitMQStream.Consumer.FlowControl.MessageCount
       ]
     ]
   end

@@ -1,16 +1,16 @@
-defmodule RabbitMQStream.Subscriber.OffsetTracking.Strategy do
+defmodule RabbitMQStream.Consumer.OffsetTracking.Strategy do
   @type t :: module()
 
   @moduledoc """
   Behavior for offset tracking strategies.
-  If you pass multiple strategies to the subscriber, which will be executed in order, and
+  If you pass multiple strategies to the consumer, which will be executed in order, and
   and halt after the first one that returns a `:store` request.
 
   # Existing Strategies
   You can use the default strategies by passing a shorthand alias:
 
-  * `interval` : `RabbitMQStream.Subscriber.OffsetTracking.IntervalStrategy`
-  * `after` : `RabbitMQStream.Subscriber.OffsetTracking.CountStrategy`
+  * `interval` : `RabbitMQStream.Consumer.OffsetTracking.IntervalStrategy`
+  * `after` : `RabbitMQStream.Consumer.OffsetTracking.CountStrategy`
 
   """
 
@@ -20,7 +20,7 @@ defmodule RabbitMQStream.Subscriber.OffsetTracking.Strategy do
   Initializes the strategy state.
 
   # Parameters
-  * `opts` - a keyword list of the options passed to the subscriber,
+  * `opts` - a keyword list of the options passed to the consumer,
       merged with the options passed to the strategy itself.
   """
   @callback init(opts :: term()) :: term()
@@ -34,7 +34,7 @@ defmodule RabbitMQStream.Subscriber.OffsetTracking.Strategy do
   @callback after_chunk(
               state :: term(),
               chunk :: RabbitMQStream.OsirisChunk.t(),
-              subscription :: RabbitMQStream.Subscriber.t()
+              subscription :: RabbitMQStream.Consumer.t()
             ) ::
               term()
 
@@ -46,12 +46,12 @@ defmodule RabbitMQStream.Subscriber.OffsetTracking.Strategy do
   * `state` - the state of the strategy
   * `subscription` - the state of the owner subscription process
   """
-  @callback run(state :: term(), subscription :: RabbitMQStream.Subscriber.t()) ::
+  @callback run(state :: term(), subscription :: RabbitMQStream.Consumer.t()) ::
               {:store, state :: term()} | {:skip, state :: term()}
 
   @defaults %{
-    count: RabbitMQStream.Subscriber.OffsetTracking.CountStrategy,
-    interval: RabbitMQStream.Subscriber.OffsetTracking.IntervalStrategy
+    count: RabbitMQStream.Consumer.OffsetTracking.CountStrategy,
+    interval: RabbitMQStream.Consumer.OffsetTracking.IntervalStrategy
   }
   @doc false
   def init(strategies, extra_opts \\ []) do
@@ -71,9 +71,9 @@ defmodule RabbitMQStream.Subscriber.OffsetTracking.Strategy do
   end
 
   @doc false
-  def run(%RabbitMQStream.Subscriber{last_offset: nil} = state), do: state
+  def run(%RabbitMQStream.Consumer{last_offset: nil} = state), do: state
 
-  def run(%RabbitMQStream.Subscriber{} = state) do
+  def run(%RabbitMQStream.Consumer{} = state) do
     {_, offset_tracking} =
       Enum.reduce(
         state.offset_tracking,

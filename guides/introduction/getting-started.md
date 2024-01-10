@@ -13,7 +13,7 @@ def deps do
 end
 ```
 
-## Subscribing to stream
+## Consuming from stream
 
 First you define a connection
 
@@ -23,7 +23,7 @@ defmodule MyApp.MyConnection
 end
 ```
 
-Then you can subscribe to messages from a stream:
+Then you can consume to messages from a stream:
 
 ```elixir
 {:ok, _subscription_id} = MyApp.MyConnection.subscribe("stream-01", self(), :next, 999)

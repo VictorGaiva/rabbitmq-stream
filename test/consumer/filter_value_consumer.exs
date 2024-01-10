@@ -18,7 +18,7 @@ defmodule RabbitMQStreamTest.Consumer.FilterValue do
   end
 
   defmodule Subs1 do
-    use RabbitMQStream.Subscriber,
+    use RabbitMQStream.Consumer,
       connection: Conn1,
       initial_offset: :next,
       stream_name: "filter-value-01",
@@ -35,7 +35,7 @@ defmodule RabbitMQStreamTest.Consumer.FilterValue do
   end
 
   defmodule Subs2 do
-    use RabbitMQStream.Subscriber,
+    use RabbitMQStream.Consumer,
       connection: Conn1,
       initial_offset: :next,
       stream_name: "filter-value-01",
@@ -52,7 +52,7 @@ defmodule RabbitMQStreamTest.Consumer.FilterValue do
   end
 
   defmodule Subs3 do
-    use RabbitMQStream.Subscriber,
+    use RabbitMQStream.Consumer,
       connection: Conn1,
       initial_offset: :next,
       stream_name: "filter-value-01",

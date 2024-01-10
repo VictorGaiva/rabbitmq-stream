@@ -1,5 +1,5 @@
-defmodule RabbitMQStream.Subscriber.OffsetTracking.CountStrategy do
-  @behaviour RabbitMQStream.Subscriber.OffsetTracking.Strategy
+defmodule RabbitMQStream.Consumer.OffsetTracking.CountStrategy do
+  @behaviour RabbitMQStream.Consumer.OffsetTracking.Strategy
 
   @moduledoc """
   Count Strategy
@@ -7,10 +7,10 @@ defmodule RabbitMQStream.Subscriber.OffsetTracking.CountStrategy do
   Stores the offset after every `store_after` messages.
 
   # Usage
-      defmodule MyApp.MySubscriber do
-        alias RabbitMQStream.Subscriber.OffsetTracking
+      defmodule MyApp.MyConsumer do
+        alias RabbitMQStream.Consumer.OffsetTracking
 
-        use RabbitMQStream.Subscriber,
+        use RabbitMQStream.Consumer,
           offset_tracking: [OffsetTracking.CountStrategy, store_after: 50]
 
         @impl true
