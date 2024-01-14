@@ -69,17 +69,20 @@ defmodule RabbitMQStream.MixProject do
 
   defp extras do
     [
-      "guides/introduction/getting-started.md",
-      "guides/tutorial/consuming.md",
+      "guides/concepts/streams.md",
+      "guides/concepts/super-streams.md",
+      "guides/concepts/single-active-consumer.md",
+      "guides/concepts/offset.md",
+      "guides/setup/getting-started.md",
+      "guides/setup/configuration.md",
       "CHANGELOG.md"
     ]
   end
 
   defp groups_for_extras do
     [
-      Introduction: ~r/guides\/introduction\/.*/,
-      Tutorial: ~r/guides\/tutorial\/.*/,
-      Topics: ~r/guides\/[^\/]+\.md/,
+      Concepts: ~r/guides\/concepts\/.*/,
+      Setup: ~r/guides\/setup\/.*/,
       Changelog: "CHANGELOG.md"
     ]
   end
