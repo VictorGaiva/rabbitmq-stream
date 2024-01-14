@@ -223,6 +223,22 @@ defmodule RabbitMQStream.Connection do
         GenServer.call(__MODULE__, {:partitions, stream_name: stream_name})
       end
 
+      def create_super_stream(name, partitions, binding_keys, arguments \\ [])
+          when is_binary(name) and
+                 is_list(partitions) and
+                 length(partitions) > 0 and
+                 is_list(binding_keys) and
+                 length(binding_keys) > 0 do
+        GenServer.call(
+          __MODULE__,
+          {:create_super_stream, name: name, partitions: partitions, binding_keys: binding_keys, arguments: arguments}
+        )
+      end
+
+      def delete_super_stream(name) when is_binary(name) do
+        GenServer.call(__MODULE__, {:delete_super_stream, name: name})
+      end
+
       def respond(request, opts) when is_list(opts) do
         GenServer.cast(__MODULE__, {:respond, request, opts})
       end
@@ -285,19 +301,19 @@ defmodule RabbitMQStream.Connection do
               :ok | {:error, reason :: atom()}
 
   @doc """
-    The server will sometimes send a request to the client, which we must send a response to.
+  The server will sometimes send a request to the client, which we must send a response to.
 
-    And example request is the 'ConsumerUpdate', where the server expects a response with the
-    offset. So the connection sends the request to the subscription handler, which then calls
-    this function to send the response back to the server.
+  And example request is the 'ConsumerUpdate', where the server expects a response with the
+  offset. So the connection sends the request to the subscription handler, which then calls
+  this function to send the response back to the server.
   """
   @callback respond(request :: RabbitMQStream.Message.Request.t(), opts :: Keyword.t()) :: :ok
 
   @doc """
-    Adds the specified amount of credits to the subscription under the given `subscription_id`.
+  Adds the specified amount of credits to the subscription under the given `subscription_id`.
 
-    This function instantly returns `:ok` as the RabbitMQ Server only sends a response if the command fails,
-    which only happens if the subscription is not found. In that case the error is logged.
+  This function instantly returns `:ok` as the RabbitMQ Server only sends a response if the command fails,
+  which only happens if the subscription is not found. In that case the error is logged.
 
   """
   @callback credit(subscription_id :: non_neg_integer(), credit :: non_neg_integer()) :: :ok

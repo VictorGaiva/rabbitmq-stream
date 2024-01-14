@@ -14,6 +14,8 @@ defmodule RabbitMQStream.Message.Data do
   def decode(%Response{command: :unsubscribe}, ""), do: %Types.UnsubscribeResponseData{}
   def decode(%Response{command: :credit}, ""), do: %Types.CreditResponseData{}
   def decode(%Response{command: :store_offset}, ""), do: %Types.StoreOffsetResponseData{}
+  def decode(%Response{command: :create_super_stream}, ""), do: %Types.CreateSuperStreamResponseData{}
+  def decode(%Response{command: :delete_super_stream}, ""), do: %Types.DeleteSuperStreamResponseData{}
 
   def decode(%Request{command: :publish_confirm}, buffer) do
     <<publisher_id::unsigned-integer-size(8), buffer::binary>> = buffer
@@ -399,6 +401,9 @@ defmodule RabbitMQStream.Message.Data do
         {:single_active_consumer, name}, acc ->
           [{"single-active-consumer", true}, {"name", name} | acc]
 
+        {:super_stream, name}, acc ->
+          [{"super-stream", name} | acc]
+
         {key, value}, acc ->
           [{String.replace("#{key}", "_", "-"), value} | acc]
       end)
@@ -468,5 +473,18 @@ defmodule RabbitMQStream.Message.Data do
 
   def encode(%Request{command: :stream_stats, data: data}) do
     encode_string(data.stream_name)
+  end
+
+  def encode(%Request{command: :create_super_stream, data: data}) do
+    name = encode_string(data.name)
+    partitions = encode_array(data.partitions, &encode_string/1)
+    binding_keys = encode_array(data.binding_keys, &encode_string/1)
+    arguments = encode_map(data.arguments)
+
+    <<name::binary, partitions::binary, binding_keys::binary, arguments::binary>>
+  end
+
+  def encode(%Request{command: :delete_super_stream, data: data}) do
+    encode_string(data.name)
   end
 end

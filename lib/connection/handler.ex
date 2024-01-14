@@ -94,7 +94,9 @@ defmodule RabbitMQStream.Connection.Handler do
              :delete_publisher,
              :subscribe,
              :unsubscribe,
-             :stream_stats
+             :stream_stats,
+             :create_super_stream,
+             :delete_super_stream
            ] and
              code not in [:ok, nil] do
     {{pid, _data}, conn} = Helpers.pop_request_tracker(conn, command, response.correlation_id)
@@ -285,7 +287,7 @@ defmodule RabbitMQStream.Connection.Handler do
   end
 
   def handle_message(%Connection{} = conn, %Response{command: command} = response)
-      when command in [:create_stream, :delete_stream, :delete_publisher] do
+      when command in [:create_stream, :delete_stream, :delete_publisher, :create_super_stream, :delete_super_stream] do
     {{pid, _data}, conn} = Helpers.pop_request_tracker(conn, command, response.correlation_id)
 
     if pid != nil do

@@ -328,6 +328,24 @@ defmodule RabbitMQStream.Message do
     }
   end
 
+  def new_request(%Connection{} = conn, :create_super_stream, opts) do
+    %Request{
+      version: 1,
+      command: :create_super_stream,
+      correlation_id: conn.correlation_sequence,
+      data: struct(Types.CreateSuperStreamRequestData, opts)
+    }
+  end
+
+  def new_request(%Connection{} = conn, :delete_super_stream, opts) do
+    %Request{
+      version: 1,
+      command: :delete_super_stream,
+      correlation_id: conn.correlation_sequence,
+      data: struct(Types.DeleteSuperStreamRequestData, opts)
+    }
+  end
+
   def new_response(%Connection{options: options}, :tune, correlation_id: correlation_id) do
     %Response{
       version: 1,

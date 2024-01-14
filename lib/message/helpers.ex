@@ -154,6 +154,13 @@ defmodule RabbitMQStream.Message.Helpers do
     <<size::integer-size(32), arr::binary>>
   end
 
+  def encode_array(arr, foo) when is_function(foo, 1) do
+    size = Enum.count(arr)
+    arr = arr |> Enum.map(foo) |> Enum.reduce(&<>/2)
+
+    <<size::integer-size(32), arr::binary>>
+  end
+
   def encode_map(nil) do
     encode_array([])
   end

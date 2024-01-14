@@ -547,4 +547,34 @@ defmodule RabbitMQStream.Message.Types do
     @type t :: %{stats: %{String.t() => integer()}}
     defstruct [:stats]
   end
+
+  defmodule CreateSuperStreamRequestData do
+    @enforce_keys [:name, :partitions, :binding_keys, :arguments]
+    @type t :: %{
+            name: String.t(),
+            partitions: [String.t()],
+            binding_keys: [String.t()],
+            arguments: Keyword.t(String.t())
+          }
+    defstruct [:name, :partitions, :binding_keys, :arguments]
+  end
+
+  defmodule CreateSuperStreamResponseData do
+    @moduledoc false
+    @type t :: %{}
+    defstruct []
+  end
+
+  defmodule DeleteSuperStreamRequestData do
+    @moduledoc false
+    @enforce_keys [:name]
+    @type t :: %{name: String.t()}
+    defstruct [:name]
+  end
+
+  defmodule DeleteSuperStreamResponseData do
+    @moduledoc false
+    @type t :: %{}
+    defstruct []
+  end
 end

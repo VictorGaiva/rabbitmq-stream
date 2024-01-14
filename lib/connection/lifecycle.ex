@@ -118,7 +118,8 @@ defmodule RabbitMQStream.Connection.Lifecycle do
   end
 
   def handle_call({command, opts}, from, %Connection{} = conn)
-      when command in [:route, :partitions] and is_map_key(conn.server_commands_versions, command) do
+      when command in [:route, :partitions, :create_super_stream, :delete_super_stream] and
+             is_map_key(conn.server_commands_versions, command) do
     conn =
       conn
       |> Helpers.push_request_tracker(command, from)
@@ -128,7 +129,7 @@ defmodule RabbitMQStream.Connection.Lifecycle do
   end
 
   def handle_call({command, _opts}, _from, %Connection{peer_properties: %{"version" => version}} = conn)
-      when command in [:route, :partitions] do
+      when command in [:route, :partitions, :create_super_stream, :delete_super_stream] do
     Logger.error("Command #{command} is not supported by the server. Its current informed version is '#{version}'.")
 
     {:reply, {:error, :unsupported}, conn}
