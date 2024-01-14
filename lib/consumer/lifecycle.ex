@@ -60,6 +60,9 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
   def terminate(_reason, %{id: nil}), do: :ok
 
   def terminate(_reason, state) do
+    # While not guaranteed, we attempt to store the offset when terminating. Useful for when performing
+    # upgrades, and in a 'single-active-consumer' scenario.
+    state.connection.store_offset(state.stream_name, state.offset_reference, state.last_offset)
     state.connection.unsubscribe(state.id)
     :ok
   end
