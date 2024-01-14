@@ -446,9 +446,9 @@ defmodule RabbitMQStream.Message.Types do
 
   defmodule RouteResponseData do
     @moduledoc false
-    @enforce_keys [:stream]
-    @type t :: %{stream: String.t()}
-    defstruct [:stream]
+    @enforce_keys [:streams]
+    @type t :: %{streams: [String.t()]}
+    defstruct [:streams]
   end
 
   defmodule PartitionsQueryRequestData do
@@ -460,9 +460,9 @@ defmodule RabbitMQStream.Message.Types do
 
   defmodule PartitionsQueryResponseData do
     @moduledoc false
-    @enforce_keys [:stream]
-    @type t :: %{stream: String.t()}
-    defstruct [:stream]
+    @enforce_keys [:streams]
+    @type t :: %{streams: [String.t()]}
+    defstruct [:streams]
   end
 
   defmodule DeliverData do

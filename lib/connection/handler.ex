@@ -96,7 +96,9 @@ defmodule RabbitMQStream.Connection.Handler do
              :unsubscribe,
              :stream_stats,
              :create_super_stream,
-             :delete_super_stream
+             :delete_super_stream,
+             :route,
+             :partitions
            ] and
              code not in [:ok, nil] do
     {{pid, _data}, conn} = Helpers.pop_request_tracker(conn, command, response.correlation_id)
@@ -276,8 +278,9 @@ defmodule RabbitMQStream.Connection.Handler do
     %{conn | state: :open, connect_requests: [], server_commands_versions: server_commands_versions}
   end
 
-  def handle_message(%Connection{} = conn, %Response{command: :stream_stats, data: data} = response) do
-    {{pid, _data}, conn} = Helpers.pop_request_tracker(conn, :stream_stats, response.correlation_id)
+  def handle_message(%Connection{} = conn, %Response{command: command, data: data} = response)
+      when command in [:route, :partitions, :stream_stats] do
+    {{pid, _data}, conn} = Helpers.pop_request_tracker(conn, command, response.correlation_id)
 
     if pid != nil do
       GenServer.reply(pid, {:ok, data})

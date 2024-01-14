@@ -189,15 +189,23 @@ defmodule RabbitMQStream.Message.Data do
   end
 
   def decode(%Response{command: :route}, buffer) do
-    {"", stream} = decode_string(buffer)
+    {"", streams} =
+      decode_array(buffer, fn buffer, acc ->
+        {buffer, value} = decode_string(buffer)
+        {buffer, [value | acc]}
+      end)
 
-    %Types.RouteResponseData{stream: stream}
+    %Types.RouteResponseData{streams: streams}
   end
 
   def decode(%Response{command: :partitions}, buffer) do
-    {"", stream} = decode_string(buffer)
+    {"", streams} =
+      decode_array(buffer, fn buffer, acc ->
+        {buffer, value} = decode_string(buffer)
+        {buffer, [value | acc]}
+      end)
 
-    %Types.RouteResponseData{stream: stream}
+    %Types.PartitionsQueryResponseData{streams: streams}
   end
 
   def decode(%Response{command: :exchange_command_versions}, buffer) do

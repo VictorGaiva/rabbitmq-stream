@@ -171,29 +171,14 @@ defmodule RabbitMQStreamTest.Connection do
 
     SupervisedConnection.delete_super_stream("invoices")
 
-    :ok =
-      SupervisedConnection.create_super_stream(
-        "invoices",
-        ["invoices-0", "invoices-1", "invoices-2"],
-        ["0", "1", "2"]
-      )
-
-    :ok = SupervisedConnection.delete_super_stream("invoices")
-  end
-
-  @tag min_version: "3.13"
-  test "should create and delete a super_stream" do
-    {:ok, _} = SupervisedConnection.start_link(host: "localhost", vhost: "/")
-    :ok = SupervisedConnection.connect()
-
-    SupervisedConnection.delete_super_stream("invoices")
+    partitions = ["invoices-0", "invoices-1", "invoices-2"]
 
     :ok =
-      SupervisedConnection.create_super_stream(
-        "invoices",
-        ["invoices-0", "invoices-1", "invoices-2"],
-        ["0", "1", "2"]
-      )
+      SupervisedConnection.create_super_stream("invoices", partitions, ["0", "1", "2"])
+
+    {:ok, %{streams: streams}} = SupervisedConnection.partitions("invoices")
+
+    assert Enum.all?(partitions, &(&1 in streams))
 
     :ok = SupervisedConnection.delete_super_stream("invoices")
   end
