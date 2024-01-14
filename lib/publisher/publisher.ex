@@ -74,7 +74,7 @@ defmodule RabbitMQStream.Publisher do
     And also you can override the defaults of all publishers with:
 
           config :rabbitmq_stream, :defaults,
-            publishers: [
+            publisher: [
               connection: MyApp.MyConnection,
               # ...
             ]
@@ -88,8 +88,7 @@ defmodule RabbitMQStream.Publisher do
   """
 
   defmacro __using__(opts) do
-    quote bind_quoted: [opts: opts] do
-      use GenServer
+    quote bind_quoted: [opts: opts], location: :keep do
       @opts opts
 
       @behaviour RabbitMQStream.Publisher
@@ -97,82 +96,38 @@ defmodule RabbitMQStream.Publisher do
       def start_link(opts \\ []) do
         opts =
           Application.get_env(:rabbitmq_stream, :defaults, [])
-          |> Keyword.get(:publishers, [])
+          |> Keyword.get(:publisher, [])
           |> Keyword.drop([:stream_name, :reference_name])
-          |> Keyword.merge(Application.get_env(:rabbitmq_stream, :defaults, []) |> Keyword.take([:serializer]))
           |> Keyword.merge(Application.get_env(:rabbitmq_stream, __MODULE__, []))
           |> Keyword.merge(@opts)
           |> Keyword.merge(opts)
+          |> Keyword.put(:publisher_module, __MODULE__)
 
         # opts = Keyword.merge(@opts, opts)
-        GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+        GenServer.start_link(RabbitMQStream.Publisher.Lifecycle, opts, name: __MODULE__)
       end
 
       def publish(message) do
-        GenServer.cast(__MODULE__, {:publish, message})
+        value = filter_value(message)
+
+        message = encode!(message)
+
+        GenServer.cast(__MODULE__, {:publish, {message, value}})
       end
 
       def stop() do
         GenServer.stop(__MODULE__)
       end
 
-      # Callbacks
-      @impl true
-      def init(opts \\ []) do
-        reference_name = Keyword.get(opts, :reference_name, Atom.to_string(__MODULE__))
-        connection = Keyword.get(opts, :connection) || raise(":connection is required")
-        stream_name = Keyword.get(opts, :stream_name) || raise(":stream_name is required")
-
-        # An implemented `encode!/1` callback takes precedence over the serializer option
-        serializer = Keyword.get(opts, :serializer, __MODULE__)
-
-        state = %RabbitMQStream.Publisher{
-          id: nil,
-          sequence: nil,
-          stream_name: stream_name,
-          connection: connection,
-          reference_name: reference_name,
-          serializer: serializer
-        }
-
-        {:ok, state, {:continue, opts}}
-      end
-
-      @impl true
-      def handle_continue(opts, state) do
-        state = apply(__MODULE__, :before_start, [opts, state])
-
-        with {:ok, id} <- state.connection.declare_publisher(state.stream_name, state.reference_name),
-             {:ok, sequence} <- state.connection.query_publisher_sequence(state.stream_name, state.reference_name) do
-          {:noreply, %{state | id: id, sequence: sequence + 1}}
-        else
-          err ->
-            {:stop, err, state}
-        end
-      end
-
-      @impl true
-      def handle_cast({:publish, message}, %RabbitMQStream.Publisher{} = publisher) do
-        filter_value = apply(__MODULE__, :filter_value, [message])
-
-        message = publisher.serializer.encode!(message)
-
-        publisher.connection.publish(publisher.id, publisher.sequence, message, filter_value)
-
-        {:noreply, %{publisher | sequence: publisher.sequence + 1}}
-      end
-
-      @impl true
-      def terminate(_reason, %{id: nil}), do: :ok
-
-      def terminate(_reason, state) do
-        state.connection.delete_publisher(state.id)
-        :ok
-      end
-
       def before_start(_opts, state), do: state
       def filter_value(_), do: nil
-      def encode!(message), do: message
+
+      # If there is a global serializer defined, we use it
+      if serializer = Application.compile_env(:rabbitmq_stream, [:defaults, :serializer]) do
+        def encode!(message), do: unquote(serializer).encode!(message)
+      else
+        def encode!(message), do: message
+      end
 
       defoverridable RabbitMQStream.Publisher
     end
@@ -185,6 +140,7 @@ defmodule RabbitMQStream.Publisher do
     :stream_name,
     :sequence,
     :serializer,
+    :publisher_module,
     :id
   ]
 
@@ -195,7 +151,8 @@ defmodule RabbitMQStream.Publisher do
           stream_name: String.t(),
           sequence: non_neg_integer() | nil,
           serializer: (term() -> String.t()) | nil,
-          id: String.t() | nil
+          id: String.t() | nil,
+          publisher_module: module()
         }
 
   @type options :: [option()]
@@ -207,12 +164,21 @@ defmodule RabbitMQStream.Publisher do
   @optional_callbacks [before_start: 2, filter_value: 1]
 
   @doc """
-    Optional callback that is called after the process has started, but before the
-    publisher has declared itself and fetched its most recent `publishing_id`.
+  Optional callback that is called after the process has started, but before the
+  publisher has declared itself and fetched its most recent `publishing_id`.
 
-    This is usefull for setup logic, such as creating the Stream, if it doesn't yet exists.
+  This is usefull for setup logic, such as creating the Stream, if it doesn't yet exists.
   """
   @callback before_start(options(), t()) :: t()
 
+  @doc """
+  Callback used to fetch the filter value for a message
+
+  Example:
+        @impl true
+        def filter_value(message) do
+          message["key"]
+        end
+  """
   @callback filter_value(term()) :: String.t()
 end

@@ -105,7 +105,7 @@ defmodule RabbitMQStream.Connection do
           |> Keyword.put_new(:heartbeat, 60)
           |> Keyword.put_new(:transport, :tcp)
 
-        GenServer.start_link(RabbitMQStream.Connection.Client, options, name: __MODULE__)
+        GenServer.start_link(RabbitMQStream.Connection.Lifecycle, options, name: __MODULE__)
       end
 
       def child_spec(opts) do

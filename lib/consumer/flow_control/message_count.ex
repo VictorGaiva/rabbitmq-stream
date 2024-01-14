@@ -1,5 +1,5 @@
 defmodule RabbitMQStream.Consumer.FlowControl.MessageCount do
-  @behaviour RabbitMQStream.Consumer.FlowControl.Strategy
+  @behaviour RabbitMQStream.Consumer.FlowControl
 
   @moduledoc """
   Message Count Strategy

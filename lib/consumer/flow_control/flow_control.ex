@@ -1,4 +1,4 @@
-defmodule RabbitMQStream.Consumer.FlowControl.Strategy do
+defmodule RabbitMQStream.Consumer.FlowControl do
   @type t :: module()
 
   @moduledoc """

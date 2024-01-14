@@ -92,12 +92,12 @@ defmodule RabbitMQStream.MixProject do
         RabbitMQStream.Consumer
       ],
       "Offset Tracking": [
-        RabbitMQStream.Consumer.OffsetTracking.Strategy,
+        RabbitMQStream.Consumer.OffsetTracking,
         RabbitMQStream.Consumer.OffsetTracking.CountStrategy,
         RabbitMQStream.Consumer.OffsetTracking.IntervalStrategy
       ],
       "Flow Control": [
-        RabbitMQStream.Consumer.FlowControl.Strategy,
+        RabbitMQStream.Consumer.FlowControl,
         RabbitMQStream.Consumer.FlowControl.MessageCount
       ]
     ]

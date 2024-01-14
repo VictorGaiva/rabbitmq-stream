@@ -1,4 +1,4 @@
-defmodule RabbitMQStream.Consumer.OffsetTracking.Strategy do
+defmodule RabbitMQStream.Consumer.OffsetTracking do
   @type t :: module()
 
   @moduledoc """

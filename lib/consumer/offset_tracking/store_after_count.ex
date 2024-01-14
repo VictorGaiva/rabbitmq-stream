@@ -1,5 +1,5 @@
 defmodule RabbitMQStream.Consumer.OffsetTracking.CountStrategy do
-  @behaviour RabbitMQStream.Consumer.OffsetTracking.Strategy
+  @behaviour RabbitMQStream.Consumer.OffsetTracking
 
   @moduledoc """
   Count Strategy

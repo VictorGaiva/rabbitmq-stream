@@ -45,7 +45,7 @@ defmodule RabbitMQStream.Consumer do
 
   The consumer can be configured to use different offset tracking strategies,
   which decide when to store the offset in the stream. You can implement your
-  own strategy by implementing the `RabbitMQStream.Consumer.OffsetTracking.Strategy`
+  own strategy by implementing the `RabbitMQStream.Consumer.OffsetTracking`
   behaviour, and passing it to the `:offset_tracking` option. It defaults to
   `RabbitMQStream.Consumer.OffsetTracking.CountStrategy`, which stores the
   offset after, by default, every 50_000 messages.
@@ -64,7 +64,7 @@ defmodule RabbitMQStream.Consumer do
 
   You can also call `RabbitMQStream.Consumer.credit/2` to manually add more
   credits to the subscription, or implement your own strategy by implementing
-  the `RabbitMQStream.Consumer.FlowControl.Strategy` behaviour, and passing
+  the `RabbitMQStream.Consumer.FlowControl` behaviour, and passing
   it to the `:flow_control` option.
 
   You can find more information on the [RabbitMQ Streams documentation](https://www.rabbitmq.com/stream.html#flow-control).
@@ -94,7 +94,7 @@ defmodule RabbitMQStream.Consumer do
   And also you can override the defaults of all consumers with:
 
         config :rabbitmq_stream, :defaults,
-          consumers: [
+          consumer: [
             connection: MyApp.MyConnection,
             initial_credit: 50_000,
             # ...
@@ -116,7 +116,7 @@ defmodule RabbitMQStream.Consumer do
       def start_link(opts \\ []) do
         opts =
           Application.get_env(:rabbitmq_stream, :defaults, [])
-          |> Keyword.get(:consumers, [])
+          |> Keyword.get(:consumer, [])
           |> Keyword.drop([:stream_name, :offset_reference, :private])
           |> Keyword.merge(Application.get_env(:rabbitmq_stream, :defaults, []) |> Keyword.take([:serializer]))
           |> Keyword.merge(Application.get_env(:rabbitmq_stream, __MODULE__, []))
@@ -196,8 +196,8 @@ defmodule RabbitMQStream.Consumer do
           connection: RabbitMQStream.Connection.t(),
           stream_name: String.t(),
           id: non_neg_integer() | nil,
-          offset_tracking: [{RabbitMQStream.Consumer.OffsetTracking.Strategy.t(), term()}],
-          flow_control: {RabbitMQStream.Consumer.FlowControl.Strategy.t(), term()},
+          offset_tracking: [{RabbitMQStream.Consumer.OffsetTracking.t(), term()}],
+          flow_control: {RabbitMQStream.Consumer.FlowControl.t(), term()},
           last_offset: non_neg_integer() | nil,
           private: any(),
           credits: non_neg_integer(),
@@ -213,8 +213,8 @@ defmodule RabbitMQStream.Consumer do
           | {:stream_name, String.t()}
           | {:initial_offset, RabbitMQStream.Connection.offset()}
           | {:initial_credit, non_neg_integer()}
-          | {:offset_tracking, [{RabbitMQStream.Consumer.OffsetTracking.Strategy.t(), term()}]}
-          | {:flow_control, {RabbitMQStream.Consumer.FlowControl.Strategy.t(), term()}}
+          | {:offset_tracking, [{RabbitMQStream.Consumer.OffsetTracking.t(), term()}]}
+          | {:flow_control, {RabbitMQStream.Consumer.FlowControl.t(), term()}}
           | {:private, any()}
           | {:serializer, {module(), atom()} | (String.t() -> term())}
           | {:properties, [RabbitMQStream.Message.Types.ConsumerequestData.property()]}

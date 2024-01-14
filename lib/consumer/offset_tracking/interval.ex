@@ -1,5 +1,5 @@
 defmodule RabbitMQStream.Consumer.OffsetTracking.IntervalStrategy do
-  @behaviour RabbitMQStream.Consumer.OffsetTracking.Strategy
+  @behaviour RabbitMQStream.Consumer.OffsetTracking
 
   @moduledoc """
   Interval Strategy

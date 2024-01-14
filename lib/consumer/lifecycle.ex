@@ -19,8 +19,8 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
     opts =
       opts
       |> Keyword.put(:credits, opts[:initial_credit])
-      |> Keyword.put(:offset_tracking, OffsetTracking.Strategy.init(opts[:offset_tracking], opts))
-      |> Keyword.put(:flow_control, FlowControl.Strategy.init(opts[:flow_control], opts))
+      |> Keyword.put(:offset_tracking, OffsetTracking.init(opts[:offset_tracking], opts))
+      |> Keyword.put(:flow_control, FlowControl.init(opts[:flow_control], opts))
 
     state = struct(RabbitMQStream.Consumer, opts)
 
@@ -96,17 +96,17 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
           credits: state.credits - chunk.num_entries
       }
 
-    state = state |> OffsetTracking.Strategy.run() |> FlowControl.Strategy.run()
+    state = state |> OffsetTracking.run() |> FlowControl.run()
 
     {:noreply, state}
   end
 
   def handle_info(:run_offset_tracking, state) do
-    {:noreply, OffsetTracking.Strategy.run(state)}
+    {:noreply, OffsetTracking.run(state)}
   end
 
   def handle_info(:run_flow_control, state) do
-    {:noreply, FlowControl.Strategy.run(state)}
+    {:noreply, FlowControl.run(state)}
   end
 
   def handle_info({:command, %Request{command: :consumer_update} = request}, state) do
