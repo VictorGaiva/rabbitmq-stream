@@ -109,30 +109,25 @@ defmodule RabbitMQStream.Consumer do
 
   """
   defmacro __using__(opts) do
-    quote bind_quoted: [opts: opts], location: :keep do
+    quote location: :keep do
       @behaviour RabbitMQStream.Consumer
 
-      @opts opts
+      @opts unquote(opts)
 
       def start_link(opts \\ []) do
+        name = Keyword.get(opts, :name, __MODULE__)
+
         opts =
-          Application.get_env(:rabbitmq_stream, :defaults, [])
-          |> Keyword.get(:consumer, [])
-          |> Keyword.drop([:stream_name, :offset_reference, :private])
-          |> Keyword.merge(Application.get_env(:rabbitmq_stream, :defaults, []) |> Keyword.take([:serializer]))
-          |> Keyword.merge(Application.get_env(:rabbitmq_stream, __MODULE__, []))
+          Application.get_env(:rabbitmq_stream, name, [])
           |> Keyword.merge(@opts)
           |> Keyword.merge(opts)
-          |> Keyword.put_new(:initial_credit, 50_000)
-          |> Keyword.put_new(:offset_tracking, count: [store_after: 50])
-          |> Keyword.put_new(:flow_control, count: [credit_after: {:count, 1}])
-          |> Keyword.put_new(:offset_reference, Atom.to_string(__MODULE__))
+          |> Keyword.put_new(:offset_reference, Atom.to_string(name))
           |> Keyword.put_new(:serializer, __MODULE__)
-          |> Keyword.put_new(:properties, [])
           # Undocumented option.
           |> Keyword.put_new(:consumer_module, __MODULE__)
+          |> Keyword.put(:name, name)
 
-        GenServer.start_link(RabbitMQStream.Consumer.LifeCycle, opts, name: __MODULE__)
+        RabbitMQStream.Consumer.start_link(opts)
       end
 
       def child_spec(opts) do
@@ -151,6 +146,23 @@ defmodule RabbitMQStream.Consumer do
 
       defoverridable RabbitMQStream.Consumer
     end
+  end
+
+  def start_link(opts \\ []) do
+    opts =
+      Application.get_env(:rabbitmq_stream, :defaults, [])
+      |> Keyword.get(:consumer, [])
+      |> Keyword.merge(Application.get_env(:rabbitmq_stream, :defaults, []) |> Keyword.take([:serializer]))
+      |> Keyword.drop([:stream_name, :offset_reference, :private])
+      |> Keyword.merge(opts)
+
+    dbg(opts)
+
+    GenServer.start_link(RabbitMQStream.Consumer.LifeCycle, opts, name: opts[:name])
+  end
+
+  def child_spec(opts) do
+    %{id: __MODULE__, start: {__MODULE__, :start_link, [opts]}}
   end
 
   @optional_callbacks handle_chunk: 1, handle_chunk: 2, decode!: 1, handle_update: 2

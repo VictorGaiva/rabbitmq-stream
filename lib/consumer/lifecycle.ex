@@ -18,7 +18,14 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
 
     opts =
       opts
+      |> Keyword.put_new(:initial_credit, 50_000)
+      |> Keyword.put_new(:offset_tracking, count: [store_after: 50])
+      |> Keyword.put_new(:flow_control, count: [credit_after: {:count, 1}])
+      |> Keyword.put_new(:properties, [])
       |> Keyword.put(:credits, opts[:initial_credit])
+
+    opts =
+      opts
       |> Keyword.put(:offset_tracking, OffsetTracking.init(opts[:offset_tracking], opts))
       |> Keyword.put(:flow_control, FlowControl.init(opts[:flow_control], opts))
 

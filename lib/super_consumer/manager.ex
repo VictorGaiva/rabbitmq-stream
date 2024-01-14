@@ -1,13 +1,4 @@
 defmodule RabbitMQStream.SuperConsumer.Manager do
-  defmodule PartitionConsumer do
-    use RabbitMQStream.Consumer,
-      initial_offset: :last
-
-    def handle_update(_, true) do
-      {:ok, :last}
-    end
-  end
-
   alias RabbitMQStream.SuperConsumer
 
   use GenServer
@@ -36,20 +27,19 @@ defmodule RabbitMQStream.SuperConsumer.Manager do
       :ok = state.connection.create_stream(name)
     end
 
-    dbg(state.partitions)
-
     for partition <- state.partitions do
-      dbg(partition)
       # We want to start each child, but don't really care about its state
       {:ok, _pid} =
         DynamicSupervisor.start_child(
           state.dynamic_supervisor,
           {
-            PartitionConsumer,
+            RabbitMQStream.Consumer,
             Keyword.merge(state.consumer_opts,
-              name: partition,
+              name: String.to_atom("#{state.super_stream}-#{partition}"),
+              initial_offset: :last,
               connection: state.connection,
               stream_name: "#{state.super_stream}-#{partition}",
+              consumer_module: __MODULE__,
               properties: [
                 single_active_consumer: true,
                 super_stream: state.super_stream
@@ -60,5 +50,9 @@ defmodule RabbitMQStream.SuperConsumer.Manager do
     end
 
     {:noreply, state}
+  end
+
+  def handle_update(_, true) do
+    {:ok, :last}
   end
 end
