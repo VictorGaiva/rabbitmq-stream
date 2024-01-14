@@ -115,17 +115,15 @@ defmodule RabbitMQStream.Consumer do
       @opts unquote(opts)
 
       def start_link(opts \\ []) do
-        name = Keyword.get(opts, :name, __MODULE__)
-
         opts =
-          Application.get_env(:rabbitmq_stream, name, [])
+          Application.get_env(:rabbitmq_stream, __MODULE__, [])
           |> Keyword.merge(@opts)
           |> Keyword.merge(opts)
-          |> Keyword.put_new(:offset_reference, Atom.to_string(name))
+          |> Keyword.put_new(:offset_reference, Atom.to_string(__MODULE__))
           |> Keyword.put_new(:serializer, __MODULE__)
           # Undocumented option.
           |> Keyword.put_new(:consumer_module, __MODULE__)
-          |> Keyword.put(:name, name)
+          |> Keyword.put(:name, __MODULE__)
 
         RabbitMQStream.Consumer.start_link(opts)
       end
@@ -155,8 +153,6 @@ defmodule RabbitMQStream.Consumer do
       |> Keyword.merge(Application.get_env(:rabbitmq_stream, :defaults, []) |> Keyword.take([:serializer]))
       |> Keyword.drop([:stream_name, :offset_reference, :private])
       |> Keyword.merge(opts)
-
-    dbg(opts)
 
     GenServer.start_link(RabbitMQStream.Consumer.LifeCycle, opts, name: opts[:name])
   end

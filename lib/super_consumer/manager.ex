@@ -35,10 +35,11 @@ defmodule RabbitMQStream.SuperConsumer.Manager do
           {
             RabbitMQStream.Consumer,
             Keyword.merge(state.consumer_opts,
-              name: String.to_atom("#{state.super_stream}-#{partition}"),
+              name: {:via, Registry, {state.registry, partition}},
               initial_offset: :last,
               connection: state.connection,
               stream_name: "#{state.super_stream}-#{partition}",
+              offset_reference: "#{state.super_stream}-#{partition}",
               consumer_module: __MODULE__,
               properties: [
                 single_active_consumer: true,

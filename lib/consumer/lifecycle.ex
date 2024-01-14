@@ -8,6 +8,13 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
 
   @impl true
   def init(opts \\ []) do
+    opts =
+      opts
+      |> Keyword.put_new(:initial_credit, 50_000)
+      |> Keyword.put_new(:offset_tracking, count: [store_after: 50])
+      |> Keyword.put_new(:flow_control, count: [credit_after: {:count, 1}])
+      |> Keyword.put_new(:properties, [])
+
     # Prevent startup if 'single_active_consumer' is active, but there is no
     # handle_update/2 callback defined.
     if Keyword.get(opts[:properties], :single_active_consumer) != nil do
@@ -18,16 +25,9 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
 
     opts =
       opts
-      |> Keyword.put_new(:initial_credit, 50_000)
-      |> Keyword.put_new(:offset_tracking, count: [store_after: 50])
-      |> Keyword.put_new(:flow_control, count: [credit_after: {:count, 1}])
-      |> Keyword.put_new(:properties, [])
-      |> Keyword.put(:credits, opts[:initial_credit])
-
-    opts =
-      opts
       |> Keyword.put(:offset_tracking, OffsetTracking.init(opts[:offset_tracking], opts))
       |> Keyword.put(:flow_control, FlowControl.init(opts[:flow_control], opts))
+      |> Keyword.put(:credits, opts[:initial_credit])
 
     state = struct(RabbitMQStream.Consumer, opts)
 
@@ -69,7 +69,10 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
   def terminate(_reason, state) do
     # While not guaranteed, we attempt to store the offset when terminating. Useful for when performing
     # upgrades, and in a 'single-active-consumer' scenario.
-    state.connection.store_offset(state.stream_name, state.offset_reference, state.last_offset)
+    if state.last_offset != nil do
+      state.connection.store_offset(state.stream_name, state.offset_reference, state.last_offset)
+    end
+
     state.connection.unsubscribe(state.id)
     :ok
   end

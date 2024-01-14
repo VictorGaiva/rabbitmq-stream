@@ -13,9 +13,11 @@ defmodule RabbitMQStream.SuperConsumer do
       @impl true
       def init(opts) do
         children = [
+          {Registry, keys: :unique, name: __MODULE__.Registry},
           {DynamicSupervisor, strategy: :one_for_one, name: __MODULE__.DynamicSupervisor},
           {RabbitMQStream.SuperConsumer.Manager,
-           opts ++ [name: __MODULE__.Manager, dynamic_supervisor: __MODULE__.DynamicSupervisor]}
+           opts ++
+             [name: __MODULE__.Manager, dynamic_supervisor: __MODULE__.DynamicSupervisor, registry: __MODULE__.Registry]}
         ]
 
         # We use `one_for_all` because if the DynamicSupervisor shuts down for some reason, we must be able to
@@ -34,6 +36,7 @@ defmodule RabbitMQStream.SuperConsumer do
     :partitions,
     :connection,
     :consumer_opts,
+    :registry,
     :dynamic_supervisor
   ]
 
@@ -42,6 +45,7 @@ defmodule RabbitMQStream.SuperConsumer do
           partitions: [String.t()],
           connection: module(),
           dynamic_supervisor: module(),
+          registry: module(),
           consumer_opts: [RabbitMQStream.Consumer.consumer_option()] | nil
         }
 

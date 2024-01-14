@@ -36,6 +36,6 @@ defmodule RabbitMQStreamTest.SuperStream do
         consumer_opts: []
       )
 
-    Process.sleep(1_000)
+    Process.sleep(500)
   end
 end
