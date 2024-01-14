@@ -80,12 +80,10 @@ defmodule RabbitMQStream.Connection.Lifecycle do
   end
 
   def handle_call({:subscribe, opts}, from, %Connection{} = conn) do
-    subscription_id = conn.subscriber_sequence
-
     conn =
       conn
-      |> Helpers.push_request_tracker(:subscribe, from, {subscription_id, opts[:pid]})
-      |> send_request(:subscribe, opts ++ [subscriber_sum: 1, subscription_id: subscription_id])
+      |> Helpers.push_request_tracker(:subscribe, from, {conn.subscriber_sequence, opts[:pid]})
+      |> send_request(:subscribe, opts ++ [subscriber_sum: 1, subscription_id: conn.subscriber_sequence])
 
     {:noreply, conn}
   end

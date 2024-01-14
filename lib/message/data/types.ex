@@ -211,7 +211,7 @@ defmodule RabbitMQStream.Message.Types do
       @moduledoc false
       @enforce_keys [:code, :name, :leader, :replicas]
       @type t :: %{
-              code: String.t(),
+              code: RabbitMQStream.Message.Helpers.code(),
               name: String.t(),
               leader: non_neg_integer(),
               replicas: [non_neg_integer()]

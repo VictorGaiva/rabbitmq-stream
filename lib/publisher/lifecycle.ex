@@ -9,16 +9,13 @@ defmodule RabbitMQStream.Publisher.Lifecycle do
     connection = Keyword.get(opts, :connection) || raise(":connection is required")
     stream_name = Keyword.get(opts, :stream_name) || raise(":stream_name is required")
 
-    # An implemented `encode!/1` callback takes precedence over the serializer option
-    serializer = Keyword.get(opts, :serializer, opts[:publisher_module])
-
     state = %RabbitMQStream.Publisher{
       id: nil,
       sequence: nil,
       stream_name: stream_name,
       connection: connection,
       reference_name: reference_name,
-      serializer: serializer,
+      serializer: opts[:serializer],
       publisher_module: opts[:publisher_module]
     }
 

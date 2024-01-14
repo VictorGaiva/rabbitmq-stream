@@ -103,7 +103,7 @@ defmodule RabbitMQStreamTest.Consumer.SingleActiveConsumer do
     :ok = Conn3.connect()
     :ok = Conn4.connect()
 
-    :ok = Conn4.delete_stream("super-stream-test-01")
+    Conn4.delete_stream("super-stream-test-01")
 
     {:ok, _} = Publisher.start_link(stream_name: "super-stream-test-01")
 

@@ -26,6 +26,7 @@ defmodule RabbitMQStream.Consumer do
   * `:initial_credit` - The initial credit to request from the server. Defaults to `50_000`.
   * `:offset_tracking` - Offset tracking strategies to use. Defaults to `[count: [store_after: 50]]`.
   * `:flow_control` - Flow control strategy to use. Defaults to `[count: [credit_after: {:count, 1}]]`.
+  * `:offset_reference` -
   * `:private` - Private data that can hold any value, and is passed to the `handle_chunk/2` callback.
   * `:serializer` - The module to use to decode the message. Defaults to `__MODULE__`,
     which means that the consumer will use the `decode!/1` callback to decode the message, which is implemented by default to return the message as is.
@@ -122,16 +123,20 @@ defmodule RabbitMQStream.Consumer do
           |> Keyword.merge(Application.get_env(:rabbitmq_stream, __MODULE__, []))
           |> Keyword.merge(@opts)
           |> Keyword.merge(opts)
-          # |> Keyword.validate!([:connection, :stream_name, :initial_offset])
           |> Keyword.put_new(:initial_credit, 50_000)
           |> Keyword.put_new(:offset_tracking, count: [store_after: 50])
           |> Keyword.put_new(:flow_control, count: [credit_after: {:count, 1}])
           |> Keyword.put_new(:offset_reference, Atom.to_string(__MODULE__))
           |> Keyword.put_new(:serializer, __MODULE__)
           |> Keyword.put_new(:properties, [])
-          |> Keyword.put(:consumer_module, __MODULE__)
+          # Undocumented option.
+          |> Keyword.put_new(:consumer_module, __MODULE__)
 
         GenServer.start_link(RabbitMQStream.Consumer.LifeCycle, opts, name: __MODULE__)
+      end
+
+      def child_spec(opts) do
+        %{id: __MODULE__, start: {__MODULE__, :start_link, [opts]}}
       end
 
       def credit(amount) do

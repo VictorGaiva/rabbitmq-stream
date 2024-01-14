@@ -161,7 +161,8 @@ defmodule RabbitMQStreamTest.Connection do
     :ok = SupervisedConnection.connect()
     SupervisedConnection.delete_stream(@stream)
     :ok = SupervisedConnection.create_stream(@stream)
-    {:ok, _data} = SupervisedConnection.stream_stats(@stream)
+    assert {:ok, _data} = SupervisedConnection.stream_stats(@stream)
+    assert {:error, :stream_does_not_exist} = SupervisedConnection.stream_stats("#{@stream}-NON-EXISTENT")
   end
 
   @tag min_version: "3.13"

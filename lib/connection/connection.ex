@@ -125,7 +125,7 @@ defmodule RabbitMQStream.Connection do
       end
 
       def create_stream(name, arguments \\ []) when is_binary(name) do
-        GenServer.call(__MODULE__, {:create_stream, arguments ++ [name: name]})
+        GenServer.call(__MODULE__, {:create_stream, [name: name, arguments: arguments]})
       end
 
       def delete_stream(name) when is_binary(name) do

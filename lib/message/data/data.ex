@@ -107,7 +107,7 @@ defmodule RabbitMQStream.Message.Data do
           end)
 
         data = %Types.QueryMetadataResponseData.StreamData{
-          code: code,
+          code: decode_code(code),
           name: name,
           leader: leader,
           replicas: replicas

@@ -19,6 +19,19 @@ defmodule RabbitMQStreamTest.Consumer do
     end
   end
 
+  defmodule SupervisorPublisher2 do
+    use RabbitMQStream.Publisher,
+      connection: SupervisedConnection,
+      serializer: Jason
+
+    @impl true
+    def before_start(_opts, state) do
+      state.connection.create_stream(state.stream_name)
+
+      state
+    end
+  end
+
   defmodule Consumer do
     use RabbitMQStream.Consumer,
       connection: SupervisedConnection,
@@ -93,7 +106,7 @@ defmodule RabbitMQStreamTest.Consumer do
     SupervisedConnection.delete_stream(@stream)
 
     {:ok, _publisher} =
-      SupervisorPublisher.start_link(reference_name: @reference_name, stream_name: @stream, serializer: Jason)
+      SupervisorPublisher2.start_link(reference_name: @reference_name, stream_name: @stream)
 
     {:ok, _subscriber} =
       Consumer.start_link(
@@ -106,10 +119,10 @@ defmodule RabbitMQStreamTest.Consumer do
     message1 = %{"message" => "Consumer Test: 1"}
     message2 = %{"message" => "Consumer Test: 2"}
 
-    SupervisorPublisher.publish(message1)
+    SupervisorPublisher2.publish(message1)
     assert_receive {:handle_chunk, [^message1]}, 500
 
-    SupervisorPublisher.publish(message2)
+    SupervisorPublisher2.publish(message2)
     assert_receive {:handle_chunk, [^message2]}, 500
 
     :ok = GenServer.stop(Consumer, :normal)

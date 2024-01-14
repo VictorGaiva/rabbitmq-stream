@@ -88,12 +88,21 @@ defmodule RabbitMQStream.Publisher do
   """
 
   defmacro __using__(opts) do
-    quote bind_quoted: [opts: opts], location: :keep do
-      @opts opts
+    defaults = Application.get_env(:rabbitmq_stream, :defaults, [])
+    # defaults = Application.compile_env(:rabbitmq_stream, :defaults, [])
+
+    serializer = Keyword.get(opts, :serializer, Keyword.get(defaults, :serializer))
+
+    quote location: :keep do
+      @opts unquote(opts)
 
       @behaviour RabbitMQStream.Publisher
 
       def start_link(opts \\ []) do
+        unless !Keyword.has_key?(opts, :serializer) do
+          raise "You can only pass `:serializer` option to compile-time options."
+        end
+
         opts =
           Application.get_env(:rabbitmq_stream, :defaults, [])
           |> Keyword.get(:publisher, [])
@@ -122,12 +131,19 @@ defmodule RabbitMQStream.Publisher do
       def before_start(_opts, state), do: state
       def filter_value(_), do: nil
 
-      # If there is a global serializer defined, we use it
-      if serializer = Application.compile_env(:rabbitmq_stream, [:defaults, :serializer]) do
-        def encode!(message), do: unquote(serializer).encode!(message)
-      else
-        def encode!(message), do: message
-      end
+      unquote(
+        # We need this piece of logic so we can garantee that the 'encode!/1' call is executed
+        # by the caller process, not the Publisher process itself.
+        if serializer != nil do
+          quote do
+            def encode!(message), do: unquote(serializer).encode!(message)
+          end
+        else
+          quote do
+            def encode!(message), do: message
+          end
+        end
+      )
 
       defoverridable RabbitMQStream.Publisher
     end

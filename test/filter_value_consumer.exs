@@ -68,7 +68,8 @@ defmodule RabbitMQStreamTest.Consumer.FilterValue do
     end
   end
 
-  test "should always have exactly 1 active consumer" do
+  @tag min_version: "3.13"
+  test "should receive only the filtered messages" do
     {:ok, _} = Conn1.start_link()
     :ok = Conn1.connect()
     Conn1.delete_stream("filter-value-01")
