@@ -91,10 +91,12 @@ defmodule RabbitMQStream.Connection.Lifecycle do
   end
 
   def handle_call({:subscribe, opts}, from, %Connection{} = conn) do
+    {id, conn} = Map.get_and_update!(conn, :subscriber_sequence, &{&1, &1 + 1})
+
     conn =
       conn
-      |> Helpers.push_request_tracker(:subscribe, from, {conn.subscriber_sequence, opts[:pid]})
-      |> send_request(:subscribe, opts ++ [subscriber_sum: 1, subscription_id: conn.subscriber_sequence])
+      |> Helpers.push_request_tracker(:subscribe, from, {id, opts[:pid]})
+      |> send_request(:subscribe, opts ++ [subscription_id: id])
 
     {:noreply, conn}
   end
@@ -145,10 +147,12 @@ defmodule RabbitMQStream.Connection.Lifecycle do
   end
 
   def handle_call({:declare_publisher, opts}, from, %Connection{} = conn) do
+    {id, conn} = Map.get_and_update!(conn, :publisher_sequence, &{&1, &1 + 1})
+
     conn =
       conn
-      |> Helpers.push_request_tracker(:declare_publisher, from, conn.publisher_sequence)
-      |> send_request(:declare_publisher, opts ++ [publisher_sum: 1])
+      |> Helpers.push_request_tracker(:declare_publisher, from, id)
+      |> send_request(:declare_publisher, opts ++ [id: id])
 
     {:noreply, conn}
   end
@@ -339,8 +343,6 @@ defmodule RabbitMQStream.Connection.Lifecycle do
 
   defp send_command(%Connection{} = conn, {:request, command, opts}) do
     {correlation_sum, opts} = Keyword.pop(opts, :correlation_sum, 1)
-    {publisher_sum, opts} = Keyword.pop(opts, :publisher_sum, 0)
-    {subscriber_sum, opts} = Keyword.pop(opts, :subscriber_sum, 0)
 
     frame =
       conn
@@ -349,15 +351,9 @@ defmodule RabbitMQStream.Connection.Lifecycle do
 
     :ok = conn.transport.send(conn.socket, frame)
 
-    correlation_sequence = conn.correlation_sequence + correlation_sum
-    publisher_sequence = conn.publisher_sequence + publisher_sum
-    subscriber_sequence = conn.subscriber_sequence + subscriber_sum
-
     %{
       conn
-      | correlation_sequence: correlation_sequence,
-        publisher_sequence: publisher_sequence,
-        subscriber_sequence: subscriber_sequence
+      | correlation_sequence: conn.correlation_sequence + correlation_sum
     }
   end
 

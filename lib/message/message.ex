@@ -190,7 +190,7 @@ defmodule RabbitMQStream.Message do
       command: :declare_publisher,
       correlation_id: conn.correlation_sequence,
       data: %Types.DeclarePublisherRequestData{
-        id: conn.publisher_sequence,
+        id: opts[:id],
         publisher_reference: opts[:publisher_reference],
         stream_name: opts[:stream_name]
       }
