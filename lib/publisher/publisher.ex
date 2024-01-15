@@ -57,7 +57,7 @@ defmodule RabbitMQStream.Publisher do
         @impl true
         def before_start(_opts, state) do
           # Create the stream
-          state.connection.create_stream(state.stream_name)
+          RabbitMQStream.Connection.create_stream(state.connection, state.stream_name)
 
           state
         end
@@ -163,7 +163,7 @@ defmodule RabbitMQStream.Publisher do
   @type t :: %__MODULE__{
           publishing_id: String.t(),
           reference_name: String.t(),
-          connection: RabbitMQStream.Connection.t(),
+          connection: GenServer.server(),
           stream_name: String.t(),
           sequence: non_neg_integer() | nil,
           serializer: (term() -> String.t()) | nil,
@@ -176,7 +176,7 @@ defmodule RabbitMQStream.Publisher do
   @type option ::
           {:stream_name, String.t()}
           | {:reference_name, String.t()}
-          | {:connection, RabbitMQStream.Connection.t()}
+          | {:connection, GenServer.server()}
   @optional_callbacks [before_start: 2, filter_value: 1]
 
   @doc """

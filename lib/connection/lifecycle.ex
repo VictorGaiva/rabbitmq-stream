@@ -13,8 +13,19 @@ defmodule RabbitMQStream.Connection.Lifecycle do
   alias RabbitMQStream.Message.{Buffer, Encoder}
 
   @impl GenServer
-  def init(options) do
-    {transport, options} = Keyword.pop(options, :transport, :tcp)
+  def init(opts) do
+    {transport, opts} = Keyword.pop(opts, :transport, :tcp)
+
+    opts =
+      opts
+      |> Keyword.put_new(:host, "localhost")
+      |> Keyword.put_new(:port, 5552)
+      |> Keyword.put_new(:vhost, "/")
+      |> Keyword.put_new(:username, "guest")
+      |> Keyword.put_new(:password, "guest")
+      |> Keyword.put_new(:frame_max, 1_048_576)
+      |> Keyword.put_new(:heartbeat, 60)
+      |> Keyword.put_new(:transport, :tcp)
 
     transport =
       case transport do
@@ -23,9 +34,9 @@ defmodule RabbitMQStream.Connection.Lifecycle do
         transport -> transport
       end
 
-    conn = %RabbitMQStream.Connection{options: options, transport: transport}
+    conn = %RabbitMQStream.Connection{options: opts, transport: transport}
 
-    if options[:lazy] == true do
+    if opts[:lazy] == true do
       {:ok, conn}
     else
       {:ok, conn, {:continue, {:connect}}}

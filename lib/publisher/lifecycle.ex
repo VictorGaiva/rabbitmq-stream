@@ -26,8 +26,10 @@ defmodule RabbitMQStream.Publisher.Lifecycle do
   def handle_continue(opts, state) do
     state = apply(state.publisher_module, :before_start, [opts, state])
 
-    with {:ok, id} <- state.connection.declare_publisher(state.stream_name, state.reference_name),
-         {:ok, sequence} <- state.connection.query_publisher_sequence(state.stream_name, state.reference_name) do
+    with {:ok, id} <-
+           RabbitMQStream.Connection.declare_publisher(state.connection, state.stream_name, state.reference_name),
+         {:ok, sequence} <-
+           RabbitMQStream.Connection.query_publisher_sequence(state.connection, state.stream_name, state.reference_name) do
       {:noreply, %{state | id: id, sequence: sequence + 1}}
     else
       err ->
@@ -37,7 +39,7 @@ defmodule RabbitMQStream.Publisher.Lifecycle do
 
   @impl GenServer
   def handle_cast({:publish, {message, filter_value}}, %RabbitMQStream.Publisher{} = state) when is_binary(message) do
-    :ok = state.connection.publish(state.id, state.sequence, message, filter_value)
+    :ok = RabbitMQStream.Connection.publish(state.connection, state.id, state.sequence, message, filter_value)
 
     {:noreply, %{state | sequence: state.sequence + 1}}
   end
@@ -46,7 +48,7 @@ defmodule RabbitMQStream.Publisher.Lifecycle do
   def terminate(_reason, %{id: nil}), do: :ok
 
   def terminate(_reason, state) do
-    state.connection.delete_publisher(state.id)
+    RabbitMQStream.Connection.delete_publisher(state.connection, state.id)
     :ok
   end
 end

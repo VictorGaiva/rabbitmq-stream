@@ -17,14 +17,12 @@ defmodule RabbitMQStream.SuperConsumer.Manager do
   @impl true
   def handle_continue(:start, %SuperConsumer{} = state) do
     # If stream exists, fetch its paritions information
-    {:ok, data} =
-      state.partitions
-      |> Enum.map(&"#{state.super_stream}-#{&1}")
-      |> state.connection.query_metadata()
+    streams = Enum.map(state.partitions, &"#{state.super_stream}-#{&1}")
+    {:ok, data} = RabbitMQStream.Connection.query_metadata(state.connection, streams)
 
     # We create all the missing streams
     for %{code: :stream_does_not_exist, name: name} <- data.streams do
-      :ok = state.connection.create_stream(name)
+      :ok = RabbitMQStream.Connection.create_stream(state.connection, name)
     end
 
     for partition <- state.partitions do

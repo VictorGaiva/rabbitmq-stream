@@ -82,7 +82,12 @@ defmodule RabbitMQStream.Consumer.OffsetTracking do
           {strategy, track_state}, {:cont, acc} ->
             case strategy.run(track_state, state) do
               {:store, new_track_state} ->
-                state.connection.store_offset(state.stream_name, state.offset_reference, state.last_offset)
+                RabbitMQStream.Connection.store_offset(
+                  state.connection,
+                  state.stream_name,
+                  state.offset_reference,
+                  state.last_offset
+                )
 
                 {:halt, [{strategy, new_track_state} | acc]}
 

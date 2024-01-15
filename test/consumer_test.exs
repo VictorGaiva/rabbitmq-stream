@@ -13,7 +13,7 @@ defmodule RabbitMQStreamTest.Consumer do
 
     @impl true
     def before_start(_opts, state) do
-      state.connection.create_stream(state.stream_name)
+      RabbitMQStream.Connection.create_stream(state.connection, state.stream_name)
 
       state
     end
@@ -26,7 +26,7 @@ defmodule RabbitMQStreamTest.Consumer do
 
     @impl true
     def before_start(_opts, state) do
-      state.connection.create_stream(state.stream_name)
+      RabbitMQStream.Connection.create_stream(state.connection, state.stream_name)
 
       state
     end

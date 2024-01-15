@@ -37,7 +37,7 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
   @impl true
   def handle_continue({:init, opts}, state) do
     last_offset =
-      case state.connection.query_offset(state.stream_name, state.offset_reference) do
+      case RabbitMQStream.Connection.query_offset(state.connection, state.stream_name, state.offset_reference) do
         {:ok, offset} ->
           {:offset, offset}
 
@@ -45,7 +45,14 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
           opts[:initial_offset]
       end
 
-    case state.connection.subscribe(state.stream_name, self(), last_offset, state.initial_credit, state.properties) do
+    case RabbitMQStream.Connection.subscribe(
+           state.connection,
+           state.stream_name,
+           self(),
+           last_offset,
+           state.initial_credit,
+           state.properties
+         ) do
       {:ok, id} ->
         last_offset =
           case last_offset do
@@ -70,10 +77,15 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
     # While not guaranteed, we attempt to store the offset when terminating. Useful for when performing
     # upgrades, and in a 'single-active-consumer' scenario.
     if state.last_offset != nil do
-      state.connection.store_offset(state.stream_name, state.offset_reference, state.last_offset)
+      RabbitMQStream.Connection.store_offset(
+        state.connection,
+        state.stream_name,
+        state.offset_reference,
+        state.last_offset
+      )
     end
 
-    state.connection.unsubscribe(state.id)
+    RabbitMQStream.Connection.unsubscribe(state.connection, state.id)
     :ok
   end
 
@@ -127,25 +139,25 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
       case apply(state.consumer_module, :handle_update, [state, request.data.active]) do
         {:ok, offset} ->
           Logger.debug("Consumer upgraded to active consumer")
-          state.connection.respond(request, offset: offset, code: :ok)
+          RabbitMQStream.Connection.respond(state.connection, request, offset: offset, code: :ok)
           {:noreply, state}
 
         {:error, reason} ->
           Logger.error("Error updating consumer: #{inspect(reason)}")
-          state.connection.respond(request, code: :internal_error)
+          RabbitMQStream.Connection.respond(state.connection, request, code: :internal_error)
 
           {:noreply, state}
       end
     else
       Logger.error("handle_update/2 must be implemented when using single-active-consumer property")
-      state.connection.respond(request, code: :internal_error)
+      RabbitMQStream.Connection.respond(state.connection, request, code: :internal_error)
       {:noreply, state}
     end
   end
 
   @impl true
   def handle_cast({:credit, amount}, state) do
-    state.connection.credit(state.id, amount)
+    RabbitMQStream.Connection.credit(state.connection, state.id, amount)
     {:noreply, %{state | credits: state.credits + amount}}
   end
 

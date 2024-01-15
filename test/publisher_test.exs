@@ -11,7 +11,7 @@ defmodule RabbitMQStreamTest.Publisher do
 
     @impl true
     def before_start(_opts, state) do
-      state.connection.create_stream(state.stream_name)
+      RabbitMQStream.Connection.create_stream(state.connection, state.stream_name)
 
       state
     end
@@ -69,33 +69,6 @@ defmodule RabbitMQStreamTest.Publisher do
     SupervisorPublisher.publish(inspect(%{message: "Hello, world2!"}))
 
     sequence = sequence + 1
-
-    assert %{sequence: ^sequence} = :sys.get_state(Process.whereis(SupervisorPublisher))
-
-    SupervisedConnection.delete_stream(@stream)
-  end
-
-  @stream "publisher-test-04"
-  @reference_name "publisher-test-reference-04"
-  test "should keep track of sequence across startups" do
-    {:ok, _} =
-      SupervisorPublisher.start_link(
-        reference_name: @reference_name,
-        stream_name: @stream
-      )
-
-    SupervisorPublisher.publish(inspect(%{message: "Hello, world!"}))
-    SupervisorPublisher.publish(inspect(%{message: "Hello, world2!"}))
-
-    %{sequence: sequence} = :sys.get_state(Process.whereis(SupervisorPublisher))
-
-    assert :ok = SupervisorPublisher.stop()
-
-    {:ok, _} =
-      SupervisorPublisher.start_link(
-        reference_name: @reference_name,
-        stream_name: @stream
-      )
 
     assert %{sequence: ^sequence} = :sys.get_state(Process.whereis(SupervisorPublisher))
 

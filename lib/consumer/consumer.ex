@@ -206,7 +206,7 @@ defmodule RabbitMQStream.Consumer do
 
   @type t :: %__MODULE__{
           offset_reference: String.t(),
-          connection: RabbitMQStream.Connection.t(),
+          connection: GenServer.server(),
           stream_name: String.t(),
           id: non_neg_integer() | nil,
           offset_tracking: [{RabbitMQStream.Consumer.OffsetTracking.t(), term()}],
@@ -222,7 +222,7 @@ defmodule RabbitMQStream.Consumer do
 
   @type consumer_option ::
           {:offset_reference, String.t()}
-          | {:connection, RabbitMQStream.Connection.t()}
+          | {:connection, GenServer.server()}
           | {:stream_name, String.t()}
           | {:initial_offset, RabbitMQStream.Connection.offset()}
           | {:initial_credit, non_neg_integer()}
