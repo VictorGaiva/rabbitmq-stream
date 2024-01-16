@@ -2,11 +2,12 @@ defmodule RabbitMQStream.SuperConsumer do
   defmacro __using__(opts) do
     quote do
       @opts unquote(opts)
-      @behaviour RabbitMQStream.SuperConsumer
+      @behaviour RabbitMQStream.Consumer
 
       use Supervisor
 
       def start_link(opts) do
+        opts = Keyword.merge(opts, @opts)
         Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
       end
 
@@ -17,7 +18,12 @@ defmodule RabbitMQStream.SuperConsumer do
           {DynamicSupervisor, strategy: :one_for_one, name: __MODULE__.DynamicSupervisor},
           {RabbitMQStream.SuperConsumer.Manager,
            opts ++
-             [name: __MODULE__.Manager, dynamic_supervisor: __MODULE__.DynamicSupervisor, registry: __MODULE__.Registry]}
+             [
+               name: __MODULE__.Manager,
+               dynamic_supervisor: __MODULE__.DynamicSupervisor,
+               registry: __MODULE__.Registry,
+               consumer_module: __MODULE__
+             ]}
         ]
 
         # We use `one_for_all` because if the DynamicSupervisor shuts down for some reason, we must be able to
@@ -27,31 +33,29 @@ defmodule RabbitMQStream.SuperConsumer do
     end
   end
 
-  @optional_callbacks handle_chunk: 1, handle_chunk: 2
-  @callback handle_chunk(chunk :: RabbitMQStream.OsirisChunk.t()) :: term()
-  @callback handle_chunk(chunk :: RabbitMQStream.OsirisChunk.t(), state :: RabbitMQStream.Consumer.t()) :: term()
-
   defstruct [
     :super_stream,
     :partitions,
     :connection,
     :consumer_opts,
     :registry,
-    :dynamic_supervisor
+    :dynamic_supervisor,
+    :consumer_module
   ]
 
   @type t :: %__MODULE__{
           super_stream: String.t(),
-          partitions: [String.t()],
+          partitions: non_neg_integer(),
           connection: module(),
           dynamic_supervisor: module(),
+          consumer_module: module(),
           registry: module(),
           consumer_opts: [RabbitMQStream.Consumer.consumer_option()] | nil
         }
 
   @type super_consumer_option ::
           {:super_stream, String.t()}
-          | {:partitions, [String.t()]}
+          | {:partitions, non_neg_integer()}
           | {:connection, module()}
           | {:consumer_opts, [RabbitMQStream.Consumer.consumer_option()]}
 end
