@@ -36,6 +36,8 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
 
   @impl true
   def handle_continue({:init, opts}, state) do
+    state = apply(state.consumer_module, :before_start, [opts, state])
+
     last_offset =
       case RabbitMQStream.Connection.query_offset(state.connection, state.stream_name, state.offset_reference) do
         {:ok, offset} ->
@@ -91,6 +93,7 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
 
   @impl true
   def handle_info({:chunk, %RabbitMQStream.OsirisChunk{} = chunk}, state) do
+    # TODO: Possibly add 'filter_value', as described as necessary in the documentation.
     chunk = RabbitMQStream.OsirisChunk.decode_messages!(chunk, state.serializer)
 
     cond do

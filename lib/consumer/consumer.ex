@@ -141,6 +141,7 @@ defmodule RabbitMQStream.Consumer do
       end
 
       def decode!(message), do: message
+      def before_start(_opts, state), do: state
 
       defoverridable RabbitMQStream.Consumer
     end
@@ -161,7 +162,7 @@ defmodule RabbitMQStream.Consumer do
     %{id: __MODULE__, start: {__MODULE__, :start_link, [opts]}}
   end
 
-  @optional_callbacks handle_chunk: 1, handle_chunk: 2, decode!: 1, handle_update: 2
+  @optional_callbacks handle_chunk: 1, handle_chunk: 2, decode!: 1, handle_update: 2, before_start: 2
 
   @doc """
     The callback that is invoked when a chunk is received.
@@ -183,6 +184,8 @@ defmodule RabbitMQStream.Consumer do
               {:ok, RabbitMQStream.Connection.offset()} | {:error, any()}
 
   @callback decode!(message :: String.t()) :: term()
+
+  @callback before_start(opts(), t()) :: t()
 
   defstruct [
     :offset_reference,
