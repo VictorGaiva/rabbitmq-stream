@@ -202,7 +202,7 @@ defmodule RabbitMQStream.Connection.Handler do
       GenServer.reply(pid, {:ok, response.data})
     end
 
-    %{conn | streams: response.data.streams, brokers: response.data.brokers}
+    conn
   end
 
   def handle_message(%Connection{} = conn, %Response{command: :query_offset} = response) do
