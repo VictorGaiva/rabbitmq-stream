@@ -231,7 +231,7 @@ defmodule RabbitMQStream.Message do
     }
   end
 
-  def new_request(%Connection{server_commands_versions: %{publish: {_, 2}}}, :publish, opts) do
+  def new_request(%Connection{} = conn, :publish, opts) when conn.commands.publish.max >= 2 do
     %Request{
       version: 2,
       command: :publish,

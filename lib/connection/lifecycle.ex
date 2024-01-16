@@ -84,7 +84,7 @@ defmodule RabbitMQStream.Connection.Lifecycle do
 
     conn =
       conn
-      |> Helpers.push_request_tracker(:close, from)
+      |> Helpers.push_tracker(:close, from)
       |> send_request(:close, reason: reason, code: code)
 
     {:noreply, conn}
@@ -95,7 +95,7 @@ defmodule RabbitMQStream.Connection.Lifecycle do
 
     conn =
       conn
-      |> Helpers.push_request_tracker(:subscribe, from, {id, opts[:pid]})
+      |> Helpers.push_tracker(:subscribe, from, {id, opts[:pid]})
       |> send_request(:subscribe, opts ++ [subscription_id: id])
 
     {:noreply, conn}
@@ -104,7 +104,7 @@ defmodule RabbitMQStream.Connection.Lifecycle do
   def handle_call({:unsubscribe, opts}, from, %Connection{} = conn) do
     conn =
       conn
-      |> Helpers.push_request_tracker(:unsubscribe, from, opts[:subscription_id])
+      |> Helpers.push_tracker(:unsubscribe, from, opts[:subscription_id])
       |> send_request(:unsubscribe, opts)
 
     {:noreply, conn}
@@ -122,7 +122,7 @@ defmodule RabbitMQStream.Connection.Lifecycle do
            ] do
     conn =
       conn
-      |> Helpers.push_request_tracker(command, from)
+      |> Helpers.push_tracker(command, from)
       |> send_request(command, opts)
 
     {:noreply, conn}
@@ -130,10 +130,10 @@ defmodule RabbitMQStream.Connection.Lifecycle do
 
   def handle_call({command, opts}, from, %Connection{} = conn)
       when command in [:route, :partitions, :create_super_stream, :delete_super_stream] and
-             is_map_key(conn.server_commands_versions, command) do
+             is_map_key(conn.commands, command) do
     conn =
       conn
-      |> Helpers.push_request_tracker(command, from)
+      |> Helpers.push_tracker(command, from)
       |> send_request(command, opts)
 
     {:noreply, conn}
@@ -151,7 +151,7 @@ defmodule RabbitMQStream.Connection.Lifecycle do
 
     conn =
       conn
-      |> Helpers.push_request_tracker(:declare_publisher, from, id)
+      |> Helpers.push_tracker(:declare_publisher, from, id)
       |> send_request(:declare_publisher, opts ++ [id: id])
 
     {:noreply, conn}
@@ -172,8 +172,8 @@ defmodule RabbitMQStream.Connection.Lifecycle do
 
   def handle_cast({:publish, opts}, %Connection{} = conn) do
     conn =
-      case {opts[:message], conn.server_commands_versions[:publish]} do
-        {{_, _, filter_value}, {_, 2}} when is_binary(filter_value) ->
+      case {opts[:message], conn.commands.publish.max} do
+        {{_, _, filter_value}, max} when is_binary(filter_value) and max >= 2 ->
           Logger.error("Publishing a message with a `filter_value` is only supported by RabbitMQ on versions >= 3.13")
 
           conn

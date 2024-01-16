@@ -367,14 +367,14 @@ defmodule RabbitMQStream.Connection do
           correlation_sequence: non_neg_integer(),
           publisher_sequence: non_neg_integer(),
           subscriber_sequence: non_neg_integer(),
-          peer_properties: [[String.t()]],
+          peer_properties: %{String.t() => term()},
           connection_properties: %{String.t() => String.t() | integer()},
           mechanisms: [String.t()],
           connect_requests: [pid()],
           request_tracker: %{{atom(), integer()} => {pid(), any()}},
           subscriptions: %{non_neg_integer() => pid()},
-          server_commands_versions: %{
-            RabbitMQStream.Message.Helpers.command() => {non_neg_integer(), non_neg_integer()}
+          commands: %{
+            RabbitMQStream.Message.Helpers.command() => %{min: non_neg_integer(), max: non_neg_integer()}
           },
           frames_buffer: RabbitMQStream.Message.Buffer.t(),
           request_buffer: :queue.queue({term(), pid()}),
@@ -398,9 +398,7 @@ defmodule RabbitMQStream.Connection do
     mechanisms: [],
     connect_requests: [],
     request_tracker: %{},
-    brokers: %{},
-    streams: %{},
-    server_commands_versions: [],
+    commands: %{},
     request_buffer: :queue.new(),
     frames_buffer: RabbitMQStream.Message.Buffer.init(),
     commands_buffer: :queue.new(),
