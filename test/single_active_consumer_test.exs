@@ -2,6 +2,10 @@ defmodule RabbitMQStreamTest.Consumer.SingleActiveConsumer do
   use ExUnit.Case, async: false
   require Logger
 
+  @moduletag :v3_11
+  @moduletag :v3_12
+  @moduletag :v3_13
+
   defmodule Conn1 do
     use RabbitMQStream.Connection
   end

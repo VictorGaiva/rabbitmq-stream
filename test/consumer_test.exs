@@ -1,7 +1,10 @@
 defmodule RabbitMQStreamTest.Consumer do
   use ExUnit.Case, async: false
   alias RabbitMQStream.OsirisChunk
-  require Logger
+
+  @moduletag :v3_11
+  @moduletag :v3_12
+  @moduletag :v3_13
 
   defmodule SupervisedConnection do
     use RabbitMQStream.Connection

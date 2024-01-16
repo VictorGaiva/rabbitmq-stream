@@ -1,6 +1,10 @@
 defmodule RabbitMQStreamTest.Publisher do
   use ExUnit.Case, async: false
 
+  @moduletag :v3_11
+  @moduletag :v3_12
+  @moduletag :v3_13
+
   defmodule SupervisedConnection do
     use RabbitMQStream.Connection
   end
@@ -28,10 +32,7 @@ defmodule RabbitMQStreamTest.Publisher do
   @reference_name "publisher-test-reference-01"
   test "should declare itself and its stream" do
     assert {:ok, _} =
-             SupervisorPublisher.start_link(
-               reference_name: @reference_name,
-               stream_name: @stream
-             )
+             SupervisorPublisher.start_link(reference_name: @reference_name, stream_name: @stream)
 
     SupervisedConnection.delete_stream(@stream)
   end

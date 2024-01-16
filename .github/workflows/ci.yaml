@@ -50,4 +50,4 @@ jobs:
         run: mix compile
 
       - name: Run tests
-        run: mix test
+        run:  mix test --exclude test --include v${{ matrix.version }}

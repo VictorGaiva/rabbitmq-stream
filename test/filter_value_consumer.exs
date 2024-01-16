@@ -1,6 +1,7 @@
 defmodule RabbitMQStreamTest.Consumer.FilterValue do
   use ExUnit.Case, async: false
-  require Logger
+
+  @moduletag :v3_13
 
   defmodule Conn1 do
     use RabbitMQStream.Connection
@@ -68,7 +69,6 @@ defmodule RabbitMQStreamTest.Consumer.FilterValue do
     end
   end
 
-  @tag min_version: "3.13"
   test "should receive only the filtered messages" do
     {:ok, _} = Conn1.start_link()
     :ok = Conn1.connect()

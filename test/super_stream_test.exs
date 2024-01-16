@@ -3,13 +3,10 @@ defmodule RabbitMQStreamTest.SuperStream do
   alias RabbitMQStream.OsirisChunk
   require Logger
 
-  defmodule SupervisedConnection do
-    use RabbitMQStream.Connection
-  end
+  @moduletag :v3_13
 
   defmodule SuperConsumer do
-    use RabbitMQStream.SuperConsumer,
-      connection: SupervisedConnection
+    use RabbitMQStream.SuperConsumer
 
     @impl true
     def handle_chunk(%OsirisChunk{data_entries: entries}, %{private: parent}) do
@@ -20,19 +17,34 @@ defmodule RabbitMQStreamTest.SuperStream do
   end
 
   setup do
-    {:ok, _conn} = SupervisedConnection.start_link(host: "localhost", vhost: "/")
-    :ok = SupervisedConnection.connect()
+    {:ok, conn} = RabbitMQStream.Connection.start_link(host: "localhost", vhost: "/")
+    :ok = RabbitMQStream.Connection.connect(conn)
 
-    :ok
+    [conn: conn]
+  end
+
+  test "should create and delete a super_stream", %{conn: conn} do
+    RabbitMQStream.Connection.delete_super_stream(conn, "invoices")
+
+    partitions = ["invoices-0", "invoices-1", "invoices-2"]
+
+    :ok =
+      RabbitMQStream.Connection.create_super_stream(conn, "invoices", partitions, ["0", "1", "2"])
+
+    {:ok, %{streams: streams}} = RabbitMQStream.Connection.partitions(conn, "invoices")
+
+    assert Enum.all?(partitions, &(&1 in streams))
+
+    :ok = RabbitMQStream.Connection.delete_super_stream(conn, "invoices")
   end
 
   @stream "super-streams-01"
-  test "should create super streams" do
+  test "should create super streams", %{conn: conn} do
     {:ok, _} =
       SuperConsumer.start_link(
+        connection: conn,
         super_stream: @stream,
         partitions: ["01", "02", "03"],
-        connection: SupervisedConnection,
         consumer_opts: []
       )
 

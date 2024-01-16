@@ -3,6 +3,10 @@ defmodule RabbitMQStreamTest.Connection do
   alias RabbitMQStream.Connection
   import ExUnit.CaptureLog
 
+  @moduletag :v3_11
+  @moduletag :v3_12
+  @moduletag :v3_13
+
   defmodule SupervisedConnection do
     use RabbitMQStream.Connection
   end
@@ -163,24 +167,5 @@ defmodule RabbitMQStreamTest.Connection do
     :ok = SupervisedConnection.create_stream(@stream)
     assert {:ok, _data} = SupervisedConnection.stream_stats(@stream)
     assert {:error, :stream_does_not_exist} = SupervisedConnection.stream_stats("#{@stream}-NON-EXISTENT")
-  end
-
-  @tag min_version: "3.13"
-  test "should create and delete a super_stream" do
-    {:ok, _} = SupervisedConnection.start_link(host: "localhost", vhost: "/")
-    :ok = SupervisedConnection.connect()
-
-    SupervisedConnection.delete_super_stream("invoices")
-
-    partitions = ["invoices-0", "invoices-1", "invoices-2"]
-
-    :ok =
-      SupervisedConnection.create_super_stream("invoices", partitions, ["0", "1", "2"])
-
-    {:ok, %{streams: streams}} = SupervisedConnection.partitions("invoices")
-
-    assert Enum.all?(partitions, &(&1 in streams))
-
-    :ok = SupervisedConnection.delete_super_stream("invoices")
   end
 end
