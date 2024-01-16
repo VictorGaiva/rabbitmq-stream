@@ -89,18 +89,18 @@ defmodule RabbitMQStream.Publisher do
 
   defmacro __using__(opts) do
     defaults = Application.get_env(:rabbitmq_stream, :defaults, [])
-    # defaults = Application.compile_env(:rabbitmq_stream, :defaults, [])
 
     serializer = Keyword.get(opts, :serializer, Keyword.get(defaults, :serializer))
 
     quote location: :keep do
       @opts unquote(opts)
+      require Logger
 
       @behaviour RabbitMQStream.Publisher
 
       def start_link(opts \\ []) do
         unless !Keyword.has_key?(opts, :serializer) do
-          raise "You can only pass `:serializer` option to compile-time options."
+          Logger.warning("You can only pass `:serializer` option to compile-time options.")
         end
 
         opts =
