@@ -172,8 +172,8 @@ defmodule RabbitMQStream.Connection.Lifecycle do
 
   def handle_cast({:publish, opts}, %Connection{} = conn) do
     conn =
-      case {opts[:message], conn.commands.publish.max} do
-        {{_, _, filter_value}, max} when is_binary(filter_value) and max >= 2 ->
+      case {opts[:message], conn} do
+        {{_, _, filter_value}, conn} when is_binary(filter_value) and conn.commands.publish.max >= 2 ->
           Logger.error("Publishing a message with a `filter_value` is only supported by RabbitMQ on versions >= 3.13")
 
           conn
