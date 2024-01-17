@@ -1,4 +1,4 @@
-defmodule RabbitMQStream.Publisher.Lifecycle do
+defmodule RabbitMQStream.Publisher.LifeCycle do
   @moduledoc false
   use GenServer
 
@@ -15,7 +15,6 @@ defmodule RabbitMQStream.Publisher.Lifecycle do
       stream_name: stream_name,
       connection: connection,
       reference_name: reference_name,
-      serializer: opts[:serializer],
       publisher_module: opts[:publisher_module]
     }
 

@@ -104,16 +104,17 @@ defmodule RabbitMQStream.Publisher do
         end
 
         opts =
-          Application.get_env(:rabbitmq_stream, :defaults, [])
-          |> Keyword.get(:publisher, [])
-          |> Keyword.drop([:stream_name, :reference_name])
-          |> Keyword.merge(Application.get_env(:rabbitmq_stream, __MODULE__, []))
+          Application.get_env(:rabbitmq_stream, __MODULE__, [])
           |> Keyword.merge(@opts)
           |> Keyword.merge(opts)
-          |> Keyword.put(:publisher_module, __MODULE__)
+          |> Keyword.put_new(:publisher_module, __MODULE__)
+          |> Keyword.put(:name, __MODULE__)
 
-        # opts = Keyword.merge(@opts, opts)
-        GenServer.start_link(RabbitMQStream.Publisher.Lifecycle, opts, name: __MODULE__)
+        RabbitMQStream.Publisher.start_link(opts)
+      end
+
+      def child_spec(opts) do
+        %{id: __MODULE__, start: {__MODULE__, :start_link, [opts]}}
       end
 
       def publish(message) do
@@ -122,10 +123,6 @@ defmodule RabbitMQStream.Publisher do
         message = encode!(message)
 
         GenServer.cast(__MODULE__, {:publish, {message, value}})
-      end
-
-      def stop() do
-        GenServer.stop(__MODULE__)
       end
 
       def before_start(_opts, state), do: state
@@ -149,13 +146,26 @@ defmodule RabbitMQStream.Publisher do
     end
   end
 
+  def start_link(opts \\ []) do
+    opts =
+      Application.get_env(:rabbitmq_stream, :defaults, [])
+      |> Keyword.get(:publisher, [])
+      |> Keyword.drop([:stream_name, :offset_reference, :private])
+      |> Keyword.merge(opts)
+
+    GenServer.start_link(RabbitMQStream.Publisher.LifeCycle, opts, name: opts[:name])
+  end
+
+  def child_spec(opts) do
+    %{id: __MODULE__, start: {__MODULE__, :start_link, [opts]}}
+  end
+
   defstruct [
     :publishing_id,
     :reference_name,
     :connection,
     :stream_name,
     :sequence,
-    :serializer,
     :publisher_module,
     :id
   ]
@@ -166,7 +176,6 @@ defmodule RabbitMQStream.Publisher do
           connection: GenServer.server(),
           stream_name: String.t(),
           sequence: non_neg_integer() | nil,
-          serializer: (term() -> String.t()) | nil,
           id: String.t() | nil,
           publisher_module: module()
         }

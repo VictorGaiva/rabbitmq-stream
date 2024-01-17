@@ -13,7 +13,12 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
       |> Keyword.put_new(:initial_credit, 50_000)
       |> Keyword.put_new(:offset_tracking, count: [store_after: 50])
       |> Keyword.put_new(:flow_control, count: [credit_after: {:count, 1}])
+      |> Keyword.put_new(:offset_reference, Atom.to_string(opts[:consumer_module]))
       |> Keyword.put_new(:properties, [])
+
+    unless opts[:initial_offset] != nil do
+      raise "initial_offset is required"
+    end
 
     # Prevent startup if 'single_active_consumer' is active, but there is no
     # handle_update/2 callback defined.
@@ -94,7 +99,7 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
   @impl true
   def handle_info({:chunk, %RabbitMQStream.OsirisChunk{} = chunk}, state) do
     # TODO: Possibly add 'filter_value', as described as necessary in the documentation.
-    chunk = RabbitMQStream.OsirisChunk.decode_messages!(chunk, state.serializer)
+    chunk = RabbitMQStream.OsirisChunk.decode_messages!(chunk, state.consumer_module)
 
     cond do
       function_exported?(state.consumer_module, :handle_chunk, 1) ->

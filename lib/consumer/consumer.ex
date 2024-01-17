@@ -109,19 +109,25 @@ defmodule RabbitMQStream.Consumer do
 
   """
   defmacro __using__(opts) do
+    defaults = Application.get_env(:rabbitmq_stream, :defaults, [])
+
+    serializer = Keyword.get(opts, :serializer, Keyword.get(defaults, :serializer))
+
     quote location: :keep do
+      @opts unquote(opts)
+      require Logger
+
       @behaviour RabbitMQStream.Consumer
 
-      @opts unquote(opts)
-
       def start_link(opts \\ []) do
+        unless !Keyword.has_key?(opts, :serializer) do
+          Logger.warning("You can only pass `:serializer` option to compile-time options.")
+        end
+
         opts =
           Application.get_env(:rabbitmq_stream, __MODULE__, [])
           |> Keyword.merge(@opts)
           |> Keyword.merge(opts)
-          |> Keyword.put_new(:offset_reference, Atom.to_string(__MODULE__))
-          |> Keyword.put_new(:serializer, __MODULE__)
-          # Undocumented option.
           |> Keyword.put_new(:consumer_module, __MODULE__)
           |> Keyword.put(:name, __MODULE__)
 
@@ -140,8 +146,19 @@ defmodule RabbitMQStream.Consumer do
         GenServer.call(__MODULE__, :get_credits)
       end
 
-      def decode!(message), do: message
       def before_start(_opts, state), do: state
+
+      unquote(
+        if serializer != nil do
+          quote do
+            def decode!(message), do: unquote(serializer).decode!(message)
+          end
+        else
+          quote do
+            def decode!(message), do: message
+          end
+        end
+      )
 
       defoverridable RabbitMQStream.Consumer
     end
@@ -151,7 +168,6 @@ defmodule RabbitMQStream.Consumer do
     opts =
       Application.get_env(:rabbitmq_stream, :defaults, [])
       |> Keyword.get(:consumer, [])
-      |> Keyword.merge(Application.get_env(:rabbitmq_stream, :defaults, []) |> Keyword.take([:serializer]))
       |> Keyword.drop([:stream_name, :offset_reference, :private])
       |> Keyword.merge(opts)
 
@@ -202,7 +218,6 @@ defmodule RabbitMQStream.Consumer do
     :credits,
     :initial_credit,
     :private,
-    :serializer,
     :properties,
     :consumer_module
   ]
@@ -218,7 +233,6 @@ defmodule RabbitMQStream.Consumer do
           private: any(),
           credits: non_neg_integer(),
           initial_credit: non_neg_integer(),
-          serializer: {module(), atom()} | (String.t() -> term()) | nil,
           properties: [RabbitMQStream.Message.Types.ConsumerequestData.property()],
           consumer_module: module()
         }
@@ -232,7 +246,6 @@ defmodule RabbitMQStream.Consumer do
           | {:offset_tracking, [{RabbitMQStream.Consumer.OffsetTracking.t(), term()}]}
           | {:flow_control, {RabbitMQStream.Consumer.FlowControl.t(), term()}}
           | {:private, any()}
-          | {:serializer, {module(), atom()} | (String.t() -> term())}
           | {:properties, [RabbitMQStream.Message.Types.ConsumerequestData.property()]}
 
   @type opts :: [consumer_option()]
