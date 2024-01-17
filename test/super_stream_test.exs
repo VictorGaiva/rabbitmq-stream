@@ -3,17 +3,34 @@ defmodule RabbitMQStreamTest.SuperStream do
   alias RabbitMQStream.OsirisChunk
   require Logger
 
-  @moduletag :v3_13
-
   defmodule SuperConsumer do
-    use RabbitMQStream.SuperConsumer
+    use RabbitMQStream.SuperConsumer,
+      initial_offset: :next,
+      partitions: 3
 
     @impl true
-    def handle_chunk(%OsirisChunk{data_entries: entries}, %{private: parent}) do
+    def handle_chunk(%OsirisChunk{data_entries: entries}, %{private: parent} = state) do
       send(parent, {:handle_chunk, entries})
 
       :ok
     end
+
+    @impl true
+    def before_start(_opts, state) do
+      RabbitMQStream.Connection.create_stream(state.connection, state.stream_name)
+
+      state
+    end
+
+    @impl true
+    def handle_update(_, true) do
+      {:ok, :last}
+    end
+  end
+
+  defmodule SuperProducer do
+    use RabbitMQStream.SuperPublisher,
+      partitions: 3
   end
 
   setup do
@@ -23,6 +40,7 @@ defmodule RabbitMQStreamTest.SuperStream do
     [conn: conn]
   end
 
+  @tag :v3_13
   test "should create and delete a super_stream", %{conn: conn} do
     RabbitMQStream.Connection.delete_super_stream(conn, "invoices")
 
@@ -38,16 +56,28 @@ defmodule RabbitMQStreamTest.SuperStream do
     :ok = RabbitMQStream.Connection.delete_super_stream(conn, "invoices")
   end
 
-  @stream "super-streams-01"
+  @tag :v3_11
+  @tag :v3_12
+  @tag :v3_13
   test "should create super streams", %{conn: conn} do
     {:ok, _} =
       SuperConsumer.start_link(
         connection: conn,
-        super_stream: @stream,
-        partitions: ["01", "02", "03"],
-        consumer_opts: []
+        super_stream: "invoices",
+        private: self()
       )
 
+    {:ok, _} =
+      SuperProducer.start_link(
+        connection: conn,
+        super_stream: "invoices"
+      )
+
+    :ok = SuperProducer.publish("1")
+    :ok = SuperProducer.publish("12")
+    :ok = SuperProducer.publish("123")
     Process.sleep(500)
+
+    assert_receive {:handle_chunk, _entries} = _msg
   end
 end
