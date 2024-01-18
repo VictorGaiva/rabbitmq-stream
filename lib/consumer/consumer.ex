@@ -217,6 +217,7 @@ defmodule RabbitMQStream.Consumer do
     #  which would them possibly cause the strategy to not work as expected.
     :credits,
     :initial_credit,
+    :initial_offset,
     :private,
     :properties,
     :consumer_module
@@ -233,6 +234,7 @@ defmodule RabbitMQStream.Consumer do
           private: any(),
           credits: non_neg_integer(),
           initial_credit: non_neg_integer(),
+          initial_offset: RabbitMQStream.Connection.offset(),
           properties: [RabbitMQStream.Message.Types.ConsumerequestData.property()],
           consumer_module: module()
         }

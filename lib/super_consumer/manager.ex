@@ -27,9 +27,9 @@ defmodule RabbitMQStream.SuperConsumer.Manager do
               stream_name: "#{state.super_stream}-#{partition}",
               consumer_module: state.consumer_module,
               properties: [
-                single_active_consumer: true
+                single_active_consumer: true,
                 # It might not be necessary to set the super_stream as of 3.11
-                # super_stream: state.super_stream
+                super_stream: state.super_stream
               ]
             )
           }

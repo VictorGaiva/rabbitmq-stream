@@ -222,6 +222,10 @@ defmodule RabbitMQStream.Connection do
     GenServer.start_link(RabbitMQStream.Connection.Lifecycle, opts, name: opts[:name])
   end
 
+  def child_spec(opts) do
+    %{id: __MODULE__, start: {__MODULE__, :start_link, [opts]}}
+  end
+
   def connect(server) do
     GenServer.call(server, {:connect})
   end

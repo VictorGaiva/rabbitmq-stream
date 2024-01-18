@@ -3,28 +3,57 @@ defmodule RabbitMQStreamTest.SuperStream do
   alias RabbitMQStream.OsirisChunk
   require Logger
 
-  defmodule SuperConsumer do
+  defmodule SuperConsumer1 do
     use RabbitMQStream.SuperConsumer,
       initial_offset: :next,
       partitions: 3
 
     @impl true
-    def handle_chunk(%OsirisChunk{data_entries: entries}, %{private: parent} = state) do
-      send(parent, {:handle_chunk, entries})
+    def handle_chunk(%OsirisChunk{}, %{private: parent}) do
+      send(parent, __MODULE__)
 
       :ok
     end
 
     @impl true
-    def before_start(_opts, state) do
-      RabbitMQStream.Connection.create_stream(state.connection, state.stream_name)
+    def handle_update(state, _) do
+      {:ok, state.last_offset || state.initial_offset}
+    end
+  end
 
-      state
+  defmodule SuperConsumer2 do
+    use RabbitMQStream.SuperConsumer,
+      initial_offset: :next,
+      partitions: 3
+
+    @impl true
+    def handle_chunk(%OsirisChunk{}, %{private: parent}) do
+      send(parent, __MODULE__)
+
+      :ok
     end
 
     @impl true
-    def handle_update(_, true) do
-      {:ok, :last}
+    def handle_update(state, _) do
+      {:ok, state.last_offset || state.initial_offset}
+    end
+  end
+
+  defmodule SuperConsumer3 do
+    use RabbitMQStream.SuperConsumer,
+      initial_offset: :next,
+      partitions: 3
+
+    @impl true
+    def handle_chunk(%OsirisChunk{}, %{private: parent}) do
+      send(parent, __MODULE__)
+
+      :ok
+    end
+
+    @impl true
+    def handle_update(state, _) do
+      {:ok, state.last_offset || state.initial_offset}
     end
   end
 
@@ -59,13 +88,39 @@ defmodule RabbitMQStreamTest.SuperStream do
   @tag :v3_11
   @tag :v3_12
   @tag :v3_13
-  test "should create super streams", %{conn: conn} do
+  test "should create super streams" do
+    {:ok, conn} = RabbitMQStream.Connection.start_link(host: "localhost", vhost: "/")
+    :ok = RabbitMQStream.Connection.connect(conn)
+
     {:ok, _} =
-      SuperConsumer.start_link(
+      SuperConsumer1.start_link(
         connection: conn,
         super_stream: "invoices",
         private: self()
       )
+
+    {:ok, conn} = RabbitMQStream.Connection.start_link(host: "localhost", vhost: "/")
+    :ok = RabbitMQStream.Connection.connect(conn)
+
+    {:ok, _} =
+      SuperConsumer2.start_link(
+        connection: conn,
+        super_stream: "invoices",
+        private: self()
+      )
+
+    {:ok, conn} = RabbitMQStream.Connection.start_link(host: "localhost", vhost: "/")
+    :ok = RabbitMQStream.Connection.connect(conn)
+
+    {:ok, _} =
+      SuperConsumer3.start_link(
+        connection: conn,
+        super_stream: "invoices",
+        private: self()
+      )
+
+    {:ok, conn} = RabbitMQStream.Connection.start_link(host: "localhost", vhost: "/")
+    :ok = RabbitMQStream.Connection.connect(conn)
 
     {:ok, _} =
       SuperProducer.start_link(
@@ -73,11 +128,23 @@ defmodule RabbitMQStreamTest.SuperStream do
         super_stream: "invoices"
       )
 
+    # We wait a bit to guarantee that the consumers are ready
+    Process.sleep(500)
+
     :ok = SuperProducer.publish("1")
     :ok = SuperProducer.publish("12")
     :ok = SuperProducer.publish("123")
-    Process.sleep(500)
 
-    assert_receive {:handle_chunk, _entries} = _msg
+    msgs =
+      for _ <- 1..3 do
+        receive do
+          msg -> msg
+        end
+      end
+
+    # Process.sleep(60_000)
+    assert SuperConsumer1 in msgs
+    assert SuperConsumer2 in msgs
+    assert SuperConsumer3 in msgs
   end
 end

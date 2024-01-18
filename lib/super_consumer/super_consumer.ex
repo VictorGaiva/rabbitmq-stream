@@ -1,4 +1,18 @@
 defmodule RabbitMQStream.SuperConsumer do
+  @moduledoc """
+  A Superconsumer spawns a Consumer process for each partition of the stream.
+
+  It accepts the same options as a Consumer, plus the following:
+
+  * `:super_stream` - the name of the super stream
+  * `:partitions` - the number of partitions
+
+
+  All the consumers use the same provided connection, and are supervised by a
+  DynamicSupervisor.
+
+  """
+
   defmacro __using__(opts) do
     defaults = Application.get_env(:rabbitmq_stream, :defaults, [])
 
@@ -14,6 +28,10 @@ defmodule RabbitMQStream.SuperConsumer do
       def start_link(opts) do
         opts = Keyword.merge(opts, @opts)
         Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
+      end
+
+      def child_spec(opts) do
+        %{id: __MODULE__, start: {__MODULE__, :start_link, [opts]}}
       end
 
       @impl true
@@ -37,6 +55,8 @@ defmodule RabbitMQStream.SuperConsumer do
 
         Supervisor.init(children, strategy: :one_for_all)
       end
+
+      def before_start(_opts, state), do: state
 
       unquote(
         if serializer != nil do
