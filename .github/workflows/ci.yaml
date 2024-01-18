@@ -23,6 +23,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         version: ["3_13", "3_12", "3_11"]
     steps:
