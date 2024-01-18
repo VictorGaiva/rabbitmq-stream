@@ -30,5 +30,5 @@
 | exchangecommandversions | ✔️          | 3.13            |
 | createsuperstream       | ✔️          | 3.13            |
 | deletesuperstream       | ✔️          | 3.13            |
-| route                   | ❌          | 3.13            |
+| route                   | ✔️          | 3.13            |
 | partitions              | ✔️          | 3.13            |
