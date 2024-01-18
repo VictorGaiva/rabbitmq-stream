@@ -170,20 +170,13 @@ defmodule RabbitMQStream.Message.Data do
   end
 
   def decode(%{command: :open}, buffer) do
-    connection_properties =
-      if buffer != "" do
-        {"", connection_properties} =
-          decode_array(buffer, fn buffer, acc ->
-            {buffer, key} = decode_string(buffer)
-            {buffer, value} = decode_string(buffer)
+    {"", connection_properties} =
+      decode_array(buffer, fn buffer, acc ->
+        {buffer, key} = decode_string(buffer)
+        {buffer, value} = decode_string(buffer)
 
-            {buffer, [{key, value} | acc]}
-          end)
-
-        connection_properties
-      else
-        []
-      end
+        {buffer, [{key, value} | acc]}
+      end)
 
     %Types.OpenResponseData{connection_properties: connection_properties}
   end

@@ -131,6 +131,10 @@ defmodule RabbitMQStream.Message.Helpers do
     encode_string(Atom.to_string(value))
   end
 
+  def encode_string(value) when is_integer(value) do
+    encode_string(Integer.to_string(value))
+  end
+
   def encode_string(nil) do
     <<-1::integer-size(16)>>
   end
@@ -149,14 +153,14 @@ defmodule RabbitMQStream.Message.Helpers do
 
   def encode_array(arr) do
     size = Enum.count(arr)
-    arr = arr |> Enum.reduce(&<>/2)
+    arr = arr |> Enum.reduce("", &<>/2)
 
     <<size::integer-size(32), arr::binary>>
   end
 
   def encode_array(arr, foo) when is_function(foo, 1) do
     size = Enum.count(arr)
-    arr = arr |> Enum.map(foo) |> Enum.reduce(&<>/2)
+    arr = arr |> Enum.map(foo) |> Enum.reduce("", &<>/2)
 
     <<size::integer-size(32), arr::binary>>
   end
