@@ -71,18 +71,24 @@ defmodule RabbitMQStreamTest.SuperStream do
 
   @tag :v3_13
   test "should create and delete a super_stream", %{conn: conn} do
-    RabbitMQStream.Connection.delete_super_stream(conn, "invoices")
-
-    partitions = ["invoices-0", "invoices-1", "invoices-2"]
+    RabbitMQStream.Connection.delete_super_stream(conn, "test")
 
     :ok =
-      RabbitMQStream.Connection.create_super_stream(conn, "invoices", partitions, ["0", "1", "2"])
+      RabbitMQStream.Connection.create_super_stream(conn, "test",
+        "test-0": 0,
+        "test-1": 1,
+        "test-2": 2
+      )
 
-    {:ok, %{streams: streams}} = RabbitMQStream.Connection.partitions(conn, "invoices")
+    {:ok, %{streams: ["test-0"]}} = RabbitMQStream.Connection.route(conn, "0", "test")
+    {:ok, %{streams: ["test-1"]}} = RabbitMQStream.Connection.route(conn, "1", "test")
+    {:ok, %{streams: ["test-2"]}} = RabbitMQStream.Connection.route(conn, "2", "test")
 
-    assert Enum.all?(partitions, &(&1 in streams))
+    {:ok, %{streams: streams}} = RabbitMQStream.Connection.partitions(conn, "test")
 
-    :ok = RabbitMQStream.Connection.delete_super_stream(conn, "invoices")
+    assert Enum.all?(streams, fn stream -> stream in ["test-0", "test-1", "test-2"] end)
+
+    :ok = RabbitMQStream.Connection.delete_super_stream(conn, "test")
   end
 
   @tag :v3_11
