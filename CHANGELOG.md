@@ -6,16 +6,20 @@ Added support for RabbitMQ 3.13, with Route, Partitions and SuperStreams support
 
 ### 0.4.0 Features
 
-- Added support for `:route`, `:partitions`, `:consumerupdate`, `:exchangecommandversions`, `:streamstats`, `:createsuperstream` and `:deletesuperstream` commands.
-- Added serialization options for encoding and decoding messages.
+- Support for `:consumerupdate`, `:exchangecommandversions`, `:streamstats`,  commands.
+- Serialization options for encoding and decoding messages.
 - TLS Support
-- Functional `single-active-consumer` and `filter_value` properties for consumers
+- Functional `single-active-consumer`.
+- Initial support for `filter_value` consumer parameter, and `:createsuperstream`, `:deletesuperstream`, `:route`, `:partitions` commands.
+- Initial support for SuperStreams, with RabbitMQStream.SuperConsumer and RabbitMQStream.SuperPublisher.
 
 ### 0.4.0 Changes
 
 The 'Message' module tree was refactored to make all the Encoding and Decoding logic stay close to each other.
 
 - Improved the cleanup logic for closing the connection.
+- Publishers and Consumers now expects any name of a GenServer process, instead of a Module.
+- Added checks on supported commands based on Server version, and exchanged commands versions.
 
 ### 0.4.0 Breaking Changes
 

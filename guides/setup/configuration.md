@@ -97,4 +97,4 @@ For more information, you can check the documentation at each actor's module;
 
 ### Serializer
 
-You can define a Serializer module to be used by the Publihser and Consumer modules. It is expected to implement `encode!/1` and `decode!/1` callbacks, and must be defined at compile-time level configurations.
+You can define a Serializer module to be used by the Publisher and Consumer modules. It is expected to implement `encode!/1` and `decode!/1` callbacks, and must be defined at compile-time level configurations.

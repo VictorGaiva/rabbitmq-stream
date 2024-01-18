@@ -81,7 +81,6 @@ defmodule RabbitMQStream.Connection do
 
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts], location: :keep do
-      @behaviour RabbitMQStream.Connection.Behavior
       @opts opts
 
       def start_link(opts \\ []) when is_list(opts) do
@@ -212,6 +211,7 @@ defmodule RabbitMQStream.Connection do
   end
 
   import RabbitMQStream.Connection.Helpers
+  @behaviour RabbitMQStream.Connection.Behavior
 
   def start_link(opts \\ []) when is_list(opts) do
     opts =
@@ -333,15 +333,13 @@ defmodule RabbitMQStream.Connection do
     GenServer.call(server, {:partitions, super_stream: super_stream})
   end
 
-  def create_super_stream(server, name, partitions, binding_keys, arguments \\ [])
+  def create_super_stream(server, name, partitions, arguments \\ [])
       when is_binary(name) and
              is_list(partitions) and
-             length(partitions) > 0 and
-             is_list(binding_keys) and
-             length(binding_keys) > 0 do
+             length(partitions) > 0 do
     GenServer.call(
       server,
-      {:create_super_stream, name: name, partitions: partitions, binding_keys: binding_keys, arguments: arguments}
+      {:create_super_stream, name: name, partitions: partitions, arguments: arguments}
     )
   end
 
@@ -372,7 +370,7 @@ defmodule RabbitMQStream.Connection do
           publisher_sequence: non_neg_integer(),
           subscriber_sequence: non_neg_integer(),
           peer_properties: %{String.t() => term()},
-          connection_properties: %{String.t() => String.t() | integer()},
+          connection_properties: Keyword.t(),
           mechanisms: [String.t()],
           connect_requests: [pid()],
           request_tracker: %{{atom(), integer()} => {pid(), any()}},

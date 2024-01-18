@@ -27,9 +27,8 @@ defmodule RabbitMQStream.SuperPublisher do
 
   `$ rabbitmq-streams add_super_stream invoices --partitions 3`
 
-  As of 3.13.0-rc4 RabbitMQ team is in the process of implementing [Partition and Route commands](https://github.com/rabbitmq/rabbitmq-server/blob/main/deps/rabbitmq_stream/docs/PROTOCOL.adoc#route)
-  using the Stream Protocol itself, which are already initially implemented
-  by the `RabbitMQStream.Connection` module, but are not yet fully functional.
+  As of RabbitMQ 3.13.x, you can also create a super stream using the
+  `RabbitMQStream.Connection.create_super_stream/4`.
 
   """
   defmacro __using__(opts) do
