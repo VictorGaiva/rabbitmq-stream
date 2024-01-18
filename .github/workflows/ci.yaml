@@ -40,9 +40,7 @@ jobs:
           services: "rabbitmq_stream_${{ matrix.version }}"
       
       - name: Create 'invoices' SuperStream
-        run: |
-          DOCKER_NAME=$(docker ps --filter name=rabbitmq_stream --format "{{.Names}}")
-          docker exec $DOCKER_NAME rabbitmq-streams add_super_stream invoices --partitions 3
+        run: docker exec rabbitmq_stream rabbitmq-streams add_super_stream invoices --partitions 3
 
       - name: Install Dependencies
         run: |
