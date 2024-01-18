@@ -478,8 +478,12 @@ defmodule RabbitMQStream.Message.Data do
 
   def encode(%Request{command: :create_super_stream, data: data}) do
     name = encode_string(data.name)
-    partitions = encode_array(data.partitions, &encode_string/1)
-    binding_keys = encode_array(data.binding_keys, &encode_string/1)
+
+    {partitions, binding_keys} = Enum.unzip(data.partitions)
+
+    partitions = encode_array(partitions, &encode_string/1)
+    binding_keys = encode_array(binding_keys, &encode_string/1)
+
     arguments = encode_map(data.arguments)
 
     <<name::binary, partitions::binary, binding_keys::binary, arguments::binary>>

@@ -190,12 +190,11 @@ defmodule RabbitMQStream.Connection do
         RabbitMQStream.Connection.partitions(__MODULE__, super_stream)
       end
 
-      def create_super_stream(name, partitions, binding_keys, arguments \\ []) do
+      def create_super_stream(name, partitions, arguments \\ []) do
         RabbitMQStream.Connection.create_super_stream(
           __MODULE__,
           name,
           partitions,
-          binding_keys,
           arguments
         )
       end

@@ -549,14 +549,13 @@ defmodule RabbitMQStream.Message.Types do
   end
 
   defmodule CreateSuperStreamRequestData do
-    @enforce_keys [:name, :partitions, :binding_keys, :arguments]
+    @enforce_keys [:name, :partitions, :arguments]
     @type t :: %{
             name: String.t(),
-            partitions: [String.t()],
-            binding_keys: [String.t()],
+            partitions: [{String.t(), String.t()}],
             arguments: Keyword.t(String.t())
           }
-    defstruct [:name, :partitions, :binding_keys, :arguments]
+    defstruct [:name, :partitions, :arguments]
   end
 
   defmodule CreateSuperStreamResponseData do
