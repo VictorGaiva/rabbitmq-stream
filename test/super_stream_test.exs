@@ -98,6 +98,13 @@ defmodule RabbitMQStreamTest.SuperStream do
     {:ok, conn} = RabbitMQStream.Connection.start_link(host: "localhost", vhost: "/")
     :ok = RabbitMQStream.Connection.connect(conn)
 
+    {:ok, %{streams: streams}} =
+      RabbitMQStream.Connection.query_metadata(conn, ["invoices-0", "invoices-1", "invoices-2"])
+
+    unless Enum.all?(streams, &(&1.code == :ok)) do
+      raise "SuperStream streams were not found. Please ensure you've created the \"invoices\" SuperStream with 3 partitions using RabbitMQ CLI or Management UI before running this test."
+    end
+
     {:ok, _} =
       SuperConsumer1.start_link(
         connection: conn,
