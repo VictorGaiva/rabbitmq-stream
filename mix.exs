@@ -91,7 +91,7 @@ defmodule RabbitMQStream.MixProject do
     [
       Client: [
         RabbitMQStream.Connection,
-        RabbitMQStream.Publisher,
+        RabbitMQStream.Producer,
         RabbitMQStream.Consumer
       ],
       "Offset Tracking": [

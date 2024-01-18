@@ -55,13 +55,13 @@ You can take a look at an example Consumer GenServer at the [Consuming Documenta
 
 ### Publishing to stream
 
-RabbitMQ Streams protocol needs a static `:reference_name` per publisher. This is used to prevent message duplication. For this reason, each stream needs, for now, a static module to publish messages, which keeps track of its own `publishing_id`.
+RabbitMQ Streams protocol needs a static `:reference_name` per producer. This is used to prevent message duplication. For this reason, each stream needs, for now, a static module to publish messages, which keeps track of its own `publishing_id`.
 
-You can define a `Publisher` module like this:
+You can define a `Producer` module like this:
 
 ```elixir
-defmodule MyApp.MyPublisher do
-  use RabbitMQStream.Publisher,
+defmodule MyApp.MyProducer do
+  use RabbitMQStream.Producer,
     stream: "stream-01",
     connection: MyApp.MyConnection
 end
@@ -70,7 +70,7 @@ end
 Then you can publish messages to the stream:
 
 ```elixir
-MyApp.MyPublisher.publish("Hello World")
+MyApp.MyProducer.publish("Hello World")
 ```
 
 ## Installation

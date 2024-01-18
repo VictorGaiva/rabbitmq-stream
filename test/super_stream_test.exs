@@ -58,7 +58,7 @@ defmodule RabbitMQStreamTest.SuperStream do
   end
 
   defmodule SuperProducer do
-    use RabbitMQStream.SuperPublisher,
+    use RabbitMQStream.SuperProducer,
       partitions: 3
   end
 

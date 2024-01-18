@@ -113,9 +113,9 @@ defmodule RabbitMQStream.Connection.Lifecycle do
   def handle_call({command, opts}, from, %Connection{} = conn)
       when command in [
              :query_offset,
-             :delete_publisher,
+             :delete_producer,
              :query_metadata,
-             :query_publisher_sequence,
+             :query_producer_sequence,
              :delete_stream,
              :create_stream,
              :stream_stats
@@ -146,13 +146,13 @@ defmodule RabbitMQStream.Connection.Lifecycle do
     {:reply, {:error, :unsupported}, conn}
   end
 
-  def handle_call({:declare_publisher, opts}, from, %Connection{} = conn) do
-    {id, conn} = Map.get_and_update!(conn, :publisher_sequence, &{&1, &1 + 1})
+  def handle_call({:declare_producer, opts}, from, %Connection{} = conn) do
+    {id, conn} = Map.get_and_update!(conn, :producer_sequence, &{&1, &1 + 1})
 
     conn =
       conn
-      |> Helpers.push_tracker(:declare_publisher, from, id)
-      |> send_request(:declare_publisher, opts ++ [id: id])
+      |> Helpers.push_tracker(:declare_producer, from, id)
+      |> send_request(:declare_producer, opts ++ [id: id])
 
     {:noreply, conn}
   end

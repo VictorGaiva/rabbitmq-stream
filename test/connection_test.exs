@@ -126,35 +126,35 @@ defmodule RabbitMQStreamTest.Connection do
   end
 
   @stream "test-store-05"
-  test "should declare and delete a publisher" do
+  test "should declare and delete a producer" do
     {:ok, _} = SupervisedConnection.start_link(host: "localhost", vhost: "/")
     :ok = SupervisedConnection.connect()
 
     SupervisedConnection.delete_stream(@stream)
     :ok = SupervisedConnection.create_stream(@stream)
 
-    # The publisherId sequence should always start at 1
-    assert {:ok, 1} = SupervisedConnection.declare_publisher(@stream, "publisher-01")
+    # The producerId sequence should always start at 1
+    assert {:ok, 1} = SupervisedConnection.declare_producer(@stream, "producer-01")
 
-    assert :ok = SupervisedConnection.delete_publisher(1)
+    assert :ok = SupervisedConnection.delete_producer(1)
 
     :ok = SupervisedConnection.delete_stream(@stream)
     SupervisedConnection.close()
   end
 
   @stream "test-store-06"
-  @publisher "publisher-02"
-  test "should query publisher sequence" do
+  @producer "producer-02"
+  test "should query producer sequence" do
     {:ok, _} = SupervisedConnection.start_link(host: "localhost", vhost: "/")
     :ok = SupervisedConnection.connect()
     SupervisedConnection.delete_stream(@stream)
     :ok = SupervisedConnection.create_stream(@stream)
-    {:ok, _} = SupervisedConnection.declare_publisher(@stream, @publisher)
+    {:ok, _} = SupervisedConnection.declare_producer(@stream, @producer)
 
-    # Should be 0 since the publisher was just declared
-    assert {:ok, 0} = SupervisedConnection.query_publisher_sequence(@stream, @publisher)
+    # Should be 0 since the producer was just declared
+    assert {:ok, 0} = SupervisedConnection.query_producer_sequence(@stream, @producer)
 
-    :ok = SupervisedConnection.delete_publisher(1)
+    :ok = SupervisedConnection.delete_producer(1)
     :ok = SupervisedConnection.delete_stream(@stream)
     SupervisedConnection.close()
   end

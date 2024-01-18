@@ -90,8 +90,8 @@ defmodule RabbitMQStream.Connection.Handler do
              :create_stream,
              :delete_stream,
              :query_offset,
-             :declare_publisher,
-             :delete_publisher,
+             :declare_producer,
+             :delete_producer,
              :subscribe,
              :unsubscribe,
              :stream_stats,
@@ -215,8 +215,8 @@ defmodule RabbitMQStream.Connection.Handler do
     conn
   end
 
-  def handle_message(%Connection{} = conn, %Response{command: :declare_publisher} = response) do
-    {{pid, id}, conn} = Helpers.pop_tracker(conn, :declare_publisher, response.correlation_id)
+  def handle_message(%Connection{} = conn, %Response{command: :declare_producer} = response) do
+    {{pid, id}, conn} = Helpers.pop_tracker(conn, :declare_producer, response.correlation_id)
 
     if pid != nil do
       GenServer.reply(pid, {:ok, id})
@@ -225,8 +225,8 @@ defmodule RabbitMQStream.Connection.Handler do
     conn
   end
 
-  def handle_message(%Connection{} = conn, %Response{command: :query_publisher_sequence} = response) do
-    {{pid, _data}, conn} = Helpers.pop_tracker(conn, :query_publisher_sequence, response.correlation_id)
+  def handle_message(%Connection{} = conn, %Response{command: :query_producer_sequence} = response) do
+    {{pid, _data}, conn} = Helpers.pop_tracker(conn, :query_producer_sequence, response.correlation_id)
 
     if pid != nil do
       GenServer.reply(pid, {:ok, response.data.sequence})
@@ -290,7 +290,7 @@ defmodule RabbitMQStream.Connection.Handler do
   end
 
   def handle_message(%Connection{} = conn, %Response{command: command} = response)
-      when command in [:create_stream, :delete_stream, :delete_publisher, :create_super_stream, :delete_super_stream] do
+      when command in [:create_stream, :delete_stream, :delete_producer, :create_super_stream, :delete_super_stream] do
     {{pid, _data}, conn} = Helpers.pop_tracker(conn, command, response.correlation_id)
 
     if pid != nil do

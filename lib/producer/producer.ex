@@ -1,46 +1,46 @@
-defmodule RabbitMQStream.Publisher do
+defmodule RabbitMQStream.Producer do
   @moduledoc """
-  `RabbitMQStream.Publisher` allows you to define modules or processes that publish messages to a single stream.
+  `RabbitMQStream.Producer` allows you to define modules or processes that publish messages to a single stream.
 
-  # Defining a publisher Module
+  # Defining a producer Module
 
-  A standalone publisher module can be defined with:
+  A standalone producer module can be defined with:
 
-      defmodule MyApp.MyPublisher do
-        use RabbitMQStream.Publisher,
+      defmodule MyApp.MyProducer do
+        use RabbitMQStream.Producer,
           stream_name: "my-stream",
           connection: MyApp.MyConnection
       end
 
   After adding it to your supervision tree, you can publish messages with:
 
-      MyApp.MyPublisher.publish("Hello, world!")
+      MyApp.MyProducer.publish("Hello, world!")
 
-  You can add the publisher to your supervision tree as follows this:
+  You can add the producer to your supervision tree as follows this:
 
       def start(_, _) do
         children = [
           # ...
-          MyApp.MyPublisher
+          MyApp.MyProducer
         ]
 
         opts = # ...
         Supervisor.start_link(children, opts)
       end
 
-  The standalone publisher starts its own `RabbitMQStream.Connection`, declaring itself and fetching its most recent `publishing_id`, and declaring the stream, if it does not exist.
+  The standalone producer starts its own `RabbitMQStream.Connection`, declaring itself and fetching its most recent `publishing_id`, and declaring the stream, if it does not exist.
 
   # Configuration
-  The RabbitMQStream.Publisher accepts the following options:
+  The RabbitMQStream.Producer accepts the following options:
 
   * `:stream_name` - The name of the stream to publish to. Required.
-  * `:reference_name` - The string which is used by the server to prevent [Duplicate Message](https://blog.rabbitmq.com/posts/2021/07/rabbitmq-streams-message-deduplication/). Defaults to `__MODULE__.Publisher`.
+  * `:reference_name` - The string which is used by the server to prevent [Duplicate Message](https://blog.rabbitmq.com/posts/2021/07/rabbitmq-streams-message-deduplication/). Defaults to `__MODULE__.Producer`.
   * `:connection` - The identifier for a `RabbitMQStream.Connection`.
   * `:serializer` - The module to use to decode the message. Defaults to `nil`, which means no encoding is done.
 
   You can also declare the configuration in your `config.exs`:
 
-      config :rabbitmq_stream, MyApp.MyPublisher,
+      config :rabbitmq_stream, MyApp.MyProducer,
         stream_name: "my-stream",
         connection: MyApp.MyConnection
 
@@ -49,8 +49,8 @@ defmodule RabbitMQStream.Publisher do
 
   You can optionally define a `before_start/2` callback to perform setup logic, such as creating the stream, if it doesn't yet exists.
 
-      defmodule MyApp.MyPublisher do
-        use RabbitMQStream.Publisher,
+      defmodule MyApp.MyProducer do
+        use RabbitMQStream.Producer,
           stream_name: "my-stream",
           connection: MyApp.MyConnection
 
@@ -65,22 +65,22 @@ defmodule RabbitMQStream.Publisher do
 
   # Configuration
 
-    You can configure each Publisher with:
+    You can configure each Producer with:
 
-        config :rabbitmq_stream, MyApp.MyPublisher,
+        config :rabbitmq_stream, MyApp.MyProducer,
           stream_name: "my-stream",
           connection: MyApp.MyConnection
 
-    And also you can override the defaults of all publishers with:
+    And also you can override the defaults of all producers with:
 
           config :rabbitmq_stream, :defaults,
-            publisher: [
+            producer: [
               connection: MyApp.MyConnection,
               # ...
             ]
             serializer: Jason
 
-    Globally configuring all publishers ignores the following options:
+    Globally configuring all producers ignores the following options:
 
       * `:stream_name`
       * `:reference_name`
@@ -96,7 +96,7 @@ defmodule RabbitMQStream.Publisher do
       @opts unquote(opts)
       require Logger
 
-      @behaviour RabbitMQStream.Publisher
+      @behaviour RabbitMQStream.Producer
 
       def start_link(opts \\ []) do
         unless !Keyword.has_key?(opts, :serializer) do
@@ -107,10 +107,10 @@ defmodule RabbitMQStream.Publisher do
           Application.get_env(:rabbitmq_stream, __MODULE__, [])
           |> Keyword.merge(@opts)
           |> Keyword.merge(opts)
-          |> Keyword.put_new(:publisher_module, __MODULE__)
+          |> Keyword.put_new(:producer_module, __MODULE__)
           |> Keyword.put(:name, __MODULE__)
 
-        RabbitMQStream.Publisher.start_link(opts)
+        RabbitMQStream.Producer.start_link(opts)
       end
 
       def child_spec(opts) do
@@ -130,7 +130,7 @@ defmodule RabbitMQStream.Publisher do
 
       unquote(
         # We need this piece of logic so we can garantee that the 'encode!/1' call is executed
-        # by the caller process, not the Publisher process itself.
+        # by the caller process, not the Producer process itself.
         if serializer != nil do
           quote do
             def encode!(message), do: unquote(serializer).encode!(message)
@@ -142,18 +142,18 @@ defmodule RabbitMQStream.Publisher do
         end
       )
 
-      defoverridable RabbitMQStream.Publisher
+      defoverridable RabbitMQStream.Producer
     end
   end
 
   def start_link(opts \\ []) do
     opts =
       Application.get_env(:rabbitmq_stream, :defaults, [])
-      |> Keyword.get(:publisher, [])
+      |> Keyword.get(:producer, [])
       |> Keyword.drop([:stream_name, :offset_reference, :private])
       |> Keyword.merge(opts)
 
-    GenServer.start_link(RabbitMQStream.Publisher.LifeCycle, opts, name: opts[:name])
+    GenServer.start_link(RabbitMQStream.Producer.LifeCycle, opts, name: opts[:name])
   end
 
   def child_spec(opts) do
@@ -166,7 +166,7 @@ defmodule RabbitMQStream.Publisher do
     :connection,
     :stream_name,
     :sequence,
-    :publisher_module,
+    :producer_module,
     :id
   ]
 
@@ -177,7 +177,7 @@ defmodule RabbitMQStream.Publisher do
           stream_name: String.t(),
           sequence: non_neg_integer() | nil,
           id: String.t() | nil,
-          publisher_module: module()
+          producer_module: module()
         }
 
   @type options :: [option()]
@@ -190,7 +190,7 @@ defmodule RabbitMQStream.Publisher do
 
   @doc """
   Optional callback that is called after the process has started, but before the
-  publisher has declared itself and fetched its most recent `publishing_id`.
+  producer has declared itself and fetched its most recent `publishing_id`.
 
   This is usefull for setup logic, such as creating the Stream, if it doesn't yet exists.
   """

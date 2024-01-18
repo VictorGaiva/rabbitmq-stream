@@ -184,26 +184,26 @@ defmodule RabbitMQStream.Message do
     }
   end
 
-  def new_request(%Connection{} = conn, :declare_publisher, opts) do
+  def new_request(%Connection{} = conn, :declare_producer, opts) do
     %Request{
       version: 1,
-      command: :declare_publisher,
+      command: :declare_producer,
       correlation_id: conn.correlation_sequence,
-      data: %Types.DeclarePublisherRequestData{
+      data: %Types.DeclareProducerRequestData{
         id: opts[:id],
-        publisher_reference: opts[:publisher_reference],
+        producer_reference: opts[:producer_reference],
         stream_name: opts[:stream_name]
       }
     }
   end
 
-  def new_request(%Connection{} = conn, :delete_publisher, opts) do
+  def new_request(%Connection{} = conn, :delete_producer, opts) do
     %Request{
       version: 1,
-      command: :delete_publisher,
+      command: :delete_producer,
       correlation_id: conn.correlation_sequence,
-      data: %Types.DeletePublisherRequestData{
-        publisher_id: opts[:publisher_id]
+      data: %Types.DeleteProducerRequestData{
+        producer_id: opts[:producer_id]
       }
     }
   end
@@ -219,14 +219,14 @@ defmodule RabbitMQStream.Message do
     }
   end
 
-  def new_request(%Connection{} = conn, :query_publisher_sequence, opts) do
+  def new_request(%Connection{} = conn, :query_producer_sequence, opts) do
     %Request{
       version: 1,
-      command: :query_publisher_sequence,
+      command: :query_producer_sequence,
       correlation_id: conn.correlation_sequence,
-      data: %Types.QueryPublisherSequenceRequestData{
+      data: %Types.QueryProducerSequenceRequestData{
         stream_name: opts[:stream_name],
-        publisher_reference: opts[:publisher_reference]
+        producer_reference: opts[:producer_reference]
       }
     }
   end
@@ -236,7 +236,7 @@ defmodule RabbitMQStream.Message do
       version: 2,
       command: :publish,
       data: %Types.PublishData{
-        publisher_id: opts[:publisher_id],
+        producer_id: opts[:producer_id],
         messages: opts[:messages]
       }
     }
@@ -247,7 +247,7 @@ defmodule RabbitMQStream.Message do
       version: 1,
       command: :publish,
       data: %Types.PublishData{
-        publisher_id: opts[:publisher_id],
+        producer_id: opts[:producer_id],
         messages: opts[:messages]
       }
     }

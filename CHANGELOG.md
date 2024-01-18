@@ -24,6 +24,7 @@ The 'Message' module tree was refactored to make all the Encoding and Decoding l
 ### 0.4.0 Breaking Changes
 
 - Renamed `RabbitMQStream.Subscriber` to `RabbitMQStream.Consumer`
+- Renamed `RabbitMQStream.Publisher` to `RabbitMQStream.Producer`
 
 ## 0.3.0
 

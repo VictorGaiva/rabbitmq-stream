@@ -7,8 +7,8 @@ defmodule RabbitMQStreamTest.Consumer.FilterValue do
     use RabbitMQStream.Connection
   end
 
-  defmodule Publisher do
-    use RabbitMQStream.Publisher,
+  defmodule Producer do
+    use RabbitMQStream.Producer,
       connection: Conn1,
       serializer: Jason
 
@@ -74,23 +74,23 @@ defmodule RabbitMQStreamTest.Consumer.FilterValue do
     :ok = Conn1.connect()
     Conn1.delete_stream("filter-value-01")
     :ok = Conn1.create_stream("filter-value-01")
-    {:ok, _} = Publisher.start_link(stream_name: "filter-value-01")
+    {:ok, _} = Producer.start_link(stream_name: "filter-value-01")
 
     {:ok, _} = Subs1.start_link(private: self())
     {:ok, _} = Subs2.start_link(private: self())
     {:ok, _} = Subs3.start_link(private: self())
 
     message = %{"key" => "Subs1", "value" => "1"}
-    :ok = Publisher.publish(message)
+    :ok = Producer.publish(message)
 
     assert_receive {Subs1, ^message}, 500
 
     message = %{"key" => "Subs2", "value" => "2"}
-    :ok = Publisher.publish(message)
+    :ok = Producer.publish(message)
     assert_receive {Subs2, ^message}, 500
 
     message = %{"key" => "NO-FILTER-APPLIED", "value" => "3"}
-    :ok = Publisher.publish(message)
+    :ok = Producer.publish(message)
     assert_receive {Subs3, ^message}, 500
   end
 end

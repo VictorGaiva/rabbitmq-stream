@@ -10,8 +10,8 @@ defmodule RabbitMQStreamTest.Consumer do
     use RabbitMQStream.Connection
   end
 
-  defmodule SupervisorPublisher do
-    use RabbitMQStream.Publisher,
+  defmodule SupervisorProducer do
+    use RabbitMQStream.Producer,
       connection: SupervisedConnection
 
     @impl true
@@ -22,8 +22,8 @@ defmodule RabbitMQStreamTest.Consumer do
     end
   end
 
-  defmodule SupervisorPublisher2 do
-    use RabbitMQStream.Publisher,
+  defmodule SupervisorProducer2 do
+    use RabbitMQStream.Producer,
       connection: SupervisedConnection,
       serializer: Jason
 
@@ -58,19 +58,19 @@ defmodule RabbitMQStreamTest.Consumer do
   @stream "consumer-test-stream-01"
   @reference_name "reference-01"
   test "should publish and receive a message" do
-    {:ok, _publisher} = SupervisorPublisher.start_link(reference_name: @reference_name, stream_name: @stream)
+    {:ok, _producer} = SupervisorProducer.start_link(reference_name: @reference_name, stream_name: @stream)
 
     assert {:ok, subscription_id} = SupervisedConnection.subscribe(@stream, self(), :next, 999)
 
     message = Jason.encode!(%{message: "Hello, world2!"})
 
-    SupervisorPublisher.publish(message)
+    SupervisorProducer.publish(message)
 
     assert_receive {:chunk, %OsirisChunk{data_entries: [^message]}}, 500
 
     assert :ok = SupervisedConnection.unsubscribe(subscription_id)
 
-    SupervisorPublisher.publish(message)
+    SupervisorProducer.publish(message)
 
     refute_receive {:chunk, %OsirisChunk{}}, 500
     SupervisedConnection.delete_stream(@stream)
@@ -79,7 +79,7 @@ defmodule RabbitMQStreamTest.Consumer do
   @stream "consumer-test-stream-02"
   @reference_name "reference-02"
   test "should credit a consumer" do
-    {:ok, _publisher} = SupervisorPublisher.start_link(reference_name: @reference_name, stream_name: @stream)
+    {:ok, _producer} = SupervisorProducer.start_link(reference_name: @reference_name, stream_name: @stream)
 
     # We ensure the stream exists before consuming
     SupervisedConnection.create_stream(@stream)
@@ -87,13 +87,13 @@ defmodule RabbitMQStreamTest.Consumer do
 
     message = Jason.encode!(%{message: "Hello, world!"})
 
-    SupervisorPublisher.publish(message)
+    SupervisorProducer.publish(message)
 
     assert_receive {:chunk, %OsirisChunk{data_entries: [^message]}}, 500
 
     message = Jason.encode!(%{message: "Hello, world2!"})
 
-    SupervisorPublisher.publish(message)
+    SupervisorProducer.publish(message)
 
     refute_receive {:chunk, %OsirisChunk{}}, 500
 
@@ -108,8 +108,8 @@ defmodule RabbitMQStreamTest.Consumer do
   test "a message should be received by a persistent consumer" do
     SupervisedConnection.delete_stream(@stream)
 
-    {:ok, _publisher} =
-      SupervisorPublisher2.start_link(reference_name: @reference_name, stream_name: @stream)
+    {:ok, _producer} =
+      SupervisorProducer2.start_link(reference_name: @reference_name, stream_name: @stream)
 
     {:ok, _subscriber} =
       Consumer.start_link(
@@ -122,10 +122,10 @@ defmodule RabbitMQStreamTest.Consumer do
     message1 = %{"message" => "Consumer Test: 1"}
     message2 = %{"message" => "Consumer Test: 2"}
 
-    SupervisorPublisher2.publish(message1)
+    SupervisorProducer2.publish(message1)
     assert_receive {:handle_chunk, [^message1]}, 500
 
-    SupervisorPublisher2.publish(message2)
+    SupervisorProducer2.publish(message2)
     assert_receive {:handle_chunk, [^message2]}, 500
 
     :ok = GenServer.stop(Consumer, :normal)

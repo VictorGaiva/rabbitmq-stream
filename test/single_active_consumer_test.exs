@@ -22,8 +22,8 @@ defmodule RabbitMQStreamTest.Consumer.SingleActiveConsumer do
     use RabbitMQStream.Connection
   end
 
-  defmodule Publisher do
-    use RabbitMQStream.Publisher,
+  defmodule Producer do
+    use RabbitMQStream.Producer,
       connection: Conn4
 
     @impl true
@@ -109,17 +109,17 @@ defmodule RabbitMQStreamTest.Consumer.SingleActiveConsumer do
 
     Conn4.delete_stream("super-stream-test-01")
 
-    {:ok, _} = Publisher.start_link(stream_name: "super-stream-test-01")
+    {:ok, _} = Producer.start_link(stream_name: "super-stream-test-01")
 
     {:ok, _} = Subs1.start_link(private: self())
     {:ok, _} = Subs2.start_link(private: self())
     {:ok, _} = Subs3.start_link(private: self())
 
-    :ok = Publisher.publish("1")
+    :ok = Producer.publish("1")
 
     assert_receive {{_conn1, sub1}, "1"}, 500
 
-    :ok = Publisher.publish("2")
+    :ok = Producer.publish("2")
 
     assert_receive {{conn1, ^sub1}, "2"}, 500
 
@@ -132,7 +132,7 @@ defmodule RabbitMQStreamTest.Consumer.SingleActiveConsumer do
     # a 'consumer_update' request from the server and informed its current offset.
     # We are setting the defaults offset to ':last' in the `handle_update` callback above.
     # But a more realistic scenario would be to fetch the offset from the stream itself.
-    :ok = Publisher.publish("3")
+    :ok = Producer.publish("3")
 
     assert_receive {{_conn, sub2}, "3"}, 500
 

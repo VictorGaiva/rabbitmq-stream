@@ -25,17 +25,17 @@ defmodule RabbitMQStream.Connection.Behavior do
   @callback query_offset(GenServer.server(), String.t(), String.t()) ::
               {:ok, offset :: integer()} | {:error, reason :: atom()}
 
-  @callback declare_publisher(GenServer.server(), String.t(), String.t()) ::
-              {:ok, publisher_id :: integer()} | {:error, any()}
+  @callback declare_producer(GenServer.server(), String.t(), String.t()) ::
+              {:ok, producer_id :: integer()} | {:error, any()}
 
-  @callback delete_publisher(GenServer.server(), publisher_id :: integer()) ::
+  @callback delete_producer(GenServer.server(), producer_id :: integer()) ::
               :ok | {:error, reason :: atom()}
 
   @callback query_metadata(GenServer.server(), [String.t(), ...]) ::
               {:ok, metadata :: %{brokers: any(), streams: any()}}
               | {:error, reason :: atom()}
 
-  @callback query_publisher_sequence(GenServer.server(), String.t(), String.t()) ::
+  @callback query_producer_sequence(GenServer.server(), String.t(), String.t()) ::
               {:ok, sequence :: integer()} | {:error, reason :: atom()}
 
   @callback publish(GenServer.server(), integer(), integer(), binary()) :: :ok

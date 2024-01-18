@@ -236,53 +236,53 @@ defmodule RabbitMQStream.Message.Types do
     defstruct [:stream_name, :code]
   end
 
-  defmodule DeclarePublisherRequestData do
+  defmodule DeclareProducerRequestData do
     @moduledoc false
-    @enforce_keys [:id, :publisher_reference, :stream_name]
+    @enforce_keys [:id, :producer_reference, :stream_name]
     @type t :: %{
             id: non_neg_integer(),
-            publisher_reference: String.t(),
+            producer_reference: String.t(),
             stream_name: String.t()
           }
 
     defstruct [
       :id,
-      :publisher_reference,
+      :producer_reference,
       :stream_name
     ]
   end
 
-  defmodule DeclarePublisherResponseData do
+  defmodule DeclareProducerResponseData do
     @moduledoc false
     @type t :: %{}
     defstruct []
   end
 
-  defmodule DeletePublisherRequestData do
+  defmodule DeleteProducerRequestData do
     @moduledoc false
-    @enforce_keys [:publisher_id]
-    @type t :: %{publisher_id: non_neg_integer()}
-    defstruct [:publisher_id]
+    @enforce_keys [:producer_id]
+    @type t :: %{producer_id: non_neg_integer()}
+    defstruct [:producer_id]
   end
 
-  defmodule DeletePublisherResponseData do
+  defmodule DeleteProducerResponseData do
     @moduledoc false
     @type t :: %{}
     defstruct []
   end
 
-  defmodule QueryPublisherSequenceRequestData do
+  defmodule QueryProducerSequenceRequestData do
     @moduledoc false
-    @enforce_keys [:publisher_reference, :stream_name]
+    @enforce_keys [:producer_reference, :stream_name]
     @type t :: %{
-            publisher_reference: String.t(),
+            producer_reference: String.t(),
             stream_name: String.t()
           }
 
-    defstruct [:publisher_reference, :stream_name]
+    defstruct [:producer_reference, :stream_name]
   end
 
-  defmodule QueryPublisherSequenceResponseData do
+  defmodule QueryProducerSequenceResponseData do
     @moduledoc false
     @enforce_keys [:sequence]
     @type t :: %{sequence: non_neg_integer()}
@@ -291,24 +291,24 @@ defmodule RabbitMQStream.Message.Types do
 
   defmodule PublishData do
     @moduledoc false
-    @enforce_keys [:publisher_id, :messages]
+    @enforce_keys [:producer_id, :messages]
     @type t :: %{
-            publisher_id: non_neg_integer(),
+            producer_id: non_neg_integer(),
             messages: [{publishing_id :: non_neg_integer(), message :: binary(), filter_value :: binary() | nil}]
           }
 
-    defstruct [:publisher_id, :messages]
+    defstruct [:producer_id, :messages]
   end
 
   defmodule PublishErrorData do
     @moduledoc false
-    @enforce_keys [:publisher_id, :errors]
+    @enforce_keys [:producer_id, :errors]
     @type t :: %{
-            publisher_id: non_neg_integer(),
+            producer_id: non_neg_integer(),
             errors: [Error.t()]
           }
     defstruct [
-      :publisher_id,
+      :producer_id,
       :errors
     ]
 
@@ -326,13 +326,13 @@ defmodule RabbitMQStream.Message.Types do
 
   defmodule PublishConfirmData do
     @moduledoc false
-    @enforce_keys [:publisher_id, :publishing_ids]
+    @enforce_keys [:producer_id, :publishing_ids]
     @type t :: %{
-            publisher_id: non_neg_integer(),
+            producer_id: non_neg_integer(),
             publishing_ids: [non_neg_integer()]
           }
 
-    defstruct [:publisher_id, :publishing_ids]
+    defstruct [:producer_id, :publishing_ids]
   end
 
   defmodule SubscribeRequestData do
@@ -502,11 +502,11 @@ defmodule RabbitMQStream.Message.Types do
         commands: [
           %Command{key: :publish, min_version: 1, max_version: 2},
           %Command{key: :deliver, min_version: 1, max_version: 2},
-          %Command{key: :declare_publisher, min_version: 1, max_version: 1},
+          %Command{key: :declare_producer, min_version: 1, max_version: 1},
           %Command{key: :publish_confirm, min_version: 1, max_version: 1},
           %Command{key: :publish_error, min_version: 1, max_version: 1},
-          %Command{key: :query_publisher_sequence, min_version: 1, max_version: 1},
-          %Command{key: :delete_publisher, min_version: 1, max_version: 1},
+          %Command{key: :query_producer_sequence, min_version: 1, max_version: 1},
+          %Command{key: :delete_producer, min_version: 1, max_version: 1},
           %Command{key: :subscribe, min_version: 1, max_version: 1},
           %Command{key: :credit, min_version: 1, max_version: 1},
           %Command{key: :store_offset, min_version: 1, max_version: 1},

@@ -8,8 +8,8 @@ defmodule RabbitMQStream.Message.Data do
 
   def decode(%Response{command: :create_stream}, ""), do: %Types.CreateStreamResponseData{}
   def decode(%Response{command: :delete_stream}, ""), do: %Types.DeleteStreamResponseData{}
-  def decode(%Response{command: :declare_publisher}, ""), do: %Types.DeclarePublisherResponseData{}
-  def decode(%Response{command: :delete_publisher}, ""), do: %Types.DeletePublisherResponseData{}
+  def decode(%Response{command: :declare_producer}, ""), do: %Types.DeclareProducerResponseData{}
+  def decode(%Response{command: :delete_producer}, ""), do: %Types.DeleteProducerResponseData{}
   def decode(%Response{command: :subscribe}, ""), do: %Types.SubscribeResponseData{}
   def decode(%Response{command: :unsubscribe}, ""), do: %Types.UnsubscribeResponseData{}
   def decode(%Response{command: :credit}, ""), do: %Types.CreditResponseData{}
@@ -18,7 +18,7 @@ defmodule RabbitMQStream.Message.Data do
   def decode(%Response{command: :delete_super_stream}, ""), do: %Types.DeleteSuperStreamResponseData{}
 
   def decode(%Request{command: :publish_confirm}, buffer) do
-    <<publisher_id::unsigned-integer-size(8), buffer::binary>> = buffer
+    <<producer_id::unsigned-integer-size(8), buffer::binary>> = buffer
 
     {"", publishing_ids} =
       decode_array(buffer, fn buffer, acc ->
@@ -26,11 +26,11 @@ defmodule RabbitMQStream.Message.Data do
         {buffer, [publishing_id] ++ acc}
       end)
 
-    %Types.PublishConfirmData{publisher_id: publisher_id, publishing_ids: publishing_ids}
+    %Types.PublishConfirmData{producer_id: producer_id, publishing_ids: publishing_ids}
   end
 
   def decode(%Response{command: :publish_error}, buffer) do
-    <<publisher_id::unsigned-integer-size(8), buffer::binary>> = buffer
+    <<producer_id::unsigned-integer-size(8), buffer::binary>> = buffer
 
     {"", errors} =
       decode_array(buffer, fn buffer, acc ->
@@ -48,7 +48,7 @@ defmodule RabbitMQStream.Message.Data do
         {buffer, [entry] ++ acc}
       end)
 
-    %Types.PublishErrorData{publisher_id: publisher_id, errors: errors}
+    %Types.PublishErrorData{producer_id: producer_id, errors: errors}
   end
 
   def decode(%Request{version: 1, command: :deliver}, buffer) do
@@ -135,8 +135,8 @@ defmodule RabbitMQStream.Message.Data do
     %Types.QueryOffsetResponseData{offset: offset}
   end
 
-  def decode(%Response{command: :query_publisher_sequence}, <<sequence::unsigned-integer-size(64)>>) do
-    %Types.QueryPublisherSequenceResponseData{sequence: sequence}
+  def decode(%Response{command: :query_producer_sequence}, <<sequence::unsigned-integer-size(64)>>) do
+    %Types.QueryProducerSequenceResponseData{sequence: sequence}
   end
 
   def decode(%{command: :peer_properties}, buffer) do
@@ -324,19 +324,19 @@ defmodule RabbitMQStream.Message.Data do
     >>
   end
 
-  def encode(%Request{command: :declare_publisher, data: data}) do
-    publisher_reference = encode_string(data.publisher_reference)
+  def encode(%Request{command: :declare_producer, data: data}) do
+    producer_reference = encode_string(data.producer_reference)
     stream_name = encode_string(data.stream_name)
 
     <<
       data.id::unsigned-integer-size(8),
-      publisher_reference::binary,
+      producer_reference::binary,
       stream_name::binary
     >>
   end
 
-  def encode(%Request{command: :delete_publisher, data: data}) do
-    <<data.publisher_id::unsigned-integer-size(8)>>
+  def encode(%Request{command: :delete_producer, data: data}) do
+    <<data.producer_id::unsigned-integer-size(8)>>
   end
 
   def encode(%Request{command: :query_metadata, data: data}) do
@@ -348,11 +348,11 @@ defmodule RabbitMQStream.Message.Data do
     <<streams::binary>>
   end
 
-  def encode(%Request{command: :query_publisher_sequence, data: data}) do
-    publisher_reference = encode_string(data.publisher_reference)
+  def encode(%Request{command: :query_producer_sequence, data: data}) do
+    producer_reference = encode_string(data.producer_reference)
     stream_name = encode_string(data.stream_name)
 
-    <<publisher_reference::binary, stream_name::binary>>
+    <<producer_reference::binary, stream_name::binary>>
   end
 
   def encode(%Request{version: 1, command: :publish, data: data}) do
@@ -366,7 +366,7 @@ defmodule RabbitMQStream.Message.Data do
         end
       )
 
-    <<data.publisher_id::unsigned-integer-size(8), messages::binary>>
+    <<data.producer_id::unsigned-integer-size(8), messages::binary>>
   end
 
   def encode(%Request{version: 2, command: :publish, data: data}) do
@@ -381,7 +381,7 @@ defmodule RabbitMQStream.Message.Data do
         end
       )
 
-    <<data.publisher_id::unsigned-integer-size(8), messages::binary>>
+    <<data.producer_id::unsigned-integer-size(8), messages::binary>>
   end
 
   def encode(%Request{command: :subscribe, data: data}) do

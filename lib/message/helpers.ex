@@ -1,11 +1,11 @@
 defmodule RabbitMQStream.Message.Helpers do
   @type command ::
-          :declare_publisher
+          :declare_producer
           | :publish
           | :publish_confirm
           | :publish_error
-          | :query_publisher_sequence
-          | :delete_publisher
+          | :query_producer_sequence
+          | :delete_producer
           | :subscribe
           | :deliver
           | :credit
@@ -49,16 +49,16 @@ defmodule RabbitMQStream.Message.Helpers do
           | :internal_error
           | :access_refused
           | :precondition_failed
-          | :publisher_does_not_exist
+          | :producer_does_not_exist
           | :no_offset
 
   @commands %{
-    0x0001 => :declare_publisher,
+    0x0001 => :declare_producer,
     0x0002 => :publish,
     0x0003 => :publish_confirm,
     0x0004 => :publish_error,
-    0x0005 => :query_publisher_sequence,
-    0x0006 => :delete_publisher,
+    0x0005 => :query_producer_sequence,
+    0x0006 => :delete_producer,
     0x0007 => :subscribe,
     0x0008 => :deliver,
     0x0009 => :credit,
@@ -113,7 +113,7 @@ defmodule RabbitMQStream.Message.Helpers do
     0x0F => :internal_error,
     0x10 => :access_refused,
     0x11 => :precondition_failed,
-    0x12 => :publisher_does_not_exist,
+    0x12 => :producer_does_not_exist,
     0x13 => :no_offset
   }
 

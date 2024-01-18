@@ -1,15 +1,15 @@
-defmodule RabbitMQStream.SuperPublisher do
+defmodule RabbitMQStream.SuperProducer do
   @moduledoc """
-  A Superpublisher spawns a Publisher process for each partition of the stream,
+  A Superproducer spawns a Producer process for each partition of the stream,
   and uses the `partition/2` callback to forward a publish command to the
   producer of the partition.
 
-  It accepts the same options as a Publisher, plus the following:
+  It accepts the same options as a Producer, plus the following:
 
   * `:super_stream` - the name of the super stream
   * `:partitions` - the number of partitions
 
-  All the publishers use the same provided connection, and are supervised by a
+  All the producers use the same provided connection, and are supervised by a
   DynamicSupervisor.
 
   You can optionally implement a `partition/2` callback to compute the target
@@ -19,7 +19,7 @@ defmodule RabbitMQStream.SuperPublisher do
 
   ## Setup
 
-  To start a Superpublisher, you need to make sure that each stream/partition
+  To start a Superproducer, you need to make sure that each stream/partition
   is created beforehand. As of RabbitMQ 3.11.x and 3.12.x, this can only be done
   using an [AMQP Client, RabbitMQ Management or with the RabbitMQ CLI.](https://www.rabbitmq.com/streams.html#super-streams).
 
@@ -39,7 +39,7 @@ defmodule RabbitMQStream.SuperPublisher do
 
     quote do
       @opts unquote(opts)
-      @behaviour RabbitMQStream.Publisher
+      @behaviour RabbitMQStream.Producer
 
       use Supervisor
 
@@ -50,20 +50,20 @@ defmodule RabbitMQStream.SuperPublisher do
 
       @impl true
       def init(opts) do
-        {opts, publisher_opts} = Keyword.split(opts, [:super_stream])
+        {opts, producer_opts} = Keyword.split(opts, [:super_stream])
 
         children = [
           {Registry, keys: :unique, name: __MODULE__.Registry},
           {DynamicSupervisor, strategy: :one_for_one, name: __MODULE__.DynamicSupervisor},
-          {RabbitMQStream.SuperPublisher.Manager,
+          {RabbitMQStream.SuperProducer.Manager,
            opts ++
              [
                name: __MODULE__.Manager,
                dynamic_supervisor: __MODULE__.DynamicSupervisor,
                registry: __MODULE__.Registry,
-               publisher_module: __MODULE__,
+               producer_module: __MODULE__,
                partitions: @opts[:partitions],
-               publisher_opts: publisher_opts
+               producer_opts: producer_opts
              ]}
         ]
 
@@ -96,7 +96,7 @@ defmodule RabbitMQStream.SuperPublisher do
 
       unquote(
         # We need this piece of logic so we can garantee that the 'encode!/1' call is executed
-        # by the caller process, not the Publisher process itself.
+        # by the caller process, not the Producer process itself.
         if serializer != nil do
           quote do
             def encode!(message), do: unquote(serializer).encode!(message)
@@ -108,7 +108,7 @@ defmodule RabbitMQStream.SuperPublisher do
         end
       )
 
-      defoverridable RabbitMQStream.Publisher
+      defoverridable RabbitMQStream.Producer
     end
   end
 
@@ -116,22 +116,22 @@ defmodule RabbitMQStream.SuperPublisher do
     :super_stream,
     :partitions,
     :dynamic_supervisor,
-    :publisher_module,
+    :producer_module,
     :registry,
-    :publisher_opts
+    :producer_opts
   ]
 
   @type t :: %__MODULE__{
           super_stream: String.t(),
           partitions: non_neg_integer(),
           dynamic_supervisor: module(),
-          publisher_module: module(),
+          producer_module: module(),
           registry: module(),
-          publisher_opts: [RabbitMQStream.Publisher.publisher_option()] | nil
+          producer_opts: [RabbitMQStream.Producer.producer_option()] | nil
         }
 
-  @type super_publisher_option ::
+  @type super_producer_option ::
           {:super_stream, String.t()}
           | {:partitions, non_neg_integer()}
-          | RabbitMQStream.Publisher.publisher_option()
+          | RabbitMQStream.Producer.producer_option()
 end

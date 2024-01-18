@@ -125,34 +125,34 @@ defmodule RabbitMQStream.Connection do
         RabbitMQStream.Connection.query_offset(__MODULE__, stream_name, offset_reference)
       end
 
-      def declare_publisher(stream_name, publisher_reference) do
-        RabbitMQStream.Connection.declare_publisher(
+      def declare_producer(stream_name, producer_reference) do
+        RabbitMQStream.Connection.declare_producer(
           __MODULE__,
           stream_name,
-          publisher_reference
+          producer_reference
         )
       end
 
-      def delete_publisher(publisher_id) do
-        RabbitMQStream.Connection.delete_publisher(__MODULE__, publisher_id)
+      def delete_producer(producer_id) do
+        RabbitMQStream.Connection.delete_producer(__MODULE__, producer_id)
       end
 
       def query_metadata(streams) do
         RabbitMQStream.Connection.query_metadata(__MODULE__, streams)
       end
 
-      def query_publisher_sequence(stream_name, publisher_reference) do
-        RabbitMQStream.Connection.query_publisher_sequence(
+      def query_producer_sequence(stream_name, producer_reference) do
+        RabbitMQStream.Connection.query_producer_sequence(
           __MODULE__,
-          publisher_reference,
+          producer_reference,
           stream_name
         )
       end
 
-      def publish(publisher_id, publishing_id, message, filter_value \\ nil) do
+      def publish(producer_id, publishing_id, message, filter_value \\ nil) do
         RabbitMQStream.Connection.publish(
           __MODULE__,
-          publisher_id,
+          producer_id,
           publishing_id,
           message,
           filter_value
@@ -257,19 +257,19 @@ defmodule RabbitMQStream.Connection do
     GenServer.call(server, {:query_offset, stream_name: stream_name, offset_reference: offset_reference})
   end
 
-  def declare_publisher(server, stream_name, publisher_reference)
-      when is_binary(publisher_reference) and
+  def declare_producer(server, stream_name, producer_reference)
+      when is_binary(producer_reference) and
              is_binary(stream_name) do
     GenServer.call(
       server,
-      {:declare_publisher, stream_name: stream_name, publisher_reference: publisher_reference}
+      {:declare_producer, stream_name: stream_name, producer_reference: producer_reference}
     )
   end
 
-  def delete_publisher(server, publisher_id)
-      when is_integer(publisher_id) and
-             publisher_id <= 255 do
-    GenServer.call(server, {:delete_publisher, publisher_id: publisher_id})
+  def delete_producer(server, producer_id)
+      when is_integer(producer_id) and
+             producer_id <= 255 do
+    GenServer.call(server, {:delete_producer, producer_id: producer_id})
   end
 
   def query_metadata(server, streams)
@@ -278,24 +278,24 @@ defmodule RabbitMQStream.Connection do
     GenServer.call(server, {:query_metadata, streams: streams})
   end
 
-  def query_publisher_sequence(server, stream_name, publisher_reference)
-      when is_binary(publisher_reference) and
+  def query_producer_sequence(server, stream_name, producer_reference)
+      when is_binary(producer_reference) and
              is_binary(stream_name) do
     GenServer.call(
       server,
-      {:query_publisher_sequence, publisher_reference: publisher_reference, stream_name: stream_name}
+      {:query_producer_sequence, producer_reference: producer_reference, stream_name: stream_name}
     )
   end
 
-  def publish(server, publisher_id, publishing_id, message, filter_value \\ nil)
-      when is_integer(publisher_id) and
+  def publish(server, producer_id, publishing_id, message, filter_value \\ nil)
+      when is_integer(producer_id) and
              is_binary(message) and
              is_integer(publishing_id) and
              (filter_value == nil or is_binary(filter_value)) and
-             publisher_id <= 255 do
+             producer_id <= 255 do
     GenServer.cast(
       server,
-      {:publish, publisher_id: publisher_id, messages: [{publishing_id, message, filter_value}]}
+      {:publish, producer_id: producer_id, messages: [{publishing_id, message, filter_value}]}
     )
   end
 
@@ -366,7 +366,7 @@ defmodule RabbitMQStream.Connection do
           socket: :gen_tcp.socket(),
           state: :closed | :connecting | :open | :closing,
           correlation_sequence: non_neg_integer(),
-          publisher_sequence: non_neg_integer(),
+          producer_sequence: non_neg_integer(),
           subscriber_sequence: non_neg_integer(),
           peer_properties: %{String.t() => term()},
           connection_properties: Keyword.t(),
@@ -390,7 +390,7 @@ defmodule RabbitMQStream.Connection do
     :transport,
     options: [],
     correlation_sequence: 1,
-    publisher_sequence: 1,
+    producer_sequence: 1,
     subscriber_sequence: 1,
     subscriptions: %{},
     state: :closed,

@@ -79,11 +79,11 @@ children = [
 
 ## Publishing to stream
 
-To prevent message duplication, RabbitMQ requires us to declare a named Publisher before being able to publish messages to a stream. We can do this by `using` the `RabbitMQStream.Publisher`, which declare itself to the Connection, with the specified `:reference_name`, defaulting to the module's name.
+To prevent message duplication, RabbitMQ requires us to declare a named Producer before being able to publish messages to a stream. We can do this by `using` the `RabbitMQStream.Producer`, which declare itself to the Connection, with the specified `:reference_name`, defaulting to the module's name.
 
 ```elixir
-defmodule MyApp.MyPublisher
-  use RabbitMQStream.Publisher,
+defmodule MyApp.MyProducer
+  use RabbitMQStream.Producer,
     stream: "my_stream",
     connection: MyApp.MyConnection
 end
@@ -92,5 +92,5 @@ end
 Then you can publish messages to the stream with:
 
 ```elixir
-MyApp.MyPublisher.publish("Hello World")
+MyApp.MyProducer.publish("Hello World")
 ```

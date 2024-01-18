@@ -4,7 +4,7 @@ This library currently implements the following actors:
 
 - `RabbitMQStream.Connection`: Manages a single TCP/SSL connection to a single RabbitMQ Stream node.
 - `RabbitMQStream.Consumer`: Consumes from a single stream, while tracking its offset and credits. Requires an existing `RabbitMQStream.Connection`.
-- `RabbitMQStream.Publisher`: Manages a single publisher to a single stream. Requires an existing `RabbitMQStream.Connection`.
+- `RabbitMQStream.Producer`: Manages a single producer to a single stream. Requires an existing `RabbitMQStream.Connection`.
 
 ## Configuration Merging
 
@@ -12,7 +12,7 @@ We can provide the configuration at many different levels, that will then be mer
 
 ### 1. Defaults
 
-At your `config/*.exs` file, you can provide a default configuration that will be passed to all the instances of each of the actors. But some of these options are ignored as they don't really make sense to be set at the default level. For example, the `:stream_name` option is ignored by the `Publisher` actor. You can see which options are ignored in the documentation of each actor.
+At your `config/*.exs` file, you can provide a default configuration that will be passed to all the instances of each of the actors. But some of these options are ignored as they don't really make sense to be set at the default level. For example, the `:stream_name` option is ignored by the `Producer` actor. You can see which options are ignored in the documentation of each actor.
 
 You can provide the default configuration like this:
 
@@ -28,9 +28,9 @@ config :rabbitmq_stream, :defaults,
     # [RabbitMQStream.Consumer.consumer_option()]
     # ...
   ],
-  publisher: [
+  producer: [
     connection: MyApp.MyConnection,
-    # [RabbitMQStream.Publisher.publisher_option()]
+    # [RabbitMQStream.Producer.producer_option()]
     # ...
   ]
 ```
@@ -97,4 +97,4 @@ For more information, you can check the documentation at each actor's module;
 
 ### Serializer
 
-You can define a Serializer module to be used by the Publisher and Consumer modules. It is expected to implement `encode!/1` and `decode!/1` callbacks, and must be defined at compile-time level configurations.
+You can define a Serializer module to be used by the Producer and Consumer modules. It is expected to implement `encode!/1` and `decode!/1` callbacks, and must be defined at compile-time level configurations.
