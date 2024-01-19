@@ -109,6 +109,7 @@ defmodule RabbitMQStream.SuperProducer do
       )
 
       defoverridable RabbitMQStream.Producer
+      defoverridable partition: 2
     end
   end
 

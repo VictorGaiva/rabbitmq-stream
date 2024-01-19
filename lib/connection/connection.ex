@@ -74,7 +74,7 @@ defmodule RabbitMQStream.Connection do
   The precedence order is is the same order as the examples above, from top to bottom.
 
 
-  # Buffering
+  ## Startup
 
   Any call or cast to the connection while it is not connected will be buffered and executed once the connection is open.
   """
@@ -225,22 +225,47 @@ defmodule RabbitMQStream.Connection do
     %{id: __MODULE__, start: {__MODULE__, :start_link, [opts]}}
   end
 
+  @doc """
+  Starts the connection process with the RabbitMQ Stream server, and waits
+  until the authentication is complete.
+
+  If the authentication process has already been started by other process,
+  this call waits for it to complete before return the result.
+  """
   def connect(server) do
     GenServer.call(server, {:connect})
   end
 
+  @doc """
+  Sends a 'close' command to the RabbitMQ Stream server, and waits for the
+  response, before calling the 'close/1' callback on the transport.
+  """
   def close(server, reason \\ "", code \\ 0x00) do
     GenServer.call(server, {:close, reason, code})
   end
 
+  @doc """
+  Creates a stream with the given `stream_name`. Returns an error when
+  the stream already exists.
+  """
   def create_stream(server, name, arguments \\ []) when is_binary(name) do
     GenServer.call(server, {:create_stream, [name: name, arguments: arguments]})
   end
 
+  @doc """
+  Deletes the stream with the given `stream_name`. Returns an error when
+  the stream doesn't exist.
+  """
   def delete_stream(server, name) when is_binary(name) do
     GenServer.call(server, {:delete_stream, name: name})
   end
 
+  @doc """
+  Stores an `offset` on the given `stream_name` under `offset_reference`.
+
+  This appends an `offset` to the stream, which can be retrieved later using
+  with `query_offset/3`, by providing the same `offset_reference`.
+  """
   def store_offset(server, stream_name, offset_reference, offset)
       when is_binary(stream_name) and
              is_binary(offset_reference) and
@@ -251,12 +276,28 @@ defmodule RabbitMQStream.Connection do
     )
   end
 
+  @doc """
+  Queries the offset for the given `stream_name` under `offset_reference`.
+  """
   def query_offset(server, stream_name, offset_reference)
       when is_binary(offset_reference) and
              is_binary(stream_name) do
     GenServer.call(server, {:query_offset, stream_name: stream_name, offset_reference: offset_reference})
   end
 
+  @doc """
+  Declares a producer on the stream with the `producer_reference` key.
+
+  RabbitMQ expects a producer to be declare to prevent message duplication,
+  by tracking the `sequence` number, which must be sent with each message.c
+
+  You can use the `query_producer_sequence/3` the query a producer's sequence
+  number tracked by the server.
+
+  It returns an id that identifies this producer. This id is only valid for this
+  connection, as other connections might have the same id for different
+  producers.
+  """
   def declare_producer(server, stream_name, producer_reference)
       when is_binary(producer_reference) and
              is_binary(stream_name) do
@@ -266,18 +307,35 @@ defmodule RabbitMQStream.Connection do
     )
   end
 
+  @doc """
+  Unregisters the producer, under the provided id, from the server.
+  """
   def delete_producer(server, producer_id)
       when is_integer(producer_id) and
              producer_id <= 255 do
     GenServer.call(server, {:delete_producer, producer_id: producer_id})
   end
 
+  @doc """
+  Queries the metadata for the provided streams, along side with a
+  listing of all the brokers available in the cluster.
+
+  If a stream doesn't exist, it stills returns an entry for it, but
+  with a `:stream_does_not_exist` code.
+  """
   def query_metadata(server, streams)
       when is_list(streams) and
              length(streams) > 0 do
     GenServer.call(server, {:query_metadata, streams: streams})
   end
 
+  @doc """
+  Queries the sequence number for the `producer_reference`, on the specified
+  `stream_name`.
+
+  All messages sent to the server must have a distinct sequence number, which
+  is tracked by the server.
+  """
   def query_producer_sequence(server, stream_name, producer_reference)
       when is_binary(producer_reference) and
              is_binary(stream_name) do
@@ -287,6 +345,17 @@ defmodule RabbitMQStream.Connection do
     )
   end
 
+  @doc """
+  Sends a message to the stream referenced by the provided 'producer_id'.
+
+  The 'publishing_id' must be unique for the given producer, or the message
+  will be ignored/dropped by the server.
+
+  Starting at 3.13.x, you can optionally provide a 'filter_value' parameter,
+  which is used by the server to filter the messages to be sent to a consumer
+  that have provided a 'filter' parameter.
+
+  """
   def publish(server, producer_id, publishing_id, message, filter_value \\ nil)
       when is_integer(producer_id) and
              is_binary(message) and
@@ -299,6 +368,29 @@ defmodule RabbitMQStream.Connection do
     )
   end
 
+  @doc """
+  Starts consuming messages from the server, starting at the provided 'offset'.
+
+  The connection wills start send the messages to the provided 'pid' with the
+  following format:
+
+      def handle_info({:chunk, %RabbitMQ.OsirisChunk{}}, _) do
+        # ...
+      end
+
+  You can optionally provide properties when declaring the subscription. The
+  avaiable options are the following:
+
+  * `:single_active_consumer`: set to `true` to enable [single active consumer](https://blog.rabbitmq.com/posts/2022/07/rabbitmq-3-11-feature-preview-single-active-consumer-for-streams/) for this subscription.
+  * `:super_stream`: set to the name of the super stream the subscribed is a partition of.
+  * `:filter`: List of strings that define the value of the filter_key to match.
+  * `:match_unfiltered`: whether to return messages without any filter value or not.
+
+  Be aware that a filter value is registered per message, and the server uses a Bloom
+  Filter to check if a chunk has messages that match a filter. But this filter might
+  give false positives, and not all the messages of a chunk might match the filter.
+  So additional filtering on by the User might be necessary.
+  """
   def subscribe(server, stream_name, pid, offset, credit, properties \\ [])
       when is_binary(stream_name) and
              is_integer(credit) and
@@ -312,26 +404,57 @@ defmodule RabbitMQStream.Connection do
     )
   end
 
+  @doc """
+  Unregisters a consumer from the connection.
+  """
   def unsubscribe(server, subscription_id) when subscription_id <= 255 do
     GenServer.call(server, {:unsubscribe, subscription_id: subscription_id})
   end
 
+  @doc """
+  Adds the specified amount of credits to the subscription under the given `subscription_id`.
+
+  This function always returns `:ok` as the RabbitMQ Server only sends a response if the command fails,
+  which only happens if the subscription is not found. In that case the error is logged.
+  """
   def credit(server, subscription_id, credit) when is_integer(subscription_id) and credit >= 0 do
     GenServer.cast(server, {:credit, subscription_id: subscription_id, credit: credit})
   end
 
-  def route(server, routing_key, super_stream) when is_binary(routing_key) and is_binary(super_stream) do
-    GenServer.call(server, {:route, routing_key: routing_key, super_stream: super_stream})
-  end
-
+  @doc """
+  Queries the metadata information about a stream.
+  """
   def stream_stats(server, stream_name) when is_binary(stream_name) do
     GenServer.call(server, {:stream_stats, stream_name: stream_name})
   end
 
+  @doc """
+  Lists all the partitions of a super stream.
+
+  Requires RabbitMQ 3.13.0 or later.
+  """
   def partitions(server, super_stream) when is_binary(super_stream) do
     GenServer.call(server, {:partitions, super_stream: super_stream})
   end
 
+  @doc """
+  Lists the names of all the streams of super stream, under the given `routing_key`.
+
+  Requires RabbitMQ 3.13.0 or later.
+  """
+  def route(server, routing_key, super_stream) when is_binary(routing_key) and is_binary(super_stream) do
+    GenServer.call(server, {:route, routing_key: routing_key, super_stream: super_stream})
+  end
+
+  @doc """
+  Creates a Super Stream, with the specified partitions. The partitions is a Keyword list,
+  where each key is the partition name, and the value is the routing key.
+
+  When publishing a message through a RabbitMQStream.SuperProducer, you can implement the
+  the `partitions/2` callback to define the routing key for each message.
+
+  Requires RabbitMQ 3.13.0 or later.
+  """
   def create_super_stream(server, name, partitions, arguments \\ [])
       when is_binary(name) and
              is_list(partitions) and
@@ -342,10 +465,22 @@ defmodule RabbitMQStream.Connection do
     )
   end
 
+  @doc """
+  Deletes a Super Stream.
+
+  Requires RabbitMQ 3.13.0 or later.
+  """
   def delete_super_stream(server, name) when is_binary(name) do
     GenServer.call(server, {:delete_super_stream, name: name})
   end
 
+  @doc """
+  The server will sometimes send a request to the client, which we must send a response to.
+
+  And example request is the 'ConsumerUpdate', where the server expects a response with the
+  offset. So the connection sends the request to the subscription handler, which then calls
+  this function to send the response back to the server.
+  """
   def respond(server, request, opts) when is_list(opts) do
     GenServer.cast(server, {:respond, request, opts})
   end

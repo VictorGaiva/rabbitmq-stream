@@ -1,44 +1,47 @@
 defmodule RabbitMQStream.Connection.Behavior do
-  @callback start_link([RabbitMQStream.Connection.connection_option() | {:name, atom()}]) ::
-              :ignore | {:error, any} | {:ok, pid}
+  alias RabbitMQStream.Message.Types.{PartitionsQueryResponseData, StreamStatsResponseData, QueryMetadataResponseData}
 
-  @doc """
-  Starts the connection process with the RabbitMQ Stream server, and waits
-  until the authentication is complete.
-
-  Waits for the connection process if it is already started, and instantly
-  returns if the connection is already established.
-
-  """
   @callback connect(GenServer.server()) :: :ok | {:error, reason :: atom()}
 
   @callback close(GenServer.server(), reason :: String.t(), code :: integer()) ::
               :ok | {:error, reason :: atom()}
 
-  @callback create_stream(GenServer.server(), String.t(), keyword(String.t())) ::
+  @callback create_stream(GenServer.server(), stream_name :: String.t(), arguments :: keyword(String.t()) | nil) ::
               :ok | {:error, reason :: atom()}
 
-  @callback delete_stream(GenServer.server(), String.t()) :: :ok | {:error, reason :: atom()}
+  @callback delete_stream(GenServer.server(), stream_name :: String.t()) :: :ok | {:error, reason :: atom()}
 
-  @callback store_offset(GenServer.server(), String.t(), String.t(), integer()) :: :ok
+  @callback store_offset(
+              GenServer.server(),
+              stream_name :: String.t(),
+              offset_reference :: String.t(),
+              offset :: integer()
+            ) :: :ok
 
-  @callback query_offset(GenServer.server(), String.t(), String.t()) ::
+  @callback query_offset(GenServer.server(), stream_name :: String.t(), offset_reference :: String.t()) ::
               {:ok, offset :: integer()} | {:error, reason :: atom()}
 
-  @callback declare_producer(GenServer.server(), String.t(), String.t()) ::
-              {:ok, producer_id :: integer()} | {:error, any()}
+  @callback declare_producer(GenServer.server(), stream_name :: String.t(), producer_reference :: String.t()) ::
+              {:ok, producer_id :: integer()} | {:error, reason :: atom()}
 
   @callback delete_producer(GenServer.server(), producer_id :: integer()) ::
               :ok | {:error, reason :: atom()}
 
-  @callback query_metadata(GenServer.server(), [String.t(), ...]) ::
-              {:ok, metadata :: %{brokers: any(), streams: any()}}
-              | {:error, reason :: atom()}
-
   @callback query_producer_sequence(GenServer.server(), String.t(), String.t()) ::
               {:ok, sequence :: integer()} | {:error, reason :: atom()}
 
-  @callback publish(GenServer.server(), integer(), integer(), binary()) :: :ok
+  @callback query_metadata(GenServer.server(), streams :: [String.t()]) ::
+              {:ok, metadata :: QueryMetadataResponseData.t()}
+              | {:error, reason :: atom()}
+
+  @callback publish(
+              GenServer.server(),
+              producer_id :: integer(),
+              publishing_id :: integer(),
+              message :: binary(),
+              filter_value :: binary() | nil
+            ) ::
+              :ok
 
   @callback subscribe(
               GenServer.server(),
@@ -52,21 +55,28 @@ defmodule RabbitMQStream.Connection.Behavior do
   @callback unsubscribe(GenServer.server(), subscription_id :: non_neg_integer()) ::
               :ok | {:error, reason :: atom()}
 
-  @doc """
-  The server will sometimes send a request to the client, which we must send a response to.
-
-  And example request is the 'ConsumerUpdate', where the server expects a response with the
-  offset. So the connection sends the request to the subscription handler, which then calls
-  this function to send the response back to the server.
-  """
   @callback respond(GenServer.server(), request :: RabbitMQStream.Message.Request.t(), opts :: Keyword.t()) :: :ok
 
-  @doc """
-  Adds the specified amount of credits to the subscription under the given `subscription_id`.
-
-  This function instantly returns `:ok` as the RabbitMQ Server only sends a response if the command fails,
-  which only happens if the subscription is not found. In that case the error is logged.
-
-  """
   @callback credit(GenServer.server(), subscription_id :: non_neg_integer(), credit :: non_neg_integer()) :: :ok
+
+  @callback stream_stats(GenServer.server(), stream_name :: String.t()) ::
+              {:ok, stats :: StreamStatsResponseData.t()}
+              | {:error, reason :: atom()}
+
+  @callback partitions(GenServer.server(), super_stream :: String.t()) ::
+              {:ok, partitions :: PartitionsQueryResponseData.t()}
+              | {:error, reason :: atom()}
+
+  @callback route(GenServer.server(), routing_key :: String.t(), super_stream :: String.t()) ::
+              :ok | {:error, reason :: atom()}
+  @callback create_super_stream(
+              GenServer.server(),
+              name :: String.t(),
+              partitions :: [String.t()],
+              arguments :: keyword(String.t()) | nil
+            ) ::
+              :ok | {:error, reason :: atom()}
+
+  @callback delete_super_stream(GenServer.server(), name :: String.t()) ::
+              :ok | {:error, reason :: atom()}
 end
