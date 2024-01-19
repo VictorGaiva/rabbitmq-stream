@@ -40,7 +40,7 @@ jobs:
           services: "rabbitmq_stream_${{ matrix.version }}"
       
       - name: Wait RabbitMQ is Up 
-        run: docker exec rabbitmq_stream rabbitmqctl wait --timeout 60
+        run: docker exec rabbitmq_stream rabbitmqctl wait --pid 1 --timeout 60
       
       - name: Create 'invoices' SuperStream
         run: docker exec rabbitmq_stream rabbitmq-streams add_super_stream invoices --partitions 3
