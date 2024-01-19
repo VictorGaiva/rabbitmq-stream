@@ -10,7 +10,7 @@ Zero dependencies Elixir Client for [RabbitMQ Streams Protocol](https://www.rabb
 
 ## Usage
 
-### Subscribing to stream
+### Consuming from stream
 
 First you define a connection
 
@@ -20,23 +20,23 @@ defmodule MyApp.MyConnection do
 end
 ```
 
-You then can declare a subscriber module with the `RabbitMQStream.Subscriber`:
+You then can declare a consumer module with the `RabbitMQStream.Consumer`:
 
 ```elixir
-defmodule MyApp.MySubscriber do
-  use RabbitMQStream.Subscriber,
+defmodule MyApp.MyConsumer do
+  use RabbitMQStream.Consumer,
     connection: MyApp.MyConnection,
     stream_name: "my_stream",
     initial_offset: :first
 
   @impl true
-  def handle_chunk(%RabbitMQStream.OsirisChunk{}=_chunk, _subscriber) do
+  def handle_chunk(%RabbitMQStream.OsirisChunk{}=_chunk, _consumer) do
     :ok
   end
 end
 ```
 
-Or you could manually subscribe to the stream with
+Or you could manually consume from the stream with
 
 ```elixir
 {:ok, _subscription_id} = MyApp.MyConnection.subscribe("stream-01", self(), :next, 999)
@@ -51,17 +51,17 @@ def handle_info({:chunk, %RabbitMQStream.OsirisChunk{} = chunk}, state) do
 end
 ```
 
-You can take a look at an example Subscriber GenServer at the [Subscribing Documentation](guides/tutorial/subscribing.md).
+You can take a look at an example Consumer GenServer at the [Consuming Documentation](guides/tutorial/consuming.md).
 
 ### Publishing to stream
 
-RabbitMQ Streams protocol needs a static `:reference_name` per publisher. This is used to prevent message duplication. For this reason, each stream needs, for now, a static module to publish messages, which keeps track of its own `publishing_id`.
+RabbitMQ Streams protocol needs a static `:reference_name` per producer. This is used to prevent message duplication. For this reason, each stream needs, for now, a static module to publish messages, which keeps track of its own `publishing_id`.
 
-You can define a `Publisher` module like this:
+You can define a `Producer` module like this:
 
 ```elixir
-defmodule MyApp.MyPublisher do
-  use RabbitMQStream.Publisher,
+defmodule MyApp.MyProducer do
+  use RabbitMQStream.Producer,
     stream: "stream-01",
     connection: MyApp.MyConnection
 end
@@ -70,7 +70,7 @@ end
 Then you can publish messages to the stream:
 
 ```elixir
-MyApp.MyPublisher.publish("Hello World")
+MyApp.MyProducer.publish("Hello World")
 ```
 
 ## Installation
@@ -97,6 +97,30 @@ config :rabbitmq_stream, MyApp.MyConnection,
   # ...
 end
 
+```
+
+You can configure a default Serializer module by passing it to the defaults configuration option
+
+```elixir
+config :rabbitmq_stream, :defaults,
+  serializer: Jason
+end
+```
+
+## TLS Support
+
+You can configure the RabbitmqStream to use TLS connections:
+
+```elixir
+coonfig :rabbitmq_stream, :defaults,
+  connection: [
+    transport: :ssl,
+    ssl_opts: [
+      keyfile: "services/cert/client_box_key.pem",
+      certfile: "services/cert/client_box_certificate.pem",
+      cacertfile: "services/cert/ca_certificate.pem"
+    ]
+  ]
 ```
 
 For more information, check the [documentation](https://hexdocs.pm/rabbitmq_stream/).

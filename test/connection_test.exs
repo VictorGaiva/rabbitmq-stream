@@ -3,24 +3,56 @@ defmodule RabbitMQStreamTest.Connection do
   alias RabbitMQStream.Connection
   import ExUnit.CaptureLog
 
+  @moduletag :v3_11
+  @moduletag :v3_12
+  @moduletag :v3_13
+
   defmodule SupervisedConnection do
     use RabbitMQStream.Connection
   end
 
-  test "should open and close the connection" do
-    {:ok, _} = SupervisedConnection.start_link(host: "localhost", vhost: "/", lazy: true)
+  defmodule SupervisedSSLConnection do
+    use RabbitMQStream.Connection,
+      port: 5551,
+      transport: :ssl,
+      ssl_opts: [
+        keyfile: "services/cert/client_box_key.pem",
+        certfile: "services/cert/client_box_certificate.pem",
+        cacertfile: "services/cert/ca_certificate.pem",
+        verify: :verify_peer
+      ]
+  end
 
-    assert %Connection{state: :closed} = SupervisedConnection.get_state()
+  test "should open and close the connection" do
+    {:ok, conn} = SupervisedConnection.start_link(host: "localhost", vhost: "/", lazy: true)
+
+    assert %Connection{state: :closed} = :sys.get_state(conn)
 
     assert :ok = SupervisedConnection.connect()
 
-    assert %Connection{state: :open} = SupervisedConnection.get_state()
+    assert %Connection{state: :open} = :sys.get_state(conn)
 
     assert :ok = SupervisedConnection.close()
 
-    assert %Connection{state: :closed} = SupervisedConnection.get_state()
+    assert %Connection{state: :closed} = :sys.get_state(conn)
 
     assert :ok = SupervisedConnection.close()
+  end
+
+  test "should open and close a ssl connection" do
+    {:ok, conn} = SupervisedSSLConnection.start_link(host: "localhost", vhost: "/", lazy: true)
+
+    assert %Connection{state: :closed} = :sys.get_state(conn)
+
+    assert :ok = SupervisedSSLConnection.connect()
+
+    assert %Connection{state: :open} = :sys.get_state(conn)
+
+    assert :ok = SupervisedSSLConnection.close()
+
+    assert %Connection{state: :closed} = :sys.get_state(conn)
+
+    assert :ok = SupervisedSSLConnection.close()
   end
 
   test "should correctly answer to parallel `connect` requests" do
@@ -94,36 +126,46 @@ defmodule RabbitMQStreamTest.Connection do
   end
 
   @stream "test-store-05"
-  test "should declare and delete a publisher" do
+  test "should declare and delete a producer" do
     {:ok, _} = SupervisedConnection.start_link(host: "localhost", vhost: "/")
     :ok = SupervisedConnection.connect()
 
     SupervisedConnection.delete_stream(@stream)
     :ok = SupervisedConnection.create_stream(@stream)
 
-    # The publisherId sequence should always start at 1
-    assert {:ok, 1} = SupervisedConnection.declare_publisher(@stream, "publisher-01")
+    # The producerId sequence should always start at 1
+    assert {:ok, 1} = SupervisedConnection.declare_producer(@stream, "producer-01")
 
-    assert :ok = SupervisedConnection.delete_publisher(1)
+    assert :ok = SupervisedConnection.delete_producer(1)
 
     :ok = SupervisedConnection.delete_stream(@stream)
     SupervisedConnection.close()
   end
 
   @stream "test-store-06"
-  @publisher "publisher-02"
-  test "should query publisher sequence" do
+  @producer "producer-02"
+  test "should query producer sequence" do
     {:ok, _} = SupervisedConnection.start_link(host: "localhost", vhost: "/")
     :ok = SupervisedConnection.connect()
     SupervisedConnection.delete_stream(@stream)
     :ok = SupervisedConnection.create_stream(@stream)
-    {:ok, _} = SupervisedConnection.declare_publisher(@stream, @publisher)
+    {:ok, _} = SupervisedConnection.declare_producer(@stream, @producer)
 
-    # Should be 0 since the publisher was just declared
-    assert {:ok, 0} = SupervisedConnection.query_publisher_sequence(@stream, @publisher)
+    # Should be 0 since the producer was just declared
+    assert {:ok, 0} = SupervisedConnection.query_producer_sequence(@stream, @producer)
 
-    :ok = SupervisedConnection.delete_publisher(1)
+    :ok = SupervisedConnection.delete_producer(1)
     :ok = SupervisedConnection.delete_stream(@stream)
     SupervisedConnection.close()
+  end
+
+  @stream "test-store-07"
+  test "should get stream stats" do
+    {:ok, _} = SupervisedConnection.start_link(host: "localhost", vhost: "/")
+    :ok = SupervisedConnection.connect()
+    SupervisedConnection.delete_stream(@stream)
+    :ok = SupervisedConnection.create_stream(@stream)
+    assert {:ok, _data} = SupervisedConnection.stream_stats(@stream)
+    assert {:error, :stream_does_not_exist} = SupervisedConnection.stream_stats("#{@stream}-NON-EXISTENT")
   end
 end

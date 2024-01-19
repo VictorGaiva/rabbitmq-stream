@@ -33,14 +33,15 @@ defmodule RabbitMQStream.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger]
+      extra_applications: [:logger, :crypto, :ssl]
     ]
   end
 
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:ex_doc, "~> 0.28.4", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.28.4", only: :dev, runtime: false},
+      {:jason, "~> 1.4.1", only: :test, runtime: false}
     ]
   end
 
@@ -68,17 +69,20 @@ defmodule RabbitMQStream.MixProject do
 
   defp extras do
     [
-      "guides/introduction/getting-started.md",
-      "guides/tutorial/subscribing.md",
+      "guides/concepts/streams.md",
+      "guides/concepts/super-streams.md",
+      "guides/concepts/single-active-consumer.md",
+      "guides/concepts/offset.md",
+      "guides/setup/getting-started.md",
+      "guides/setup/configuration.md",
       "CHANGELOG.md"
     ]
   end
 
   defp groups_for_extras do
     [
-      Introduction: ~r/guides\/introduction\/.*/,
-      Tutorial: ~r/guides\/tutorial\/.*/,
-      Topics: ~r/guides\/[^\/]+\.md/,
+      Concepts: ~r/guides\/concepts\/.*/,
+      Setup: ~r/guides\/setup\/.*/,
       Changelog: "CHANGELOG.md"
     ]
   end
@@ -87,17 +91,17 @@ defmodule RabbitMQStream.MixProject do
     [
       Client: [
         RabbitMQStream.Connection,
-        RabbitMQStream.Publisher,
-        RabbitMQStream.Subscriber
+        RabbitMQStream.Producer,
+        RabbitMQStream.Consumer
       ],
       "Offset Tracking": [
-        RabbitMQStream.Subscriber.OffsetTracking.Strategy,
-        RabbitMQStream.Subscriber.OffsetTracking.CountStrategy,
-        RabbitMQStream.Subscriber.OffsetTracking.IntervalStrategy
+        RabbitMQStream.Consumer.OffsetTracking,
+        RabbitMQStream.Consumer.OffsetTracking.CountStrategy,
+        RabbitMQStream.Consumer.OffsetTracking.IntervalStrategy
       ],
       "Flow Control": [
-        RabbitMQStream.Subscriber.FlowControl.Strategy,
-        RabbitMQStream.Subscriber.FlowControl.MessageCount
+        RabbitMQStream.Consumer.FlowControl,
+        RabbitMQStream.Consumer.FlowControl.MessageCount
       ]
     ]
   end

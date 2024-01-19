@@ -2,44 +2,40 @@ defmodule RabbitMQStream.Connection.Handler do
   @moduledoc false
 
   require Logger
-  alias RabbitMQStream.Message.Encoder
-  alias RabbitMQStream.Connection
-  alias RabbitMQStream.Message
-
   alias RabbitMQStream.Message.{Request, Response}
+  alias RabbitMQStream.Connection
+  alias RabbitMQStream.Connection.Helpers
 
-  def handle_message(%Request{command: :close} = request, conn) do
+  def handle_message(%Connection{} = conn, %Request{command: :close} = request) do
     Logger.debug("Connection close requested by server: #{request.data.code} #{request.data.reason}")
     Logger.debug("Connection closed")
 
-    %{conn | state: :closing}
-    |> send_response(:close, correlation_id: request.correlation_id, code: :ok)
-    |> handle_closed(request.data.reason)
+    %{conn | state: :closing, close_reason: request.data.reason}
+    |> Helpers.push(:response, :close, correlation_id: request.correlation_id, code: :ok)
   end
 
-  def handle_message(%Request{command: :tune} = request, conn) do
+  def handle_message(%Connection{} = conn, %Request{command: :tune} = request) do
     Logger.debug("Tunning complete. Starting heartbeat timer.")
 
     Process.send_after(self(), {:heartbeat}, conn.options[:heartbeat] * 1000)
 
     options = Keyword.merge(conn.options, frame_max: request.data.frame_max, heartbeat: request.data.heartbeat)
 
-    %{conn | options: options}
-    |> send_response(:tune, correlation_id: 0)
-    |> Map.put(:state, :opening)
-    |> send_request(:open)
+    %{conn | options: options, state: :opening}
+    |> Helpers.push(:response, :tune, correlation_id: 0)
+    |> Helpers.push(:request, :open)
   end
 
-  def handle_message(%Request{command: :heartbeat}, conn) do
+  def handle_message(%Connection{} = conn, %Request{command: :heartbeat}) do
     conn
   end
 
-  def handle_message(%Request{command: :metadata_update} = request, conn) do
+  def handle_message(%Connection{} = conn, %Request{command: :metadata_update} = request) do
     conn
-    |> send_request(:query_metadata, streams: [request.data.stream_name])
+    |> Helpers.push(:request, :query_metadata, streams: [request.data.stream_name])
   end
 
-  def handle_message(%Request{command: :deliver} = response, conn) do
+  def handle_message(%Connection{} = conn, %Request{command: :deliver} = response) do
     pid = Map.get(conn.subscriptions, response.data.subscription_id)
 
     if pid != nil do
@@ -49,24 +45,22 @@ defmodule RabbitMQStream.Connection.Handler do
     conn
   end
 
-  def handle_message(%Request{command: command}, conn)
+  def handle_message(%Connection{} = conn, %Request{command: command})
       when command in [:publish_confirm, :publish_error] do
     conn
   end
 
-  def handle_message(%Response{command: :close} = response, conn) do
+  def handle_message(%Connection{} = conn, %Response{command: :close} = response) do
     Logger.debug("Connection closed: #{conn.options[:host]}:#{conn.options[:port]}")
 
-    {{pid, _data}, conn} = pop_request_tracker(conn, :close, response.correlation_id)
-
-    conn = %{conn | state: :closed, socket: nil}
+    {{pid, _data}, conn} = Helpers.pop_tracker(conn, :close, response.correlation_id)
 
     GenServer.reply(pid, :ok)
 
-    conn
+    %{conn | state: :closing}
   end
 
-  def handle_message(%Response{code: code}, conn)
+  def handle_message(%Connection{} = conn, %Response{code: code})
       when code in [
              :sasl_mechanism_not_supported,
              :authentication_failure,
@@ -81,28 +75,33 @@ defmodule RabbitMQStream.Connection.Handler do
       GenServer.reply(request, {:error, code})
     end
 
-    %{conn | state: :closed, socket: nil, connect_requests: []}
+    %{conn | state: :closing, close_reason: code}
   end
 
-  def handle_message(%Response{command: :credit, code: code}, conn)
+  def handle_message(%Connection{} = conn, %Response{command: :credit, code: code})
       when code not in [:ok, nil] do
     Logger.error("Failed to credit subscription. Reason: #{code}")
 
     conn
   end
 
-  def handle_message(%Response{command: command, code: code} = response, conn)
+  def handle_message(%Connection{} = conn, %Response{command: command, code: code} = response)
       when command in [
              :create_stream,
              :delete_stream,
              :query_offset,
-             :declare_publisher,
-             :delete_publisher,
+             :declare_producer,
+             :delete_producer,
              :subscribe,
-             :unsubscribe
+             :unsubscribe,
+             :stream_stats,
+             :create_super_stream,
+             :delete_super_stream,
+             :route,
+             :partitions
            ] and
              code not in [:ok, nil] do
-    {{pid, _data}, conn} = pop_request_tracker(conn, command, response.correlation_id)
+    {{pid, _data}, conn} = Helpers.pop_tracker(conn, command, response.correlation_id)
 
     if pid != nil do
       GenServer.reply(pid, {:error, code})
@@ -111,43 +110,51 @@ defmodule RabbitMQStream.Connection.Handler do
     conn
   end
 
-  def handle_message(_, %Connection{state: :closed} = conn) do
+  def handle_message(%Connection{state: :closed} = conn, _) do
     Logger.error("Message received on a closed connection")
 
     conn
   end
 
-  def handle_message(%Response{command: :peer_properties} = response, conn) do
-    Logger.debug("Exchange successful.")
-    Logger.debug("Initiating SASL handshake.")
+  def handle_message(%Connection{} = conn, %Response{command: :peer_properties} = response) do
+    Logger.debug("Peer Properties exchange successful. Initiating SASL handshake.")
 
-    %{conn | peer_properties: response.data.peer_properties}
-    |> send_request(:sasl_handshake)
+    # We need to extract the base version from the version string so we can compare
+    # make decisions based on the version of the server.
+    version =
+      ~r/(\d+)\.(\d+)\.(\d+)/
+      |> Regex.run(response.data.peer_properties["version"], capture: :all_but_first)
+      |> Enum.map(&String.to_integer/1)
+
+    peer_properties = Map.put(response.data.peer_properties, "base-version", version)
+
+    %{conn | peer_properties: peer_properties}
+    |> Helpers.push(:request, :sasl_handshake)
   end
 
-  def handle_message(%Response{command: :sasl_handshake} = response, conn) do
+  def handle_message(%Connection{} = conn, %Response{command: :sasl_handshake} = response) do
     Logger.debug("SASL handshake successful. Initiating authentication.")
 
     %{conn | mechanisms: response.data.mechanisms}
-    |> send_request(:sasl_authenticate)
+    |> Helpers.push(:request, :sasl_authenticate)
   end
 
-  def handle_message(%Response{command: :sasl_authenticate, data: %{sasl_opaque_data: ""}}, conn) do
+  def handle_message(%Connection{} = conn, %Response{command: :sasl_authenticate, data: %{sasl_opaque_data: ""}}) do
     Logger.debug("Authentication successful. Initiating connection tuning.")
 
     conn
   end
 
-  def handle_message(%Response{command: :sasl_authenticate}, conn) do
+  def handle_message(%Connection{} = conn, %Response{command: :sasl_authenticate}) do
     Logger.debug("Authentication successful. Skipping connection tuning.")
     Logger.debug("Opening connection to vhost: \"#{conn.options[:vhost]}\"")
 
     conn
-    |> send_request(:open)
+    |> Helpers.push(:request, :open)
     |> Map.put(:state, :opening)
   end
 
-  def handle_message(%Response{command: :tune} = response, conn) do
+  def handle_message(%Connection{} = conn, %Response{command: :tune} = response) do
     Logger.debug("Tunning data received. Starting heartbeat timer.")
     Logger.debug("Opening connection to vhost: \"#{conn.options[:vhost]}\"")
 
@@ -155,10 +162,15 @@ defmodule RabbitMQStream.Connection.Handler do
 
     %{conn | options: options}
     |> Map.put(:state, :opening)
-    |> send_request(:open)
+    |> Helpers.push(:request, :open)
   end
 
-  def handle_message(%Response{command: :open} = response, conn) do
+  # If the server has a version lower than 3.13, this is the 'terminating' response.
+  def handle_message(
+        %Connection{peer_properties: %{"base-version" => version}} = conn,
+        %Response{command: :open} = response
+      )
+      when version < [3, 13] do
     Logger.debug("Successfully opened connection with vhost: \"#{conn.options[:vhost]}\"")
 
     for request <- conn.connect_requests do
@@ -170,30 +182,31 @@ defmodule RabbitMQStream.Connection.Handler do
     %{conn | state: :open, connect_requests: [], connection_properties: response.data.connection_properties}
   end
 
-  def handle_message({:response, correlation_id, {:metadata, brokers, streams}}, conn) do
-    {{pid, _data}, conn} = pop_request_tracker(conn, :query_metadata, correlation_id)
+  def handle_message(
+        %Connection{peer_properties: %{"base-version" => version}} = conn,
+        %Response{command: :open} = response
+      )
+      when version >= [3, 13] do
+    Logger.debug(
+      "Successfully opened connection with vhost: \"#{conn.options[:vhost]}\". Initiating command version exchange."
+    )
 
-    brokers = Map.new(brokers)
-
-    if pid != nil do
-      GenServer.reply(pid, {:ok, %{brokers: brokers, streams: streams}})
-    end
-
-    %{conn | brokers: Map.merge(conn.brokers, brokers), streams: Map.merge(conn.streams, streams)}
+    %{conn | connection_properties: response.data.connection_properties}
+    |> Helpers.push(:request, :exchange_command_versions)
   end
 
-  def handle_message(%Response{command: :query_metadata} = response, conn) do
-    {{pid, _data}, conn} = pop_request_tracker(conn, :query_metadata, response.correlation_id)
+  def handle_message(%Connection{} = conn, %Response{command: :query_metadata} = response) do
+    {{pid, _data}, conn} = Helpers.pop_tracker(conn, :query_metadata, response.correlation_id)
 
     if pid != nil do
       GenServer.reply(pid, {:ok, response.data})
     end
 
-    %{conn | streams: response.data.streams, brokers: response.data.brokers}
+    conn
   end
 
-  def handle_message(%Response{command: :query_offset} = response, conn) do
-    {{pid, _data}, conn} = pop_request_tracker(conn, :query_offset, response.correlation_id)
+  def handle_message(%Connection{} = conn, %Response{command: :query_offset} = response) do
+    {{pid, _data}, conn} = Helpers.pop_tracker(conn, :query_offset, response.correlation_id)
 
     if pid != nil do
       GenServer.reply(pid, {:ok, response.data.offset})
@@ -202,8 +215,8 @@ defmodule RabbitMQStream.Connection.Handler do
     conn
   end
 
-  def handle_message(%Response{command: :declare_publisher} = response, conn) do
-    {{pid, id}, conn} = pop_request_tracker(conn, :declare_publisher, response.correlation_id)
+  def handle_message(%Connection{} = conn, %Response{command: :declare_producer} = response) do
+    {{pid, id}, conn} = Helpers.pop_tracker(conn, :declare_producer, response.correlation_id)
 
     if pid != nil do
       GenServer.reply(pid, {:ok, id})
@@ -212,8 +225,8 @@ defmodule RabbitMQStream.Connection.Handler do
     conn
   end
 
-  def handle_message(%Response{command: :query_publisher_sequence} = response, conn) do
-    {{pid, _data}, conn} = pop_request_tracker(conn, :query_publisher_sequence, response.correlation_id)
+  def handle_message(%Connection{} = conn, %Response{command: :query_producer_sequence} = response) do
+    {{pid, _data}, conn} = Helpers.pop_tracker(conn, :query_producer_sequence, response.correlation_id)
 
     if pid != nil do
       GenServer.reply(pid, {:ok, response.data.sequence})
@@ -222,20 +235,20 @@ defmodule RabbitMQStream.Connection.Handler do
     conn
   end
 
-  def handle_message(%Response{command: :subscribe} = response, conn) do
-    {{pid, data}, conn} = pop_request_tracker(conn, :subscribe, response.correlation_id)
+  def handle_message(%Connection{} = conn, %Response{command: :subscribe} = response) do
+    {{pid, data}, conn} = Helpers.pop_tracker(conn, :subscribe, response.correlation_id)
 
-    {subscription_id, subscriber} = data
+    {subscription_id, consumer} = data
 
     if pid != nil do
       GenServer.reply(pid, {:ok, subscription_id})
     end
 
-    %{conn | subscriptions: Map.put(conn.subscriptions, subscription_id, subscriber)}
+    %{conn | subscriptions: Map.put(conn.subscriptions, subscription_id, consumer)}
   end
 
-  def handle_message(%Response{command: :unsubscribe} = response, conn) do
-    {{pid, subscription_id}, conn} = pop_request_tracker(conn, :unsubscribe, response.correlation_id)
+  def handle_message(%Connection{} = conn, %Response{command: :unsubscribe} = response) do
+    {{pid, subscription_id}, conn} = Helpers.pop_tracker(conn, :unsubscribe, response.correlation_id)
 
     if pid != nil do
       GenServer.reply(pid, :ok)
@@ -244,9 +257,41 @@ defmodule RabbitMQStream.Connection.Handler do
     %{conn | subscriptions: Map.drop(conn.subscriptions, [subscription_id])}
   end
 
-  def handle_message(%Response{command: command} = response, conn)
-      when command in [:create_stream, :delete_stream, :delete_publisher] do
-    {{pid, _data}, conn} = pop_request_tracker(conn, command, response.correlation_id)
+  # If the server has a version 3.12 or higher, this is the 'terminating' response.
+  def handle_message(%Connection{} = conn, %Response{command: :exchange_command_versions} = response) do
+    {{pid, _}, conn} = Helpers.pop_tracker(conn, :exchange_command_versions, response.correlation_id)
+
+    if pid != nil do
+      GenServer.reply(pid, {:ok, response.data})
+    end
+
+    commands =
+      Map.new(response.data.commands, fn command ->
+        {command.key, %{min: command.min_version, max: command.max_version}}
+      end)
+
+    for request <- conn.connect_requests do
+      GenServer.reply(request, :ok)
+    end
+
+    send(self(), :flush_request_buffer)
+    %{conn | state: :open, connect_requests: [], commands: commands}
+  end
+
+  def handle_message(%Connection{} = conn, %Response{command: command, data: data} = response)
+      when command in [:route, :partitions, :stream_stats] do
+    {{pid, _data}, conn} = Helpers.pop_tracker(conn, command, response.correlation_id)
+
+    if pid != nil do
+      GenServer.reply(pid, {:ok, data})
+    end
+
+    conn
+  end
+
+  def handle_message(%Connection{} = conn, %Response{command: command} = response)
+      when command in [:create_stream, :delete_stream, :delete_producer, :create_super_stream, :delete_super_stream] do
+    {{pid, _data}, conn} = Helpers.pop_tracker(conn, command, response.correlation_id)
 
     if pid != nil do
       GenServer.reply(pid, :ok)
@@ -255,58 +300,17 @@ defmodule RabbitMQStream.Connection.Handler do
     conn
   end
 
-  def push_request_tracker(%Connection{} = conn, type, from, data \\ nil) when is_atom(type) when is_pid(from) do
-    request_tracker = Map.put(conn.request_tracker, {type, conn.correlation_sequence}, {from, data})
+  # We forward the request because the consumer is the one responsible for
+  # deciding how to respond to the request.
+  def handle_message(%Connection{} = conn, %Request{command: :consumer_update} = request) do
+    subscription_pid = Map.get(conn.subscriptions, request.data.subscription_id)
 
-    %{conn | request_tracker: request_tracker}
-  end
-
-  def pop_request_tracker(%Connection{} = conn, type, correlation) when is_atom(type) do
-    {entry, request_tracker} = Map.pop(conn.request_tracker, {type, correlation}, {nil, nil})
-
-    {entry, %{conn | request_tracker: request_tracker}}
-  end
-
-  def handle_closed(%Connection{} = conn, reason) do
-    for request <- conn.connect_requests do
-      GenServer.reply(request, {:error, :closed})
-    end
-
-    for {client, _data} <- Map.values(conn.request_tracker) do
-      GenServer.reply(client, {:error, reason})
-    end
-
-    %{conn | request_tracker: %{}, connect_requests: []}
-  end
-
-  def send_request(%Connection{} = conn, command, opts \\ []) do
-    {correlation_sum, opts} = Keyword.pop(opts, :correlation_sum, 1)
-    {publisher_sum, opts} = Keyword.pop(opts, :publisher_sum, 0)
-    {subscriber_sum, opts} = Keyword.pop(opts, :subscriber_sum, 0)
-
-    frame =
+    if subscription_pid != nil do
+      send(subscription_pid, {:command, request})
       conn
-      |> Message.Request.new!(command, opts)
-      |> Encoder.encode!()
-
-    :ok = :gen_tcp.send(conn.socket, frame)
-
-    correlation_sequence = conn.correlation_sequence + correlation_sum
-    publisher_sequence = conn.publisher_sequence + publisher_sum
-    subscriber_sequence = conn.subscriber_sequence + subscriber_sum
-
-    %{
+    else
       conn
-      | correlation_sequence: correlation_sequence,
-        publisher_sequence: publisher_sequence,
-        subscriber_sequence: subscriber_sequence
-    }
-  end
-
-  def send_response(%Connection{} = conn, command, opts) do
-    frame = Message.Response.new!(conn, command, opts) |> Encoder.encode!()
-    :ok = :gen_tcp.send(conn.socket, frame)
-
-    conn
+      |> Helpers.push(:response, :consumer_update, correlation_id: request.correlation_id, code: :internal_error)
+    end
   end
 end
