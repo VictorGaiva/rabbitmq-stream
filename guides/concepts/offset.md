@@ -56,7 +56,7 @@ Altough the RabbitMQ server doesn't automatically tracks the offset of each cons
 
 A `RabbitMQStream.Consumer` instance automatically queries the offset under `reference_name` on startup, and uses it as the offset passed to the subscribe command. It automatically stores the offset based on customizeable strategies.
 
-By default it used the `RabbitMQStream.Consumer.OffsetTracking.CountStrategy` strategy, stores the offset every `count` messages are received. It can be used with:
+By default it uses the `RabbitMQStream.Consumer.OffsetTracking.CountStrategy` strategy, storing the offset whenever `count` messages are received. It can be used with:
 
 ```elixir
 alias RabbitMQStream.Consumer.OffsetTracking.CountStrategy
