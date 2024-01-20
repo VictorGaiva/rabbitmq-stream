@@ -30,10 +30,12 @@ defmodule RabbitMQStream.Consumer.FlowControl.MessageCount do
 
   """
 
+  @doc false
   def init(opts \\ []) do
     Keyword.get(opts, :credit_after, {:count, 1})
   end
 
+  @doc false
   def run({:count, amount}, %{initial_credit: initial, credits: credits}) when initial - credits >= amount do
     {:credit, div(initial - credits, amount) * amount, {:count, amount}}
   end

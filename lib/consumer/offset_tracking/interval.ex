@@ -30,6 +30,7 @@ defmodule RabbitMQStream.Consumer.OffsetTracking.IntervalStrategy do
   * `interval` - the time in milliseconds before storing the offset
   """
 
+  @doc false
   def init(opts \\ []) do
     interval = Keyword.get(opts, :interval, 10_000)
     timer_ref = Process.send_after(self(), :run_offset_tracking, interval)
@@ -37,6 +38,7 @@ defmodule RabbitMQStream.Consumer.OffsetTracking.IntervalStrategy do
     {:erlang.monotonic_time(), interval, timer_ref}
   end
 
+  @doc false
   def run({start, interval, timer_ref} = state, _) do
     now = :erlang.monotonic_time()
 

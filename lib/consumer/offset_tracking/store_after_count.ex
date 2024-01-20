@@ -26,11 +26,13 @@ defmodule RabbitMQStream.Consumer.OffsetTracking.CountStrategy do
 
   """
 
+  @doc false
   def init(opts \\ []) do
     store_after = Keyword.get(opts, :store_after, 50)
     {0, store_after}
   end
 
+  @doc false
   def after_chunk(
         {count, store_after},
         %RabbitMQStream.OsirisChunk{num_entries: num_entries},
@@ -41,6 +43,7 @@ defmodule RabbitMQStream.Consumer.OffsetTracking.CountStrategy do
 
   def after_chunk(state, _, _), do: state
 
+  @doc false
   def run({count, store_after}, _) when count >= store_after, do: {:store, {0, store_after}}
   def run(state, _), do: {:skip, state}
 end

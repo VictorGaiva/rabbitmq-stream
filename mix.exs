@@ -94,6 +94,10 @@ defmodule RabbitMQStream.MixProject do
         RabbitMQStream.Producer,
         RabbitMQStream.Consumer
       ],
+      "Super Stream": [
+        RabbitMQStream.SuperConsumer,
+        RabbitMQStream.SuperProducer
+      ],
       "Offset Tracking": [
         RabbitMQStream.Consumer.OffsetTracking,
         RabbitMQStream.Consumer.OffsetTracking.CountStrategy,

@@ -60,19 +60,13 @@ defmodule RabbitMQStream.Message.Types do
   defmodule OpenResponseData do
     @moduledoc false
     @enforce_keys [:connection_properties]
-    @type t :: %{
-            connection_properties: Keyword.t()
-          }
-
-    defstruct [
-      :connection_properties
-    ]
+    @type t :: %{connection_properties: Keyword.t()}
+    defstruct [:connection_properties]
   end
 
   defmodule HeartbeatData do
     @moduledoc false
     @type t :: %{}
-
     defstruct []
   end
 
@@ -84,10 +78,7 @@ defmodule RabbitMQStream.Message.Types do
             code: RabbitMQStream.Message.Helpers.code(),
             reason: String.t()
           }
-    defstruct [
-      :code,
-      :reason
-    ]
+    defstruct [:code, :reason]
   end
 
   defmodule CloseResponseData do
@@ -104,15 +95,12 @@ defmodule RabbitMQStream.Message.Types do
             arguments: Keyword.t()
           }
 
-    defstruct [
-      :stream_name,
-      :arguments
-    ]
+    defstruct [:stream_name, :arguments]
   end
 
   defmodule CreateStreamResponseData do
     @moduledoc false
-
+    @type t :: %{}
     defstruct []
   end
 
@@ -125,7 +113,6 @@ defmodule RabbitMQStream.Message.Types do
 
   defmodule DeleteStreamResponseData do
     @moduledoc false
-
     @type t :: %{}
     defstruct []
   end
@@ -186,10 +173,7 @@ defmodule RabbitMQStream.Message.Types do
             brokers: [BrokerData.t()]
           }
 
-    defstruct [
-      :streams,
-      :brokers
-    ]
+    defstruct [:streams, :brokers]
 
     defmodule BrokerData do
       @moduledoc false
@@ -307,10 +291,7 @@ defmodule RabbitMQStream.Message.Types do
             producer_id: non_neg_integer(),
             errors: [Error.t()]
           }
-    defstruct [
-      :producer_id,
-      :errors
-    ]
+    defstruct [:producer_id, :errors]
 
     defmodule Error do
       @moduledoc false
@@ -331,7 +312,6 @@ defmodule RabbitMQStream.Message.Types do
             producer_id: non_neg_integer(),
             publishing_ids: [non_neg_integer()]
           }
-
     defstruct [:producer_id, :publishing_ids]
   end
 
@@ -393,9 +373,7 @@ defmodule RabbitMQStream.Message.Types do
   defmodule ConsumerUpdateResponseData do
     @moduledoc false
     @enforce_keys [:offset]
-
     @type t :: %{offset: RabbitMQStream.Connection.offset()}
-
     defstruct [:offset]
   end
 

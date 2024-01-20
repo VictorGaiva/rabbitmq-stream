@@ -1,4 +1,6 @@
 defmodule RabbitMQStream.Connection.Helpers do
+  @moduledoc false
+
   def push_tracker(conn, type, from, data \\ nil) when is_atom(type) when is_pid(from) do
     request_tracker = Map.put(conn.request_tracker, {type, conn.correlation_sequence}, {from, data})
 

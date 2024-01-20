@@ -1,4 +1,7 @@
 defmodule RabbitMQStream.Connection.Behavior do
+  @moduledoc """
+  Defines the interface a Connection Module that interacts with the Streams Protocol TCP/TLS API.
+  """
   alias RabbitMQStream.Message.Types.{PartitionsQueryResponseData, StreamStatsResponseData, QueryMetadataResponseData}
 
   @callback connect(GenServer.server()) :: :ok | {:error, reason :: atom()}

@@ -1,4 +1,5 @@
 defmodule RabbitMQStream.Message.Helpers do
+  @moduledoc false
   @type command ::
           :declare_producer
           | :publish

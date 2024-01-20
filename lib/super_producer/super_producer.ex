@@ -40,6 +40,7 @@ defmodule RabbitMQStream.SuperProducer do
     quote do
       @opts unquote(opts)
       @behaviour RabbitMQStream.Producer
+      @behaviour RabbitMQStream.SuperProducer
 
       use Supervisor
 
@@ -112,6 +113,14 @@ defmodule RabbitMQStream.SuperProducer do
       defoverridable partition: 2
     end
   end
+
+  @doc """
+  Callback responsible for generating the routing key for a given message and
+  partitions size, which is then used to forward the publish request to the
+  RabbitMQStream.Producer process responsible for the partition.
+
+  """
+  @callback partition(message :: binary(), partitions :: non_neg_integer()) :: non_neg_integer() | binary()
 
   defstruct [
     :super_stream,

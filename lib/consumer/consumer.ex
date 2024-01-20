@@ -178,31 +178,74 @@ defmodule RabbitMQStream.Consumer do
     %{id: __MODULE__, start: {__MODULE__, :start_link, [opts]}}
   end
 
-  @optional_callbacks handle_chunk: 1, handle_chunk: 2, decode!: 1, handle_update: 2, before_start: 2
-
   @doc """
-    The callback that is invoked when a chunk is received.
+  The callback that is invoked when a chunk is received.
 
-    Each chunk contains a list of potentially many data entries, along with
-    metadata about the chunk itself. The callback is invoked once for each
-    chunk received.
+  Each chunk contains a list of potentially many data entries, along with
+  metadata about the chunk itself. The callback is invoked once for each
+  chunk received.
 
-    Optionally if you implement `handle_chunk/2`, it also passes the current
-    state of the consumer. It can be used to access the `private` field
-    passed to `start_link/1`, and other fields.
+  Optionally if you implement `handle_chunk/2`, it also passes the current
+  state of the consumer. It can be used to access the `private` field
+  passed to `start_link/1`, and other fields.
 
-    The return value is ignored.
+  The return value is ignored.
   """
   @callback handle_chunk(chunk :: RabbitMQStream.OsirisChunk.t()) :: term()
   @callback handle_chunk(chunk :: RabbitMQStream.OsirisChunk.t(), state :: t()) :: term()
 
+  @doc """
+  If the consumer has been defined with the 'single-active-consumer' parameter,
+  this callback is invoked when the consumer is being upgraded to being the
+  active one, or when downgraded to being an inactive one.
+
+  When the flag parameter is set to 'true', it means that the consumer is being
+  upgraded to active and it must return the offset for where it wants to start
+  consuming from the stream.
+
+  When being downgraded, the offset returned by the callback is also sent
+  to the server but, at the moment, is not being used in any way, and is only
+  sent because the API requires. But this is actually a good moment to store
+  the offset so that it can be retrieved by the other consumer that is being
+  upgraded.
+  """
   @callback handle_update(consumer :: t(), flag :: boolean()) ::
               {:ok, RabbitMQStream.Connection.offset()} | {:error, any()}
 
+  @doc """
+  Callback invoked on each message inside of a chunk.
+
+  It can be used to decode the message from a binary format into a Map,
+  or to use GZIP to decompress the content.
+
+  You can also globally define a 'Serializer' module, that must implement
+  the 'decode!/1' callback, at compile-time configuration so it is added
+  to as the default callback.
+  """
   @callback decode!(message :: String.t()) :: term()
 
+  @doc """
+  Callback invoked right before subscribing a consumer to the stream.
+  Might be usefull for setup logic, like creating a stream if it doesn't yet exists.
+  """
   @callback before_start(opts(), t()) :: t()
 
+  @doc """
+  Send a command to add the provided amount of credits to the consumer.
+
+  The credits are tracked by the Server, but it is also stored internally
+  on the Consumer state, which then can be retreived by calling 'get_credits/0'.
+
+  Always returns :ok, and any errors when adding credits to a consumer are logged.
+  """
+  @callback credit(amount :: non_neg_integer()) :: :ok
+
+  @doc """
+  Returns the internally tracked amount of credits for the Consumer.
+  """
+  @callback get_credits() :: non_neg_integer()
+
+  @optional_callbacks handle_chunk: 1, handle_chunk: 2, decode!: 1, handle_update: 2, before_start: 2
   defstruct [
     :offset_reference,
     :connection,

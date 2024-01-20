@@ -1,4 +1,5 @@
 defmodule RabbitMQStream.SuperConsumer.Manager do
+  @moduledoc false
   alias RabbitMQStream.SuperConsumer
 
   use GenServer

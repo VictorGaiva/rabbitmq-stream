@@ -1,4 +1,5 @@
 defmodule RabbitMQStream.Message.Data do
+  @moduledoc false
   alias RabbitMQStream.Message.Types
   alias RabbitMQStream.Message.{Response, Request}
   import RabbitMQStream.Message.Helpers
