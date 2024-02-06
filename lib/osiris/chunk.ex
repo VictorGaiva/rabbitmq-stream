@@ -188,14 +188,8 @@ defmodule RabbitMQStream.OsirisChunk do
       end
 
     {data_entries, _rest} =
-      Enum.reduce(0..num_entries, {[], data}, fn
-        0, curr ->
-          curr
-
-        _, {acc, data} ->
-          {entry, rest} = decode_entry!(chunk_type, data)
-          {acc ++ [entry], rest}
-      end)
+      Stream.duplicate(chunk_type, num_entries)
+      |> Enum.map_reduce(data, &decode_entry!/2)
 
     %__MODULE__{
       chunk_type: chunk_type,

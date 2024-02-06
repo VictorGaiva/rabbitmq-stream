@@ -18,7 +18,11 @@ The tests uses the following default credentials:
     username: guest
     password: guest
     vhost:    /
-    port:     5552
+    port:     5553
+
+There's a `docker-compose.yaml` in the `services` folder.
+
+    docker compose --project-directory services up -d rabbitmq_stream_3_13
 
 You can activate RabbitMQ Stream Plugin on your server, if not already active, with:
 
