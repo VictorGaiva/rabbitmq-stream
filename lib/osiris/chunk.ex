@@ -71,35 +71,25 @@ defmodule RabbitMQStream.OsirisChunk do
     @enforce_keys [:type, :id]
     defstruct [:type, :id, :chunk_id, :sequence, :offset]
 
-    defp do_decode!(<<
-           0::unsigned-integer-size(8),
-           id_size::unsigned-integer-size(8),
-           id::binary-size(id_size),
-           chunk_id::unsigned-integer-64,
-           sequence::unsigned-integer-size(64),
-           rest::binary
-         >>) do
-      {%ChunkTrackSnapshot{type: :sequence, id: id, chunk_id: chunk_id, sequence: sequence}, rest}
+    def decode_entries!(<<
+          0::unsigned-integer-size(8),
+          id_size::unsigned-integer-size(8),
+          id::binary-size(id_size),
+          chunk_id::unsigned-integer-64,
+          sequence::unsigned-integer-size(64),
+          rest::binary
+        >>) do
+      {[%ChunkTrackSnapshot{type: :sequence, id: id, chunk_id: chunk_id, sequence: sequence}], rest}
     end
 
-    defp do_decode!(<<
-           1::unsigned-integer-size(8),
-           id_size::unsigned-integer-size(8),
-           id::binary-size(id_size),
-           offset::integer-size(64),
-           rest::binary
-         >>) do
-      {%ChunkTrackSnapshot{type: :offset, id: id, offset: offset}, rest}
-    end
-
-    def decode_entries!(<<>>) do
-      []
-    end
-
-    def decode_entries!(data) do
-      {entry, data} = do_decode!(data)
-
-      decode_entries!(data) ++ [entry]
+    def decode_entries!(<<
+          1::unsigned-integer-size(8),
+          id_size::unsigned-integer-size(8),
+          id::binary-size(id_size),
+          offset::integer-size(64),
+          rest::binary
+        >>) do
+      {[%ChunkTrackSnapshot{type: :offset, id: id, offset: offset}], rest}
     end
   end
 
@@ -132,7 +122,14 @@ defmodule RabbitMQStream.OsirisChunk do
   defp decode_entry!(:chunk_track_snapshot, <<0::1, length::unsigned-integer-size(31), rest::binary>>) do
     <<data::binary-size(length), rest::binary>> = rest
 
-    {ChunkTrackSnapshot.decode_entries!(data), rest}
+    stream =
+      Stream.repeatedly(nil)
+      |> Stream.transform(data, fn
+        _, <<>> -> {:halt, nil}
+        _, data -> ChunkTrackSnapshot.decode_entries!(data)
+      end)
+
+    {Enum.to_list(stream), rest}
   end
 
   defp decode_entry!(:chunk_user, <<1::1, compression::integer-size(3), reserved::integer-size(4), rest::binary>>) do
