@@ -21,6 +21,7 @@ defmodule RabbitMQStreamTest.Interop do
       :ok
     end
 
+    @impl true
     def decode!(message) do
       :amqp10_framing.decode_bin(message)[:"v1_0.data"]
     end

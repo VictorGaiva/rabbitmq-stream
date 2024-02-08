@@ -31,6 +31,7 @@ defmodule MyApp.MyConsumer do
     initial_offset: :next,
     stream_name: "my-stream"
   
+  @impl true
   def decode!(message) do
     :amqp10_framing.decode_bin(message)[:"v1_0.data"]
   end
