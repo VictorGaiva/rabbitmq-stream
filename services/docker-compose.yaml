@@ -10,7 +10,7 @@ services:
       - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
       - ./cert:/etc/rabbitmq/cert
     ports:
-      - 5553:5552
+      - 5552:5552
       - 5551:5551
     environment:
       - RABBITMQ_DEFAULT_USER=guest
@@ -25,7 +25,7 @@ services:
       - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
       - ./cert:/etc/rabbitmq/cert
     ports:
-      - 5553:5552
+      - 5552:5552
       - 5551:5551
     environment:
       - RABBITMQ_DEFAULT_USER=guest
@@ -40,7 +40,7 @@ services:
       - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
       - ./cert:/etc/rabbitmq/cert
     ports:
-      - 5553:5552
+      - 5552:5552
       - 5551:5551
     environment:
       - RABBITMQ_DEFAULT_USER=guest

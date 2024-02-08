@@ -18,7 +18,7 @@ The tests uses the following default credentials:
     username: guest
     password: guest
     vhost:    /
-    port:     5553
+    port:     5552
 
 There's a `docker-compose.yaml` in the `services` folder.
 
