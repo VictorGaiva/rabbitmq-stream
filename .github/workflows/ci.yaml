@@ -26,12 +26,14 @@ jobs:
       fail-fast: false
       matrix:
         version: ["3_13", "3_12", "3_11"]
+        elixir: ["1.15", "1.16"]
+        otp: ["26"]
     steps:
       - uses: erlef/setup-beam@v1
         with:
-          otp-version: "26"
-          elixir-version: "1.15"
-      
+          otp-version: ${{ matrix.otp }}
+          elixir-version: ${{ matrix.elixir }}
+
       - uses: actions/checkout@v3
 
       - uses: isbang/compose-action@v1.5.1
