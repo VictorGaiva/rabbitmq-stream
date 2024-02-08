@@ -41,7 +41,9 @@ defmodule RabbitMQStream.MixProject do
   defp deps do
     [
       {:ex_doc, "~> 0.28.4", only: :dev, runtime: false},
-      {:jason, "~> 1.4.1", only: :test, runtime: false}
+      {:jason, "~> 1.4.1", only: :test, runtime: false},
+      {:amqp, "~> 3.2", only: :test, runtime: false},
+      {:amqp10_common, "~> 3.12", only: :test, runtime: false}
     ]
   end
 
@@ -72,6 +74,7 @@ defmodule RabbitMQStream.MixProject do
       "guides/concepts/streams.md",
       "guides/concepts/super-streams.md",
       "guides/concepts/single-active-consumer.md",
+      "guides/concepts/interop.md",
       "guides/concepts/offset.md",
       "guides/setup/getting-started.md",
       "guides/setup/configuration.md",
