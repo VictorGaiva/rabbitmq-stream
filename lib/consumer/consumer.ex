@@ -245,7 +245,14 @@ defmodule RabbitMQStream.Consumer do
   """
   @callback get_credits() :: non_neg_integer()
 
-  @optional_callbacks handle_chunk: 1, handle_chunk: 2, decode!: 1, handle_update: 2, before_start: 2
+  @optional_callbacks handle_chunk: 1,
+                      handle_chunk: 2,
+                      decode!: 1,
+                      handle_update: 2,
+                      before_start: 2,
+                      get_credits: 0,
+                      credit: 1
+
   defstruct [
     :offset_reference,
     :connection,
