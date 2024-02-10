@@ -46,3 +46,5 @@ defmodule MyApp.MyConsumer do
   end
 end
 ```
+
+You can get more information on interop concepts on the related [Interoperability in RabbitMQ Streams](https://blog.rabbitmq.com/posts/2021/10/rabbitmq-streams-interoperability/) post.
