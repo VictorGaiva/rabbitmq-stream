@@ -142,29 +142,30 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
     {:noreply, FlowControl.run(state)}
   end
 
-  def handle_info({:command, %Request{command: :consumer_update} = request}, state) do
+  def handle_info({:command, %Request{command: :consumer_update, data: data} = request}, state) do
     if function_exported?(state.consumer_module, :handle_update, 2) do
+      action = if data.active, do: :update, else: :downgrade
+
       # It seems that sending an offset to the server when a consumer is being
       # downgraded from 'active' to 'inactive' has no effect. But the server
       # still waits a response. A consumer module might use this downgrade
       # to send the current offset to the consumer that is being upgraded.
-      case apply(state.consumer_module, :handle_update, [state, request.data.active]) do
+
+      case apply(state.consumer_module, :handle_update, [state, action]) do
         {:ok, offset} ->
           Logger.debug("Consumer upgraded to active consumer")
           RabbitMQStream.Connection.respond(state.connection, request, offset: offset, code: :ok)
-          {:noreply, state}
 
         {:error, reason} ->
           Logger.error("Error updating consumer: #{inspect(reason)}")
           RabbitMQStream.Connection.respond(state.connection, request, code: :internal_error)
-
-          {:noreply, state}
       end
     else
       Logger.error("handle_update/2 must be implemented when using single-active-consumer property")
       RabbitMQStream.Connection.respond(state.connection, request, code: :internal_error)
-      {:noreply, state}
     end
+
+    {:noreply, state}
   end
 
   @impl true

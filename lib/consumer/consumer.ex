@@ -199,7 +199,7 @@ defmodule RabbitMQStream.Consumer do
   this callback is invoked when the consumer is being upgraded to being the
   active one, or when downgraded to being an inactive one.
 
-  When the flag parameter is set to 'true', it means that the consumer is being
+  When the flag parameter is set to ':upgrade', it means that the consumer is being
   upgraded to active and it must return the offset for where it wants to start
   consuming from the stream.
 
@@ -209,7 +209,7 @@ defmodule RabbitMQStream.Consumer do
   the offset so that it can be retrieved by the other consumer that is being
   upgraded.
   """
-  @callback handle_update(consumer :: t(), flag :: boolean()) ::
+  @callback handle_update(consumer :: t(), action :: :upgrade | :downgrade) ::
               {:ok, RabbitMQStream.Connection.offset()} | {:error, any()}
 
   @doc """

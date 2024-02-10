@@ -43,7 +43,7 @@ defmodule RabbitMQStreamTest.Consumer.SingleActiveConsumer do
       properties: [single_active_consumer: "group-1"]
 
     @impl true
-    def handle_update(_, true) do
+    def handle_update(_, :upgrade) do
       {:ok, :last}
     end
 
@@ -64,7 +64,7 @@ defmodule RabbitMQStreamTest.Consumer.SingleActiveConsumer do
       properties: [single_active_consumer: "group-1"]
 
     @impl true
-    def handle_update(_, true) do
+    def handle_update(_, :upgrade) do
       {:ok, :last}
     end
 
@@ -85,7 +85,7 @@ defmodule RabbitMQStreamTest.Consumer.SingleActiveConsumer do
       properties: [single_active_consumer: "group-1"]
 
     @impl true
-    def handle_update(_, true) do
+    def handle_update(_, :upgrade) do
       {:ok, :last}
     end
 
