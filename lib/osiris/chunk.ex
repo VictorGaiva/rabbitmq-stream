@@ -123,7 +123,7 @@ defmodule RabbitMQStream.OsirisChunk do
     <<data::binary-size(length), rest::binary>> = rest
 
     stream =
-      Stream.repeatedly(nil)
+      Stream.repeatedly(fn -> nil end)
       |> Stream.transform(data, fn
         _, <<>> -> {:halt, nil}
         _, data -> ChunkTrackSnapshot.decode_entries!(data)
