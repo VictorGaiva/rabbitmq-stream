@@ -146,6 +146,10 @@ defmodule RabbitMQStream.Consumer do
         GenServer.call(__MODULE__, :get_credits)
       end
 
+      def store_offset() do
+        GenServer.call(__MODULE__, :store_offset)
+      end
+
       def before_start(_opts, state), do: state
 
       unquote(
@@ -245,12 +249,20 @@ defmodule RabbitMQStream.Consumer do
   """
   @callback get_credits() :: non_neg_integer()
 
+  @doc """
+  Persists the consumer's latests offset into the stream.
+
+  Be aware that it does not reset any tracking strategy.
+  """
+  @callback store_offset() :: :ok
+
   @optional_callbacks handle_chunk: 1,
                       handle_chunk: 2,
                       decode!: 1,
                       handle_update: 2,
                       before_start: 2,
                       get_credits: 0,
+                      store_offset: 0,
                       credit: 1
 
   defstruct [

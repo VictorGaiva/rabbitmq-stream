@@ -174,6 +174,17 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
     {:noreply, %{state | credits: state.credits + amount}}
   end
 
+  def handle_cast(:store_offset, state) do
+    RabbitMQStream.Connection.store_offset(
+      state.connection,
+      state.stream_name,
+      state.offset_reference,
+      state.last_offset
+    )
+
+    {:noreply, state}
+  end
+
   @impl true
   def handle_call(:get_credits, _from, state) do
     {:reply, state.credits, state}
