@@ -15,11 +15,13 @@ You can publish a message to the stream by calling its `publish/1` callback with
 MyApp.MyProducer.publish("my-message")
 ```
 
+The published messages are persisted by RabbitMQ Server as the raw binary you sent, wrapped inside a [Osiris Chunk](https://github.com/rabbitmq/osiris).
+
 ## Message De-duplication
 
 By default it uses the module's name as the `:reference_name` passed to RabbitMQ. Internally the producer module keeps track of a `publishing_id` sequence, which is incremented after every message.
 
-These two parameters are used by the RabbitMQ server to prevent message duplication. If it receives two messages from the same `reference_name` with the same `publishing_id`, it simply drops the message.
+These two parameters are used by the RabbitMQ server to prevent message duplication. If it receives two messages from the same `reference_name` with the same `publishing_id`, it is ignored.
 
 ## Filter Value
 
