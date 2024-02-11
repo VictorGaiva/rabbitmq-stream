@@ -179,16 +179,18 @@ defmodule RabbitMQStreamTest.SuperStream do
       )
 
     # We wait a bit to guarantee that the consumers are ready
+    Process.sleep(500)
 
     :ok = SuperProducer1.publish("1")
     :ok = SuperProducer1.publish("12")
     :ok = SuperProducer1.publish("123")
-    Process.sleep(500)
 
     msgs =
       for _ <- 1..3 do
         receive do
           msg -> msg
+        after
+          500 -> :timeout
         end
       end
 
