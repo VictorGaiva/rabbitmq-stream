@@ -480,7 +480,15 @@ defmodule RabbitMQStream.Message.Data do
   def encode(%Request{command: :create_super_stream, data: data}) do
     name = encode_string(data.name)
 
-    {partitions, binding_keys} = Enum.unzip(data.partitions)
+    # A routing key can have multiple associated streams
+    partitions =
+      for {routing_key, streams} <- data.partitions,
+          streams = List.wrap(streams),
+          stream <- streams do
+        {routing_key, stream}
+      end
+
+    {binding_keys, partitions} = Enum.unzip(partitions)
 
     partitions = encode_array(partitions, &encode_string/1)
     binding_keys = encode_array(binding_keys, &encode_string/1)

@@ -301,7 +301,7 @@ defmodule RabbitMQStream.Consumer do
           consumer_module: module()
         }
 
-  @type consumer_option ::
+  @type option ::
           {:offset_reference, String.t()}
           | {:connection, GenServer.server()}
           | {:stream_name, String.t()}
@@ -312,5 +312,5 @@ defmodule RabbitMQStream.Consumer do
           | {:private, any()}
           | {:properties, [RabbitMQStream.Message.Types.ConsumerequestData.property()]}
 
-  @type opts :: [consumer_option()]
+  @type opts :: [option()]
 end

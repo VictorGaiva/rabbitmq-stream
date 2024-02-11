@@ -82,4 +82,7 @@ defmodule RabbitMQStream.Connection.Behavior do
 
   @callback delete_super_stream(GenServer.server(), name :: String.t()) ::
               :ok | {:error, reason :: atom()}
+
+  @callback supports?(GenServer.server(), command :: atom()) :: boolean()
+  @callback supports?(GenServer.server(), command :: atom(), version :: String.t()) :: boolean()
 end

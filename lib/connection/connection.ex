@@ -442,7 +442,8 @@ defmodule RabbitMQStream.Connection do
 
   Requires RabbitMQ 3.13.0 or later.
   """
-  def route(server, routing_key, super_stream) when is_binary(routing_key) and is_binary(super_stream) do
+  def route(server, routing_key, super_stream)
+      when (is_binary(routing_key) or is_integer(routing_key)) and is_binary(super_stream) do
     GenServer.call(server, {:route, routing_key: routing_key, super_stream: super_stream})
   end
 
@@ -451,9 +452,16 @@ defmodule RabbitMQStream.Connection do
   where each key is the partition name, and the value is the routing key.
 
   When publishing a message through a RabbitMQStream.SuperProducer, you can implement the
-  the `partitions/2` callback to define the routing key for each message.
+  the `routing_key/2` callback to define the routing key for each message.
 
   Requires RabbitMQ 3.13.0 or later.
+
+  Example:
+      RabbitMQStream.Connection.create_super_stream(conn, "transactions",
+        "route-A": ["stream-01", "stream-02"],
+        "route-B": ["stream-03", "stream-04"]
+      )
+
   """
   def create_super_stream(server, name, partitions, arguments \\ [])
       when is_binary(name) and
@@ -483,6 +491,13 @@ defmodule RabbitMQStream.Connection do
   """
   def respond(server, request, opts) when is_list(opts) do
     GenServer.cast(server, {:respond, request, opts})
+  end
+
+  @doc """
+  Checks if the connected server supports the given command.
+  """
+  def supports?(server, command, version \\ 1) do
+    GenServer.call(server, {:supports?, command, version})
   end
 
   @type offset :: :first | :last | :next | {:offset, non_neg_integer()} | {:timestamp, integer()}

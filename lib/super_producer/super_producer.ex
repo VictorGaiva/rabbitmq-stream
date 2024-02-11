@@ -1,7 +1,7 @@
 defmodule RabbitMQStream.SuperProducer do
   @moduledoc """
   A Superproducer spawns a Producer process for each partition of the stream,
-  and uses the `partition/2` callback to forward a publish command to the
+  and uses the `routing_key/2` callback to forward a publish command to the
   producer of the partition.
 
   It accepts the same options as a Producer, plus the following:
@@ -12,7 +12,7 @@ defmodule RabbitMQStream.SuperProducer do
   All the producers use the same provided connection, and are supervised by a
   DynamicSupervisor.
 
-  You can optionally implement a `partition/2` callback to compute the target
+  You can optionally implement a `routing_key/2` callback to compute the target
   partition for a given message. By default, the partition is computed using
   `:erlang.phash2/2`.
 
@@ -45,13 +45,23 @@ defmodule RabbitMQStream.SuperProducer do
       use Supervisor
 
       def start_link(opts) do
-        opts = Keyword.merge(opts, @opts)
+        opts =
+          Application.get_env(:rabbitmq_stream, __MODULE__, [])
+          |> Keyword.merge(@opts)
+          |> Keyword.merge(opts)
+
         Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
+      end
+
+      def child_spec(opts) do
+        %{id: __MODULE__, start: {__MODULE__, :start_link, [opts]}}
       end
 
       @impl true
       def init(opts) do
-        {opts, producer_opts} = Keyword.split(opts, [:super_stream])
+        {opts, producer_opts} = Keyword.split(opts, [:super_stream, :connection])
+
+        producer_opts = Keyword.put(producer_opts, :connection, opts[:connection])
 
         children = [
           {Registry, keys: :unique, name: __MODULE__.Registry},
@@ -72,23 +82,20 @@ defmodule RabbitMQStream.SuperProducer do
       end
 
       def publish(message) do
-        value = filter_value(message)
+        filter = filter_value(message)
 
         message = encode!(message)
 
-        partition = partition(message, @opts[:partitions])
+        routing_key = routing_key(message, @opts[:partitions])
 
-        GenServer.cast(
-          {:via, Registry, {__MODULE__.Registry, partition}},
-          {:publish, {message, value}}
-        )
+        GenServer.cast(__MODULE__.Manager, {:publish, message, filter, routing_key})
       end
 
       def stop() do
         GenServer.stop(__MODULE__)
       end
 
-      def partition(message, partitions) do
+      def routing_key(message, partitions) do
         :erlang.phash2(message, partitions)
       end
 
@@ -110,7 +117,7 @@ defmodule RabbitMQStream.SuperProducer do
       )
 
       defoverridable RabbitMQStream.Producer
-      defoverridable partition: 2
+      defoverridable routing_key: 2
     end
   end
 
@@ -120,7 +127,7 @@ defmodule RabbitMQStream.SuperProducer do
   RabbitMQStream.Producer process responsible for the partition.
 
   """
-  @callback partition(message :: binary(), partitions :: non_neg_integer()) :: non_neg_integer() | binary()
+  @callback routing_key(message :: binary(), partitions :: non_neg_integer()) :: non_neg_integer() | binary()
 
   defstruct [
     :super_stream,
@@ -128,20 +135,23 @@ defmodule RabbitMQStream.SuperProducer do
     :dynamic_supervisor,
     :producer_module,
     :registry,
-    :producer_opts
+    :producer_opts,
+    :connection,
+    routes: %{}
   ]
 
   @type t :: %__MODULE__{
+          connection: GenServer.server(),
           super_stream: String.t(),
           partitions: non_neg_integer(),
           dynamic_supervisor: module(),
           producer_module: module(),
           registry: module(),
-          producer_opts: [RabbitMQStream.Producer.producer_option()] | nil
+          producer_opts: [RabbitMQStream.Producer.option()] | nil
         }
 
   @type super_producer_option ::
           {:super_stream, String.t()}
           | {:partitions, non_neg_integer()}
-          | RabbitMQStream.Producer.producer_option()
+          | RabbitMQStream.Producer.option()
 end

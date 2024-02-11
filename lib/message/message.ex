@@ -346,15 +346,12 @@ defmodule RabbitMQStream.Message do
     }
   end
 
-  def new_response(%Connection{options: options}, :tune, correlation_id: correlation_id) do
+  def new_response(%Connection{options: opts}, :tune, correlation_id: correlation_id) do
     %Response{
       version: 1,
       command: :tune,
       correlation_id: correlation_id,
-      data: %Types.TuneData{
-        frame_max: options[:frame_max],
-        heartbeat: options[:heartbeat]
-      }
+      data: struct(Types.TuneData, opts)
     }
   end
 

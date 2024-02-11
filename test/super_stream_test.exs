@@ -57,9 +57,24 @@ defmodule RabbitMQStreamTest.SuperStream do
     end
   end
 
-  defmodule SuperProducer do
+  defmodule SuperProducer1 do
     use RabbitMQStream.SuperProducer,
       partitions: 3
+  end
+
+  defmodule SuperProducer2 do
+    use RabbitMQStream.SuperProducer
+
+    @impl true
+    def routing_key(message, _) do
+      case message do
+        "1" ->
+          "route-A"
+
+        _ ->
+          "route-B"
+      end
+    end
   end
 
   setup do
@@ -75,18 +90,22 @@ defmodule RabbitMQStreamTest.SuperStream do
 
     :ok =
       RabbitMQStream.Connection.create_super_stream(conn, "transactions",
-        "test-foo": "A",
-        "test-bar": "B",
-        "test-baz": "C"
+        "route-A": ["stream-01", "stream-02"],
+        "route-B": ["stream-03"]
       )
 
-    {:ok, %{streams: ["test-foo"]}} = RabbitMQStream.Connection.route(conn, "A", "transactions")
-    {:ok, %{streams: ["test-bar"]}} = RabbitMQStream.Connection.route(conn, "B", "transactions")
-    {:ok, %{streams: ["test-baz"]}} = RabbitMQStream.Connection.route(conn, "C", "transactions")
+    {:ok, %{streams: streams}} = RabbitMQStream.Connection.route(conn, "route-A", "transactions")
+
+    assert Enum.all?(streams, fn stream -> stream in ["stream-01", "stream-02"] end)
+
+    {:ok, %{streams: streams}} = RabbitMQStream.Connection.route(conn, "route-B", "transactions")
+    assert Enum.all?(streams, fn stream -> stream in ["stream-03"] end)
+
+    {:ok, %{streams: []}} = RabbitMQStream.Connection.route(conn, "route-C", "transactions")
 
     {:ok, %{streams: streams}} = RabbitMQStream.Connection.partitions(conn, "transactions")
 
-    assert Enum.all?(streams, fn stream -> stream in ["test-foo", "test-bar", "test-baz"] end)
+    assert Enum.all?(streams, fn stream -> stream in ["stream-01", "stream-02", "stream-03"] end)
 
     for consumer <- [SuperConsumer1, SuperConsumer2, SuperConsumer3] do
       {:ok, conn} = RabbitMQStream.Connection.start_link(host: "localhost", vhost: "/")
@@ -95,17 +114,23 @@ defmodule RabbitMQStreamTest.SuperStream do
       {:ok, _} =
         consumer.start_link(
           connection: conn,
-          super_stream: "invoices",
+          super_stream: "transactions",
           private: self()
         )
     end
 
+    {:ok, _} =
+      SuperProducer2.start_link(
+        connection: conn,
+        super_stream: "transactions"
+      )
+
     # We wait a bit to guarantee that the consumers are ready
     Process.sleep(500)
 
-    :ok = SuperProducer.publish("1")
-    :ok = SuperProducer.publish("12")
-    :ok = SuperProducer.publish("123")
+    :ok = SuperProducer2.publish("1")
+    :ok = SuperProducer2.publish("12")
+    :ok = SuperProducer2.publish("123")
 
     msgs =
       for _ <- 1..3 do
@@ -148,17 +173,17 @@ defmodule RabbitMQStreamTest.SuperStream do
     end
 
     {:ok, _} =
-      SuperProducer.start_link(
+      SuperProducer1.start_link(
         connection: conn,
         super_stream: "invoices"
       )
 
     # We wait a bit to guarantee that the consumers are ready
-    Process.sleep(500)
 
-    :ok = SuperProducer.publish("1")
-    :ok = SuperProducer.publish("12")
-    :ok = SuperProducer.publish("123")
+    :ok = SuperProducer1.publish("1")
+    :ok = SuperProducer1.publish("12")
+    :ok = SuperProducer1.publish("123")
+    Process.sleep(500)
 
     msgs =
       for _ <- 1..3 do

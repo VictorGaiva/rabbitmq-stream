@@ -19,14 +19,18 @@ defmodule RabbitMQStream.SuperConsumer do
     serializer = Keyword.get(opts, :serializer, Keyword.get(defaults, :serializer))
     opts = Keyword.put_new(opts, :partitions, Keyword.get(defaults, :partitions, 1))
 
-    quote do
+    quote location: :keep do
       @opts unquote(opts)
       @behaviour RabbitMQStream.Consumer
 
       use Supervisor
 
       def start_link(opts) do
-        opts = Keyword.merge(opts, @opts)
+        opts =
+          Application.get_env(:rabbitmq_stream, __MODULE__, [])
+          |> Keyword.merge(@opts)
+          |> Keyword.merge(opts)
+
         Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
       end
 
@@ -36,7 +40,8 @@ defmodule RabbitMQStream.SuperConsumer do
 
       @impl true
       def init(opts) do
-        {opts, consumer_opts} = Keyword.split(opts, [:super_stream])
+        {opts, consumer_opts} = Keyword.split(opts, [:super_stream, :connection])
+        consumer_opts = Keyword.put(consumer_opts, :connection, opts[:connection])
 
         children = [
           {Registry, keys: :unique, name: __MODULE__.Registry},
@@ -78,20 +83,22 @@ defmodule RabbitMQStream.SuperConsumer do
     :registry,
     :dynamic_supervisor,
     :consumer_module,
-    :consumer_opts
+    :consumer_opts,
+    :connection
   ]
 
   @type t :: %__MODULE__{
+          connection: GenServer.server(),
           super_stream: String.t(),
           partitions: non_neg_integer(),
           dynamic_supervisor: module(),
           consumer_module: module(),
           registry: module(),
-          consumer_opts: [RabbitMQStream.Consumer.consumer_option()] | nil
+          consumer_opts: [RabbitMQStream.Consumer.option()] | nil
         }
 
   @type super_consumer_option ::
           {:super_stream, String.t()}
           | {:partitions, non_neg_integer()}
-          | RabbitMQStream.Consumer.consumer_option()
+          | RabbitMQStream.Consumer.option()
 end
