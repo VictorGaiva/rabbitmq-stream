@@ -39,7 +39,7 @@ defmodule RabbitMQStream.SuperProducer.Manager do
     routes =
       if !RabbitMQStream.Connection.supports?(state.connection, :route) do
         for partition <- 0..(state.partitions - 1), into: %{} do
-          {"#{partition}", "#{state.super_stream}-#{partition}"}
+          {"#{partition}", ["#{state.super_stream}-#{partition}"]}
         end
       else
         %{}
@@ -50,7 +50,7 @@ defmodule RabbitMQStream.SuperProducer.Manager do
 
   @impl true
   def handle_cast({:publish, message, filter, routing_key}, state) do
-    case Map.get(state.routes, routing_key) || get_partitions(state, routing_key) do
+    case Map.get(state.routes, "#{routing_key}") || get_partitions(state, routing_key) do
       [] ->
         Logger.error("Failed to publish message to SuperStream. No routes found for routing_key: #{routing_key}")
         {:noreply, state}
