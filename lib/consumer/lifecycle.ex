@@ -144,7 +144,7 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
 
   def handle_info({:command, %Request{command: :consumer_update, data: data} = request}, state) do
     if function_exported?(state.consumer_module, :handle_update, 2) do
-      action = if data.active, do: :update, else: :downgrade
+      action = if data.active, do: :upgrade, else: :downgrade
 
       # It seems that sending an offset to the server when a consumer is being
       # downgraded from 'active' to 'inactive' has no effect. But the server
