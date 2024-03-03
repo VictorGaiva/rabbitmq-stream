@@ -316,14 +316,15 @@ defmodule RabbitMQStream.Message.Types do
   end
 
   defmodule SubscribeRequestData do
-    @moduledoc """
-    Supported properties:
+    @moduledoc false
+    # @moduledoc """
+    # Supported properties:
 
-    * `single-active-consumer`: set to `true` to enable [single active consumer](https://blog.rabbitmq.com/posts/2022/07/rabbitmq-3-11-feature-preview-single-active-consumer-for-streams/) for this subscription.
-    * `super-stream`: set to the name of the super stream the subscribed is a partition of.
-    * `filter.` (e.g. `filter.0`, `filter.1`, etc): prefix to use to define filter values for the subscription.
-    * `match-unfiltered`: whether to return messages without any filter value or not.
-    """
+    # * `single-active-consumer`: set to `true` to enable [single active consumer](https://blog.rabbitmq.com/posts/2022/07/rabbitmq-3-11-feature-preview-single-active-consumer-for-streams/) for this subscription.
+    # * `super-stream`: set to the name of the super stream the subscribed is a partition of.
+    # * `filter.` (e.g. `filter.0`, `filter.1`, etc): prefix to use to define filter values for the subscription.
+    # * `match-unfiltered`: whether to return messages without any filter value or not.
+    # """
 
     defstruct [
       :subscription_id,
@@ -521,12 +522,14 @@ defmodule RabbitMQStream.Message.Types do
   end
 
   defmodule StreamStatsResponseData do
+    @moduledoc false
     @enforce_keys [:stats]
     @type t :: %{stats: %{String.t() => integer()}}
     defstruct [:stats]
   end
 
   defmodule CreateSuperStreamRequestData do
+    @moduledoc false
     @enforce_keys [:name, :partitions, :arguments]
     @type t :: %{
             name: String.t(),

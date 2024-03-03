@@ -1,4 +1,5 @@
 defmodule RabbitMQStream.Connection.Transport.TCP do
+  @moduledoc false
   @behaviour RabbitMQStream.Connection.Transport
 
   def connect(options) do

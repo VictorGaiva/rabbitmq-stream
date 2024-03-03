@@ -7,6 +7,7 @@ defmodule RabbitMQStream.Message do
   alias RabbitMQStream.Message.Types
 
   defmodule Request do
+    @moduledoc false
     @type t :: %__MODULE__{
             version: non_neg_integer,
             correlation_id: non_neg_integer,
@@ -27,6 +28,7 @@ defmodule RabbitMQStream.Message do
   end
 
   defmodule Response do
+    @moduledoc false
     @type t :: %__MODULE__{
             version: non_neg_integer,
             correlation_id: non_neg_integer,

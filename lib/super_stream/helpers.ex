@@ -1,4 +1,5 @@
 defmodule RabbitMQStream.SuperStream.Helpers do
+  @moduledoc false
   def get_partitions(connection, super_stream, partitions) do
     case RabbitMQStream.Connection.partitions(connection, super_stream) do
       {:error, :unsupported} ->

@@ -1,4 +1,5 @@
 defmodule RabbitMQStream.Connection.Transport.SSL do
+  @moduledoc false
   @behaviour RabbitMQStream.Connection.Transport
 
   def connect(options) do
