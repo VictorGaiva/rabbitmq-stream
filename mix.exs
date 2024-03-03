@@ -71,9 +71,8 @@ defmodule RabbitMQStream.MixProject do
 
   defp extras do
     [
-      "guides/concepts/streams.md",
+      "guides/concepts/producing.md",
       "guides/concepts/super-streams.md",
-      "guides/concepts/single-active-consumer.md",
       "guides/concepts/interop.md",
       "guides/concepts/offset.md",
       "guides/setup/getting-started.md",
