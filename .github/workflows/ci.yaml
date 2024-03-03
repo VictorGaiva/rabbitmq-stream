@@ -20,6 +20,25 @@ on:
       - ".github/workflows/ci.yaml"
 
 jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "26"
+          elixir-version: "1.15"
+
+      - uses: actions/checkout@v3
+
+      - name: Install Dependencies
+        run: |
+          mix local.rebar --force
+          mix local.hex --force
+          mix deps.get
+          mix deps.compile --skip-umbrella-children --skip-local-deps
+
+      - name: Build docs
+        run: mix docs
   test:
     runs-on: ubuntu-latest
     strategy:
