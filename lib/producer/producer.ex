@@ -65,25 +65,25 @@ defmodule RabbitMQStream.Producer do
 
   # Configuration
 
-    You can configure each Producer with:
+  You can configure each Producer with:
 
-        config :rabbitmq_stream, MyApp.MyProducer,
-          stream_name: "my-stream",
-          connection: MyApp.MyConnection
+      config :rabbitmq_stream, MyApp.MyProducer,
+        stream_name: "my-stream",
+        connection: MyApp.MyConnection
 
-    And also you can override the defaults of all producers with:
+  And also you can override the defaults of all producers with:
 
-          config :rabbitmq_stream, :defaults,
-            producer: [
-              connection: MyApp.MyConnection,
-              # ...
-            ]
-            serializer: Jason
+        config :rabbitmq_stream, :defaults,
+          producer: [
+            connection: MyApp.MyConnection,
+            # ...
+          ]
+          serializer: Jason
 
-    Globally configuring all producers ignores the following options:
+  Globally configuring all producers ignores the following options:
 
-      * `:stream_name`
-      * `:reference_name`
+  * `:stream_name`
+  * `:reference_name`
 
   """
 
