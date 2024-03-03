@@ -93,6 +93,7 @@ defmodule RabbitMQStream.MixProject do
     [
       Client: [
         RabbitMQStream.Connection,
+        RabbitMQStream.Connection.Behavior,
         RabbitMQStream.Producer,
         RabbitMQStream.Consumer
       ],
