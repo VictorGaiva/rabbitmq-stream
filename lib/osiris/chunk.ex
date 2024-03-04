@@ -8,7 +8,7 @@ defmodule RabbitMQStream.OsirisChunk do
   @type chunk_type :: :chunk_user | :chunk_track_delta | :chunk_track_snapshot
   @spec decode_entry!(type :: chunk_type(), data :: binary()) :: {binary() | [ChunkTrackSnapshot.t()], binary()}
 
-  @type t :: %{
+  @type t :: %__MODULE__{
           # <<chunk_type::integer-size(8)>>
           chunk_type: chunk_type(),
           # <<num_entries::unsigned-integer-size(16)>>
@@ -29,7 +29,7 @@ defmodule RabbitMQStream.OsirisChunk do
           trailer_length: non_neg_integer(),
           # <<reserved::unsigned-integer-size(32)>>
           data_entries: binary() | [ChunkTrackSnapshot.t()],
-          trailer_entries: binary()
+          trailer_entries: binary() | nil
         }
   @enforce_keys [
     :chunk_type,
@@ -53,7 +53,8 @@ defmodule RabbitMQStream.OsirisChunk do
     :chunk_crc,
     :data_length,
     :trailer_length,
-    :data_entries
+    :data_entries,
+    trailer_entries: nil
   ]
 
   @magic 0x5
@@ -61,7 +62,7 @@ defmodule RabbitMQStream.OsirisChunk do
 
   defmodule ChunkTrackSnapshot do
     @moduledoc false
-    @type t :: %{
+    @type t :: %__MODULE__{
             type: :sequence | :offset,
             id: binary(),
             chunk_id: non_neg_integer() | nil,
@@ -95,7 +96,7 @@ defmodule RabbitMQStream.OsirisChunk do
 
   defmodule SubBatchEntry do
     @moduledoc false
-    @type t :: %{
+    @type t :: %__MODULE__{
             # <<compression::integer-size(3)>>
             compression: integer(),
             # <<reserved::integer-size(4)>>

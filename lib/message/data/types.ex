@@ -5,7 +5,7 @@ defmodule RabbitMQStream.Message.Types do
   defmodule TuneData do
     @moduledoc false
     @enforce_keys [:frame_max, :heartbeat]
-    @type t :: %{
+    @type t :: %__MODULE__{
             frame_max: non_neg_integer(),
             heartbeat: non_neg_integer()
           }
@@ -19,7 +19,7 @@ defmodule RabbitMQStream.Message.Types do
   defmodule PeerPropertiesData do
     @moduledoc false
     @enforce_keys [:peer_properties]
-    @type t :: %{peer_properties: [[String.t()]]}
+    @type t :: %__MODULE__{peer_properties: [[String.t()]]}
 
     defstruct [:peer_properties]
   end
@@ -27,14 +27,14 @@ defmodule RabbitMQStream.Message.Types do
   defmodule SaslHandshakeData do
     @moduledoc false
 
-    @type t :: %{mechanisms: [String.t()]}
+    @type t :: %__MODULE__{mechanisms: [String.t()]}
 
     defstruct [:mechanisms]
   end
 
   defmodule SaslAuthenticateData do
     @moduledoc false
-    @type t :: %{
+    @type t :: %__MODULE__{
             mechanism: String.t(),
             sasl_opaque_data: Keyword.t()
           }
@@ -48,7 +48,7 @@ defmodule RabbitMQStream.Message.Types do
   defmodule OpenRequestData do
     @moduledoc false
     @enforce_keys [:vhost]
-    @type t :: %{
+    @type t :: %__MODULE__{
             vhost: String.t()
           }
 
@@ -60,13 +60,13 @@ defmodule RabbitMQStream.Message.Types do
   defmodule OpenResponseData do
     @moduledoc false
     @enforce_keys [:connection_properties]
-    @type t :: %{connection_properties: Keyword.t()}
+    @type t :: %__MODULE__{connection_properties: Keyword.t()}
     defstruct [:connection_properties]
   end
 
   defmodule HeartbeatData do
     @moduledoc false
-    @type t :: %{}
+    @type t :: %__MODULE__{}
     defstruct []
   end
 
@@ -74,7 +74,7 @@ defmodule RabbitMQStream.Message.Types do
     @moduledoc false
     @enforce_keys [:code, :reason]
 
-    @type t :: %{
+    @type t :: %__MODULE__{
             code: RabbitMQStream.Message.Helpers.code(),
             reason: String.t()
           }
@@ -83,14 +83,14 @@ defmodule RabbitMQStream.Message.Types do
 
   defmodule CloseResponseData do
     @moduledoc false
-    @type t :: %{}
+    @type t :: %__MODULE__{}
     defstruct []
   end
 
   defmodule CreateStreamRequestData do
     @moduledoc false
     @enforce_keys [:stream_name, :arguments]
-    @type t :: %{
+    @type t :: %__MODULE__{
             stream_name: String.t(),
             arguments: Keyword.t()
           }
@@ -100,20 +100,20 @@ defmodule RabbitMQStream.Message.Types do
 
   defmodule CreateStreamResponseData do
     @moduledoc false
-    @type t :: %{}
+    @type t :: %__MODULE__{}
     defstruct []
   end
 
   defmodule DeleteStreamRequestData do
     @moduledoc false
     @enforce_keys [:stream_name]
-    @type t :: %{stream_name: String.t()}
+    @type t :: %__MODULE__{stream_name: String.t()}
     defstruct [:stream_name]
   end
 
   defmodule DeleteStreamResponseData do
     @moduledoc false
-    @type t :: %{}
+    @type t :: %__MODULE__{}
     defstruct []
   end
 
@@ -121,7 +121,7 @@ defmodule RabbitMQStream.Message.Types do
     @moduledoc false
 
     @enforce_keys [:stream_name, :offset_reference, :offset]
-    @type t :: %{
+    @type t :: %__MODULE__{
             stream_name: String.t(),
             offset_reference: String.t(),
             offset: non_neg_integer()
@@ -136,14 +136,14 @@ defmodule RabbitMQStream.Message.Types do
 
   defmodule StoreOffsetResponseData do
     @moduledoc false
-    @type t :: %{}
+    @type t :: %__MODULE__{}
     defstruct []
   end
 
   defmodule QueryOffsetRequestData do
     @moduledoc false
     @enforce_keys [:stream_name, :offset_reference]
-    @type t :: %{
+    @type t :: %__MODULE__{
             stream_name: String.t(),
             offset_reference: String.t()
           }
@@ -155,20 +155,20 @@ defmodule RabbitMQStream.Message.Types do
     @moduledoc false
 
     @enforce_keys [:offset]
-    @type t :: %{offset: non_neg_integer()}
+    @type t :: %__MODULE__{offset: non_neg_integer()}
     defstruct [:offset]
   end
 
   defmodule QueryMetadataRequestData do
     @moduledoc false
     @enforce_keys [:streams]
-    @type t :: %{offset: [String.t()]}
+    @type t :: %__MODULE__{streams: [String.t()]}
     defstruct [:streams]
   end
 
   defmodule QueryMetadataResponseData do
     @moduledoc false
-    @type t :: %{
+    @type t :: %__MODULE__{
             streams: [StreamData.t()],
             brokers: [BrokerData.t()]
           }
@@ -178,7 +178,7 @@ defmodule RabbitMQStream.Message.Types do
     defmodule BrokerData do
       @moduledoc false
       @enforce_keys [:reference, :host, :port]
-      @type t :: %{
+      @type t :: %__MODULE__{
               reference: non_neg_integer(),
               host: String.t(),
               port: non_neg_integer()
@@ -194,7 +194,7 @@ defmodule RabbitMQStream.Message.Types do
     defmodule StreamData do
       @moduledoc false
       @enforce_keys [:code, :name, :leader, :replicas]
-      @type t :: %{
+      @type t :: %__MODULE__{
               code: RabbitMQStream.Message.Helpers.code(),
               name: String.t(),
               leader: non_neg_integer(),
@@ -213,7 +213,7 @@ defmodule RabbitMQStream.Message.Types do
   defmodule MetadataUpdateData do
     @moduledoc false
     @enforce_keys [:stream_name, :code]
-    @type t :: %{
+    @type t :: %__MODULE__{
             stream_name: String.t(),
             code: non_neg_integer()
           }
@@ -223,7 +223,7 @@ defmodule RabbitMQStream.Message.Types do
   defmodule DeclareProducerRequestData do
     @moduledoc false
     @enforce_keys [:id, :producer_reference, :stream_name]
-    @type t :: %{
+    @type t :: %__MODULE__{
             id: non_neg_integer(),
             producer_reference: String.t(),
             stream_name: String.t()
@@ -238,27 +238,27 @@ defmodule RabbitMQStream.Message.Types do
 
   defmodule DeclareProducerResponseData do
     @moduledoc false
-    @type t :: %{}
+    @type t :: %__MODULE__{}
     defstruct []
   end
 
   defmodule DeleteProducerRequestData do
     @moduledoc false
     @enforce_keys [:producer_id]
-    @type t :: %{producer_id: non_neg_integer()}
+    @type t :: %__MODULE__{producer_id: non_neg_integer()}
     defstruct [:producer_id]
   end
 
   defmodule DeleteProducerResponseData do
     @moduledoc false
-    @type t :: %{}
+    @type t :: %__MODULE__{}
     defstruct []
   end
 
   defmodule QueryProducerSequenceRequestData do
     @moduledoc false
     @enforce_keys [:producer_reference, :stream_name]
-    @type t :: %{
+    @type t :: %__MODULE__{
             producer_reference: String.t(),
             stream_name: String.t()
           }
@@ -269,14 +269,14 @@ defmodule RabbitMQStream.Message.Types do
   defmodule QueryProducerSequenceResponseData do
     @moduledoc false
     @enforce_keys [:sequence]
-    @type t :: %{sequence: non_neg_integer()}
+    @type t :: %__MODULE__{sequence: non_neg_integer()}
     defstruct [:sequence]
   end
 
   defmodule PublishData do
     @moduledoc false
     @enforce_keys [:producer_id, :messages]
-    @type t :: %{
+    @type t :: %__MODULE__{
             producer_id: non_neg_integer(),
             messages: [{publishing_id :: non_neg_integer(), message :: binary(), filter_value :: binary() | nil}]
           }
@@ -287,7 +287,7 @@ defmodule RabbitMQStream.Message.Types do
   defmodule PublishErrorData do
     @moduledoc false
     @enforce_keys [:producer_id, :errors]
-    @type t :: %{
+    @type t :: %__MODULE__{
             producer_id: non_neg_integer(),
             errors: [Error.t()]
           }
@@ -296,7 +296,7 @@ defmodule RabbitMQStream.Message.Types do
     defmodule Error do
       @moduledoc false
       @enforce_keys [:publishing_id, :code]
-      @type t :: %{
+      @type t :: %__MODULE__{
               publishing_id: non_neg_integer(),
               code: RabbitMQStream.Message.Helpers.code()
             }
@@ -308,7 +308,7 @@ defmodule RabbitMQStream.Message.Types do
   defmodule PublishConfirmData do
     @moduledoc false
     @enforce_keys [:producer_id, :publishing_ids]
-    @type t :: %{
+    @type t :: %__MODULE__{
             producer_id: non_neg_integer(),
             publishing_ids: [non_neg_integer()]
           }
@@ -334,7 +334,7 @@ defmodule RabbitMQStream.Message.Types do
       :properties
     ]
 
-    @type t :: %{
+    @type t :: %__MODULE__{
             subscription_id: non_neg_integer(),
             stream_name: String.t(),
             offset: RabbitMQStream.Connection.offset(),
@@ -363,7 +363,7 @@ defmodule RabbitMQStream.Message.Types do
     @moduledoc false
     @enforce_keys [:subscription_id, :active]
 
-    @type t :: %{
+    @type t :: %__MODULE__{
             subscription_id: non_neg_integer(),
             active: boolean()
           }
@@ -374,21 +374,21 @@ defmodule RabbitMQStream.Message.Types do
   defmodule ConsumerUpdateResponseData do
     @moduledoc false
     @enforce_keys [:offset]
-    @type t :: %{offset: RabbitMQStream.Connection.offset()}
+    @type t :: %__MODULE__{offset: RabbitMQStream.Connection.offset()}
     defstruct [:offset]
   end
 
   defmodule UnsubscribeRequestData do
     @moduledoc false
     @enforce_keys [:subscription_id]
-    @type t :: %{subscription_id: non_neg_integer()}
+    @type t :: %__MODULE__{subscription_id: non_neg_integer()}
     defstruct [:subscription_id]
   end
 
   defmodule CreditRequestData do
     @moduledoc false
     @enforce_keys [:subscription_id, :credit]
-    @type t :: %{
+    @type t :: %__MODULE__{
             subscription_id: non_neg_integer(),
             credit: non_neg_integer()
           }
@@ -397,26 +397,26 @@ defmodule RabbitMQStream.Message.Types do
 
   defmodule SubscribeResponseData do
     @moduledoc false
-    @type t :: %{}
+    @type t :: %__MODULE__{}
     defstruct []
   end
 
   defmodule UnsubscribeResponseData do
     @moduledoc false
-    @type t :: %{}
+    @type t :: %__MODULE__{}
     defstruct []
   end
 
   defmodule CreditResponseData do
     @moduledoc false
-    @type t :: %{}
+    @type t :: %__MODULE__{}
     defstruct []
   end
 
   defmodule RouteRequestData do
     @moduledoc false
     @enforce_keys [:routing_key, :super_stream]
-    @type t :: %{
+    @type t :: %__MODULE__{
             routing_key: String.t(),
             super_stream: String.t()
           }
@@ -426,28 +426,28 @@ defmodule RabbitMQStream.Message.Types do
   defmodule RouteResponseData do
     @moduledoc false
     @enforce_keys [:streams]
-    @type t :: %{streams: [String.t()]}
+    @type t :: %__MODULE__{streams: [String.t()]}
     defstruct [:streams]
   end
 
   defmodule PartitionsQueryRequestData do
     @moduledoc false
     @enforce_keys [:super_stream]
-    @type t :: %{super_stream: String.t()}
+    @type t :: %__MODULE__{super_stream: String.t()}
     defstruct [:super_stream]
   end
 
   defmodule PartitionsQueryResponseData do
     @moduledoc false
     @enforce_keys [:streams]
-    @type t :: %{streams: [String.t()]}
+    @type t :: %__MODULE__{streams: [String.t()]}
     defstruct [:streams]
   end
 
   defmodule DeliverData do
     @moduledoc false
     @enforce_keys [:subscription_id, :osiris_chunk]
-    @type t :: %{
+    @type t :: %__MODULE__{
             committed_offset: non_neg_integer() | nil,
             subscription_id: non_neg_integer(),
             osiris_chunk: RabbitMQStream.OsirisChunk.t()
@@ -462,13 +462,13 @@ defmodule RabbitMQStream.Message.Types do
   defmodule ExchangeCommandVersionsData do
     @moduledoc false
     @enforce_keys [:commands]
-    @type t :: %{commands: [Command.t()]}
+    @type t :: %__MODULE__{commands: [Command.t()]}
     defstruct [:commands]
 
     defmodule Command do
       @moduledoc false
       @enforce_keys [:key, :min_version, :max_version]
-      @type t :: %{
+      @type t :: %__MODULE__{
               key: Helpers.command(),
               min_version: non_neg_integer(),
               max_version: non_neg_integer()
@@ -517,21 +517,21 @@ defmodule RabbitMQStream.Message.Types do
   defmodule StreamStatsRequestData do
     @moduledoc false
     @enforce_keys [:stream_name]
-    @type t :: %{stream_name: String.t()}
+    @type t :: %__MODULE__{stream_name: String.t()}
     defstruct [:stream_name]
   end
 
   defmodule StreamStatsResponseData do
     @moduledoc false
     @enforce_keys [:stats]
-    @type t :: %{stats: %{String.t() => integer()}}
+    @type t :: %__MODULE__{stats: %{String.t() => integer()}}
     defstruct [:stats]
   end
 
   defmodule CreateSuperStreamRequestData do
     @moduledoc false
     @enforce_keys [:name, :partitions, :arguments]
-    @type t :: %{
+    @type t :: %__MODULE__{
             name: String.t(),
             partitions: [{String.t(), String.t()}],
             arguments: Keyword.t(String.t())
@@ -541,20 +541,20 @@ defmodule RabbitMQStream.Message.Types do
 
   defmodule CreateSuperStreamResponseData do
     @moduledoc false
-    @type t :: %{}
+    @type t :: %__MODULE__{}
     defstruct []
   end
 
   defmodule DeleteSuperStreamRequestData do
     @moduledoc false
     @enforce_keys [:name]
-    @type t :: %{name: String.t()}
+    @type t :: %__MODULE__{name: String.t()}
     defstruct [:name]
   end
 
   defmodule DeleteSuperStreamResponseData do
     @moduledoc false
-    @type t :: %{}
+    @type t :: %__MODULE__{}
     defstruct []
   end
 end
