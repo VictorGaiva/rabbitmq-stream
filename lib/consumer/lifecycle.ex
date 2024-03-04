@@ -112,15 +112,6 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
         raise "handle_chunk/1 or handle_chunk/2 must be implemented"
     end
 
-    offset_tracking =
-      for {strategy, track_state} <- state.offset_tracking do
-        if function_exported?(strategy, :after_chunk, 3) do
-          {strategy, strategy.after_chunk(track_state, chunk, state)}
-        else
-          {strategy, track_state}
-        end
-      end
-
     state =
       case data do
         %DeliverData{committed_offset: nil, osiris_chunk: %RabbitMQStream.OsirisChunk{chunk_id: chunk_id}} ->
@@ -128,6 +119,15 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
 
         %DeliverData{committed_offset: committed_offset} ->
           %{state | last_offset: committed_offset}
+      end
+
+    offset_tracking =
+      for {strategy, track_state} <- state.offset_tracking do
+        if function_exported?(strategy, :after_chunk, 3) do
+          {strategy, strategy.after_chunk(track_state, chunk, state)}
+        else
+          {strategy, track_state}
+        end
       end
 
     state = %{state | offset_tracking: offset_tracking, credits: state.credits - chunk.num_entries}
