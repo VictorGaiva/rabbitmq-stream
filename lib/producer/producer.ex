@@ -85,6 +85,32 @@ defmodule RabbitMQStream.Producer do
   * `:stream_name`
   * `:reference_name`
 
+
+  # Encoding
+
+  You can declare a function for encoding each message by declaring a `encode!/1` callback as follows:alarm_handler
+      defmodule MyApp.MyProducer do
+        use RabbitMQStream.Producer,
+          stream_name: "my-stream",
+          connection: MyApp.MyConnection
+
+        @impl true
+        def encode!(message) do
+          Jason.encode!(message)
+        end
+      end
+
+  Or by passing a `:serializer` option to the `use` macro:
+      defmodule MyApp.MyProducer do
+        use RabbitMQStream.Producer,
+          stream_name: "my-stream",
+          connection: MyApp.MyConnection,
+          serializer: Jason
+      end
+
+  The default value for the `:serializer` is the module itself, unless a default is defined at a higher level of the
+  configuration. If there is a `encode!/1` callback defined, it is always used
+
   """
 
   defmacro __using__(opts) do
@@ -205,7 +231,7 @@ defmodule RabbitMQStream.Producer do
           message["key"]
         end
   """
-  @callback filter_value(message :: term()) :: String.t()
+  @callback filter_value(message :: term()) :: String.t() | nil
 
   @optional_callbacks [before_start: 2, filter_value: 1]
   defstruct [

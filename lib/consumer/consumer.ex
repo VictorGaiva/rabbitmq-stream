@@ -116,6 +116,58 @@ defmodule RabbitMQStream.Consumer do
   * `:offset_reference`
   * `:private`
 
+  # Decoding
+
+  You can declare a function for decoding each message by declaring a `decode!/1` callback as follows:
+      defmodule MyApp.MyConsumer do
+        use RabbitMQStream.Consumer,
+          connection: MyApp.MyConnection,
+          stream_name: "my_stream",
+          initial_offset: :first
+
+        @impl true
+        def decode!(message) do
+          Jason.decode!(message)
+        end
+      end
+
+  Or by passing a `:serializer` option to the `use` macro:
+      defmodule MyApp.MyConsumer do
+        use RabbitMQStream.Consumer,
+          connection: MyApp.MyConnection,
+          stream_name: "my_stream",
+          initial_offset: :first,
+          serializer: Jason
+      end
+
+  The default value for the `:serializer` is the module itself, unless a default is defined at a higher level of the
+  configuration. If there is a `decode!/1` callback defined, it is always used
+
+
+  # Properties
+  You can provide additional properties to the consumer to change its behavior, by passing `:properties`.
+
+  ## Single active consumer
+  To use it, you must provide a "group_name". The server manages each consumer so the only one will of each group
+  will be receiving chunks at a time.
+
+  Although there is only one Consumer active, we must provide the server the offset a consumer starts on when being upgraded
+  to the being the active one. To do so you must implement the `handle_update/2` callback, which must return a `{:ok, offset}` tuple.
+
+      @impl true
+      def handle_update(_, :upgrade) do
+        {:ok, :last}
+      end
+
+      @impl true
+      def handle_update(_, :downgrade) do
+        # Must return something when being downgraded, but it is not used by the server.
+        # Could be useful to use some external logic to persist the offset somewhere,
+        #  so that it can be queried by the other consumer that is being upgraded
+        {:ok, :last}
+      end
+
+
   """
   defmacro __using__(opts) do
     defaults = Application.get_env(:rabbitmq_stream, :defaults, [])

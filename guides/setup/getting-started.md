@@ -84,7 +84,7 @@ To prevent message duplication, RabbitMQ requires us to declare a named Producer
 ```elixir
 defmodule MyApp.MyProducer
   use RabbitMQStream.Producer,
-    stream: "my_stream",
+    stream_name: "my_stream",
     connection: MyApp.MyConnection
 end
 ```

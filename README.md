@@ -10,6 +10,19 @@ Elixir Client for [RabbitMQ Streams Protocol](https://www.rabbitmq.com/streams.h
 
 ## Usage
 
+## Installation
+
+The package can be installed by adding `rabbitmq_stream` to your list of dependencies in `mix.exs`:
+
+```elixir
+def deps do
+  [
+    {:rabbitmq_stream, "~> 0.4.0"},
+    # ...
+  ]
+end
+```
+
 ### Consuming from stream
 
 First you define a connection
@@ -62,7 +75,7 @@ You can define a `Producer` module like this:
 ```elixir
 defmodule MyApp.MyProducer do
   use RabbitMQStream.Producer,
-    stream: "stream-01",
+    stream_name: "stream-01",
     connection: MyApp.MyConnection
 end
 ```
@@ -71,19 +84,6 @@ Then you can publish messages to the stream:
 
 ```elixir
 MyApp.MyProducer.publish("Hello World")
-```
-
-## Installation
-
-The package can be installed by adding `rabbitmq_stream` to your list of dependencies in `mix.exs`:
-
-```elixir
-def deps do
-  [
-    {:rabbitmq_stream, "~> 0.4.0"},
-    # ...
-  ]
-end
 ```
 
 ## Configuration
