@@ -53,6 +53,9 @@ defmodule RabbitMQStream.Consumer.OffsetTracking do
     count: RabbitMQStream.Consumer.OffsetTracking.CountStrategy,
     interval: RabbitMQStream.Consumer.OffsetTracking.IntervalStrategy
   }
+
+  require Logger
+
   @doc false
   def init(strategies, extra_opts \\ []) do
     strategies
@@ -82,6 +85,10 @@ defmodule RabbitMQStream.Consumer.OffsetTracking do
           {strategy, track_state}, {:cont, acc} ->
             case strategy.run(track_state, state) do
               {:store, new_track_state} ->
+                Logger.debug(
+                  "Storing offset for stream: #{state.stream_name} with offset: #{state.last_offset}. Strategy: #{strategy}"
+                )
+
                 RabbitMQStream.Connection.store_offset(
                   state.connection,
                   state.stream_name,
