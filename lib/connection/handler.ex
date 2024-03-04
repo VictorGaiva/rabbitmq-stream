@@ -39,7 +39,7 @@ defmodule RabbitMQStream.Connection.Handler do
     pid = Map.get(conn.subscriptions, response.data.subscription_id)
 
     if pid != nil do
-      send(pid, {:chunk, response.data.osiris_chunk})
+      send(pid, {:deliver, response.data})
     end
 
     conn

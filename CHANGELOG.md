@@ -25,6 +25,8 @@ The 'Message' module tree was refactored to make all the Encoding and Decoding l
 
 - Renamed `RabbitMQStream.Subscriber` to `RabbitMQStream.Consumer`
 - Renamed `RabbitMQStream.Publisher` to `RabbitMQStream.Producer`
+- Each Deliver action made by the connection is now done with a `{:deliver, %RabbitMQStream.Message.Types.DeliverData{}} tuple
+- Offset Tracking now prefers to use CommitedOffset when available
 
 ## 0.3.0
 

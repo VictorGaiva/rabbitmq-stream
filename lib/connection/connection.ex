@@ -374,7 +374,7 @@ defmodule RabbitMQStream.Connection do
   The connection wills start send the messages to the provided 'pid' with the
   following format:
 
-      def handle_info({:chunk, %RabbitMQ.OsirisChunk{}}, _) do
+      def handle_info({:deliver, %RabbitMQStream.Message.Types.DeliverData{}}, _) do
         # ...
       end
 

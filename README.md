@@ -42,10 +42,10 @@ Or you could manually consume from the stream with
 {:ok, _subscription_id} = MyApp.MyConnection.subscribe("stream-01", self(), :next, 999)
 ```
 
-The caller process will start receiving messages with the format `{:chunk, %RabbitMQStream.OsirisChunk{} = chunk}`
+The caller process will start receiving messages with the format `{:deliver, %RabbitMQStream.Message.Types.DeliverData{} = deliver_data}`
 
 ```elixir
-def handle_info({:chunk, %RabbitMQStream.OsirisChunk{} = chunk}, state) do
+def handle_info({:deliver, %RabbitMQStream.Message.Types.DeliverData{} = deliver_data}, state) do
   # do something with message
   {:noreply, state}
 end

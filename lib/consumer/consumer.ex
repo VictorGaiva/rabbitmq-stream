@@ -75,6 +75,15 @@ defmodule RabbitMQStream.Consumer do
   you can call `RabbitMQStream.Consumer.credit/2` to manually add more
   credits to the subscription.
 
+  ## Commited Offset
+  As of RabbitMQ 3.13, each deliver message now has the `commited_offset`. This respresents the 'next' offset, instead of the 'last'.
+
+  Before 3.13, using the next offset meant that the tracking was always "off by one", meaning that everytime a Consumer started, it would
+  it would always receive the last message it read once again.
+
+  As of 3.13 and forward, the tracking now prefers to use the `commited_offset` when storing it to the stream, meaning that if it has received a message
+  and then the offset is stored, it would not receive it again.
+
 
   # Configuration
 

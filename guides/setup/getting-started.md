@@ -42,10 +42,10 @@ Then you can consume to messages from a stream with:
 {:ok, _subscription_id} = MyApp.MyConnection.subscribe("stream-01", self(), :next, 999)
 ```
 
-Which will the start sending the caller process messages containg chunks from the stream, with the format `{:chunk, %RabbitMQStream.OsirisChunk{}}`, which you can handle with, for example, in your `handle_info/2` callback on your GenServer module:
+Which will the start sending the caller process messages containg chunks from the stream, with the format `{:deliver, %RabbitMQStream.Message.Types.DeliverData{} = deliver_data}`, which you can handle with, for example, in your `handle_info/2` callback on your GenServer module:
 
 ```elixir
-def handle_info({:chunk, %RabbitMQStream.OsirisChunk{} = chunk}, state) do
+def handle_info({:deliver, %RabbitMQStream.Message.Types.DeliverData{} = deliver_data}, state) do
   # do something with message
   {:noreply, state}
 end

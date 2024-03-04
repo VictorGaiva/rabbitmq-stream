@@ -66,13 +66,13 @@ defmodule RabbitMQStreamTest.Consumer do
 
     SupervisorProducer.publish(message)
 
-    assert_receive {:chunk, %OsirisChunk{data_entries: [^message]}}, 500
+    assert_receive {:deliver, %{osiris_chunk: %OsirisChunk{data_entries: [^message]}}}, 500
 
     assert :ok = SupervisedConnection.unsubscribe(subscription_id)
 
     SupervisorProducer.publish(message)
 
-    refute_receive {:chunk, %OsirisChunk{}}, 500
+    refute_receive {:deliver, %{osiris_chunk: %OsirisChunk{}}}, 500
     SupervisedConnection.delete_stream(@stream)
   end
 
@@ -89,17 +89,17 @@ defmodule RabbitMQStreamTest.Consumer do
 
     SupervisorProducer.publish(message)
 
-    assert_receive {:chunk, %OsirisChunk{data_entries: [^message]}}, 500
+    assert_receive {:deliver, %{osiris_chunk: %OsirisChunk{data_entries: [^message]}}}, 500
 
     message = Jason.encode!(%{message: "Hello, world2!"})
 
     SupervisorProducer.publish(message)
 
-    refute_receive {:chunk, %OsirisChunk{}}, 500
+    refute_receive {:deliver, %{osiris_chunk: %OsirisChunk{}}}, 500
 
     assert :ok = SupervisedConnection.credit(subscription_id, 1)
 
-    assert_receive {:chunk, %OsirisChunk{data_entries: [^message]}}, 500
+    assert_receive {:deliver, %{osiris_chunk: %OsirisChunk{data_entries: [^message]}}}, 500
     SupervisedConnection.delete_stream(@stream)
   end
 

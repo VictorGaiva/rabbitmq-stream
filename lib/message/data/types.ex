@@ -453,9 +453,9 @@ defmodule RabbitMQStream.Message.Types do
             osiris_chunk: RabbitMQStream.OsirisChunk.t()
           }
     defstruct [
-      :committed_offset,
       :subscription_id,
-      :osiris_chunk
+      :osiris_chunk,
+      committed_offset: nil
     ]
   end
 

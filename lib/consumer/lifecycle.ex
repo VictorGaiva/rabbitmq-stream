@@ -1,6 +1,6 @@
 defmodule RabbitMQStream.Consumer.LifeCycle do
   @moduledoc false
-  alias RabbitMQStream.Message.Request
+  alias RabbitMQStream.Message.{Request, Types.DeliverData}
   alias RabbitMQStream.Consumer.{FlowControl, OffsetTracking}
 
   use GenServer
@@ -97,9 +97,9 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
   end
 
   @impl true
-  def handle_info({:chunk, %RabbitMQStream.OsirisChunk{} = chunk}, state) do
+  def handle_info({:deliver, %DeliverData{} = data}, state) do
     # TODO: Possibly add 'filter_value', as described as necessary in the documentation.
-    chunk = RabbitMQStream.OsirisChunk.decode_messages!(chunk, state.consumer_module)
+    chunk = RabbitMQStream.OsirisChunk.decode_messages!(data.osiris_chunk, state.consumer_module)
 
     cond do
       function_exported?(state.consumer_module, :handle_chunk, 1) ->
@@ -122,12 +122,15 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
       end
 
     state =
-      %{
-        state
-        | offset_tracking: offset_tracking,
-          last_offset: chunk.chunk_id,
-          credits: state.credits - chunk.num_entries
-      }
+      case data do
+        %DeliverData{committed_offset: nil, osiris_chunk: %RabbitMQStream.OsirisChunk{chunk_id: chunk_id}} ->
+          %{state | last_offset: chunk_id}
+
+        %DeliverData{committed_offset: committed_offset} ->
+          %{state | last_offset: committed_offset}
+      end
+
+    state = %{state | offset_tracking: offset_tracking, credits: state.credits - chunk.num_entries}
 
     state = state |> OffsetTracking.run() |> FlowControl.run()
 
