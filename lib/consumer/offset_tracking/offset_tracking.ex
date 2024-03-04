@@ -10,7 +10,7 @@ defmodule RabbitMQStream.Consumer.OffsetTracking do
   You can use the default strategies by passing a shorthand alias:
 
   * `interval` : `RabbitMQStream.Consumer.OffsetTracking.IntervalStrategy`
-  * `after` : `RabbitMQStream.Consumer.OffsetTracking.CountStrategy`
+  * `count` : `RabbitMQStream.Consumer.OffsetTracking.CountStrategy`
 
   """
 
