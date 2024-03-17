@@ -4,8 +4,6 @@ When consuming from a Stream, you might be interested in consuming all the messa
 
 When starting to consume from a stream, we have some options for the offset:
 
-<!-- :first | :last | :next | {:offset, non_neg_integer()} | {:timestamp, integer()} -->
-
 * `:first` - Consume all the messages from the stream, starting from the beggining.
 * `:last` - Consume the last message in the stream at the moment the consumer starts, and all the messages that are published after that.
 * `:next` - Consume only the messages that are published after the consumer starts.
@@ -44,7 +42,7 @@ defmodule MyApp.MyConsumer do
     initial_offset: :first
 
   @impl true
-  def handle_chunk(%RabbitMQStream.OsirisChunk{} = _chunk, _consumer) do
+  def handle_message(_message) do
     :ok
   end
 end

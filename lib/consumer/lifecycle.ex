@@ -24,7 +24,15 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
     # handle_update/2 callback defined.
     if Keyword.get(opts[:properties], :single_active_consumer) != nil do
       if not function_exported?(opts[:consumer_module], :handle_update, 2) do
-        raise "handle_update/2 must be implemented when using single-active-consumer property"
+        raise "handle_update/2 must be implemented when using ':single_active_consumer' property"
+      end
+    end
+
+    # Prevent startup if either 'filter' or 'match_unfiltered' is active, but there is no
+    # filter_value/1 callback defined.
+    if Keyword.get(opts[:properties], :filter) != nil or Keyword.get(opts[:properties], :match_unfiltered) != nil do
+      if not function_exported?(opts[:consumer_module], :filter_value, 1) do
+        raise "filter_value/1 must be implemented when using ':filter' or ':match_unfiltered' properties"
       end
     end
 
@@ -46,9 +54,17 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
     last_offset =
       case RabbitMQStream.Connection.query_offset(state.connection, state.stream_name, state.offset_reference) do
         {:ok, offset} ->
+          Logger.debug(
+            "#{state.consumer_module}: Fetched current consumer offset from the stream. Using it as the initial offset: #{offset}"
+          )
+
           {:offset, offset}
 
         _ ->
+          Logger.debug(
+            "#{state.consumer_module}: No offset found for the consumer. Using default initial offset: #{inspect(opts[:initial_offset])}"
+          )
+
           opts[:initial_offset]
       end
 
@@ -67,7 +83,7 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
               offset
 
             _ ->
-              nil
+              0
           end
 
         {:noreply, %{state | id: id, last_offset: last_offset}}
@@ -81,9 +97,13 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
   def terminate(_reason, %{id: nil}), do: :ok
 
   def terminate(_reason, state) do
+    Logger.debug(
+      "#{state.consumer_module}: Storing Offset and unsubscribing, during termination. Last offset: #{state.last_offset}"
+    )
+
     # While not guaranteed, we attempt to store the offset when terminating. Useful for when performing
     # upgrades, and in a 'single-active-consumer' scenario.
-    if state.last_offset != nil do
+    if state.last_offset != 0 do
       RabbitMQStream.Connection.store_offset(
         state.connection,
         state.stream_name,
@@ -97,29 +117,23 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
   end
 
   @impl true
-  def handle_info({:deliver, %DeliverData{} = data}, state) do
-    # TODO: Possibly add 'filter_value', as described as necessary in the documentation.
-    chunk = RabbitMQStream.OsirisChunk.decode_messages!(data.osiris_chunk, state.consumer_module)
+  def handle_info({:deliver, %DeliverData{osiris_chunk: %RabbitMQStream.OsirisChunk{} = chunk}}, state) do
+    # We could wrap the application with a `try do` clause, but it would break the "let it crash" filosophy
+    apply(state.consumer_module, :handle_chunk, [chunk, state])
 
-    cond do
-      function_exported?(state.consumer_module, :handle_chunk, 1) ->
-        apply(state.consumer_module, :handle_chunk, [chunk])
-
-      function_exported?(state.consumer_module, :handle_chunk, 2) ->
-        apply(state.consumer_module, :handle_chunk, [chunk, state])
-
-      true ->
-        raise "handle_chunk/1 or handle_chunk/2 must be implemented"
+    for message <- Enum.slice(chunk.data_entries, (state.last_offset - chunk.chunk_id)..chunk.num_entries),
+        decoded = apply(state.consumer_module, :decode!, [message]),
+        filtered?(decoded, state) do
+      apply(state.consumer_module, :handle_message, [decoded, chunk, state])
     end
 
-    state =
-      case data do
-        %DeliverData{committed_offset: nil, osiris_chunk: %RabbitMQStream.OsirisChunk{chunk_id: chunk_id}} ->
-          %{state | last_offset: chunk_id}
-
-        %DeliverData{committed_offset: committed_offset} ->
-          %{state | last_offset: committed_offset}
-      end
+    # Based on the [Python implementation](https://github.com/qweeze/rstream/blob/a81176a5c7cf4accaee25ca7725bd7bd94bf0ce8/rstream/consumer.py#L327),
+    # it seems to be OK to sum the amount of messages received to the chunk_id, which represents
+    # the offset of the first message, to get the new `last_offset` for the messages.
+    # During the second iteration of this logic to get the `last_offset`, I attempted to use the
+    # `commited_offset` of the DeliveryData, thinking it was already the offset for the `next` messsage,
+    # but it isn't.
+    state = %{state | last_offset: chunk.chunk_id + chunk.num_entries}
 
     offset_tracking =
       for {strategy, track_state} <- state.offset_tracking do
@@ -191,5 +205,28 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
   @impl true
   def handle_call(:get_credits, _from, state) do
     {:reply, state.credits, state}
+  end
+
+  @doc false
+  defp filtered?(decoded, %RabbitMQStream.Consumer{} = state) do
+    filter = state.properties[:filter]
+    match_unfiltered = state.properties[:match_unfiltered]
+
+    if filter != nil or match_unfiltered != nil do
+      filter_value = apply(state.consumer_module, :filter_value, [decoded])
+
+      case {filter_value, filter, match_unfiltered} do
+        {nil, _, true} ->
+          true
+
+        {_, _, true} ->
+          false
+
+        {filter_value, entries, _} when is_list(entries) ->
+          Enum.member?(entries, filter_value)
+      end
+    else
+      true
+    end
   end
 end

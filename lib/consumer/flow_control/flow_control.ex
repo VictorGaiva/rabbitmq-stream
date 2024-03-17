@@ -58,7 +58,7 @@ defmodule RabbitMQStream.Consumer.FlowControl do
   def run(%RabbitMQStream.Consumer{flow_control: {strategy, flow_state}} = state) do
     case strategy.run(flow_state, state) do
       {:credit, amount, new_flow_control} ->
-        Logger.debug("Adding credit: #{amount}. Strategy: #{inspect(strategy)}")
+        Logger.debug("#{state.consumer_module}: Adding #{amount} credits. Strategy: #{inspect(strategy)}")
 
         RabbitMQStream.Connection.credit(state.connection, state.id, amount)
         %{state | flow_control: {strategy, new_flow_control}, credits: state.credits + amount}

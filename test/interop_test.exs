@@ -1,6 +1,5 @@
 defmodule RabbitMQStreamTest.Interop do
   use ExUnit.Case, async: false
-  alias RabbitMQStream.OsirisChunk
 
   @moduletag :v3_11
   @moduletag :v3_12
@@ -15,8 +14,8 @@ defmodule RabbitMQStreamTest.Interop do
       connection: MyConnection
 
     @impl true
-    def handle_chunk(%OsirisChunk{} = chunk, %{private: parent}) do
-      send(parent, {:chunk, chunk})
+    def handle_message(message, %{private: parent}) do
+      send(parent, {:message, message})
 
       :ok
     end
@@ -69,6 +68,6 @@ defmodule RabbitMQStreamTest.Interop do
     # We are pattern matching with the content itself because we have already decoded
     #  the message from the `:amqp` binary format, in the `decode!/1` callback defined
     #  in the `MyConsumer`
-    assert_receive {:chunk, %OsirisChunk{data_entries: [^message]}}, 1000
+    assert_receive {:message, ^message}, 1000
   end
 end

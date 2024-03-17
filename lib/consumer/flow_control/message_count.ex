@@ -14,7 +14,7 @@ defmodule RabbitMQStream.Consumer.FlowControl.MessageCount do
           offset_tracking: [FlowControl.MessageCount, credit_after: {:count, 1}]
 
         @impl true
-        def handle_chunk(_chunk, _consumer) do
+        def handle_message(_message) do
           :ok
         end
       end

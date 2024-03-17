@@ -23,8 +23,8 @@ defmodule Subs1 do
   end
 
   @impl true
-  def handle_chunk(chunk, _state) do
-    dbg(chunk)
+  def handle_message(_message) do
+    # ...
 
     :ok
   end

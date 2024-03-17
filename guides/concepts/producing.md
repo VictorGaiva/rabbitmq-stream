@@ -55,10 +55,8 @@ defmodule MyApp.MyConsumer do
     ]
 
   @impl true
-  def handle_chunk(chunk, _) do
-    for message <- chunk.data_entries do
-      dbg(message)
-    end
+  def handle_message(_message) do
+    # ...
 
     :ok
   end

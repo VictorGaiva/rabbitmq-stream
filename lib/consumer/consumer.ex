@@ -1,7 +1,7 @@
 defmodule RabbitMQStream.Consumer do
   @moduledoc """
-  Used to declare a Persistent Consumer module. It is able to process chunks by implementing the
-  `handle_chunk/1` or `handle_chunk/2` callbacks.
+  Used to declare a Persistent Consumer module. Then the `handle_message/1` callback will be invoked
+  for each message received.
 
   # Usage
 
@@ -12,7 +12,8 @@ defmodule RabbitMQStream.Consumer do
           initial_offset: :first
 
         @impl true
-        def handle_chunk(%RabbitMQStream.OsirisChunk{} = _chunk, _consumer) do
+        def handle_message(_message) do
+          # ...
           :ok
         end
       end
@@ -27,7 +28,7 @@ defmodule RabbitMQStream.Consumer do
   * `:offset_tracking` - Offset tracking strategies to use. Defaults to `[count: [store_after: 50]]`.
   * `:flow_control` - Flow control strategy to use. Defaults to `[count: [credit_after: {:count, 1}]]`.
   * `:offset_reference` -
-  * `:private` - Private data that can hold any value, and is passed to the `handle_chunk/2` callback.
+  * `:private` - Private data that can hold any value, and is passed to the `handle_message/2` callback.
   * `:serializer` - The module to use to decode the message. Defaults to `__MODULE__`,
     which means that the consumer will use the `decode!/1` callback to decode the message, which is
     implemented by default to return the message as is.
@@ -39,6 +40,7 @@ defmodule RabbitMQStream.Consumer do
     * `:filter`: List of strings that define the value of the filter_key to match.
     * `:match_unfiltered`: whether to return messages without any filter value or not.
 
+  It is also possible to process chunks by implementing the `handle_chunk/1` or `handle_chunk/2` callbacks.
 
   # Offset Tracking
 
@@ -65,7 +67,6 @@ defmodule RabbitMQStream.Consumer do
             interval: [store_after: 5_000]
           ]
 
-
   # Flow Control
 
   The RabbitMQ Streams server requires that the consumer declares how many messages it is able to
@@ -91,22 +92,7 @@ defmodule RabbitMQStream.Consumer do
   set the `:flow_control` option to `false`. Then you can call `RabbitMQStream.Consumer.credit/2` to
   manually add more credits to the subscription.
 
-
-  ## Commited Offset
-  As of RabbitMQ 3.13, each deliver message now has the `commited_offset`. This respresents the 'next'
-  offset, instead of the 'last'.
-
-
-  Before 3.13, using the next offset meant that the tracking was always "off by one", meaning that
-  everytime a Consumer started, it would it would always receive the last message it read once again.
-
-
-  As of 3.13 and forward, the tracking now prefers to use the `commited_offset` when storing it to the
-  stream, meaning that if it has received a message and then the offset is stored, it would not receive it again.
-
-
   # Configuration
-
 
   You can configure each consumer with:
 
@@ -197,6 +183,8 @@ defmodule RabbitMQStream.Consumer do
 
 
   """
+  require Logger
+
   defmacro __using__(opts) do
     defaults = Application.get_env(:rabbitmq_stream, :defaults, [])
 
@@ -241,6 +229,13 @@ defmodule RabbitMQStream.Consumer do
 
       def before_start(_opts, state), do: state
 
+      def handle_chunk(_chunk), do: nil
+      def handle_chunk(chunk, _state), do: handle_chunk(chunk)
+
+      def handle_message(_message), do: nil
+      def handle_message(message, _state), do: handle_message(message)
+      def handle_message(message, _chunk, state), do: handle_message(message, state)
+
       unquote(
         if serializer != nil do
           quote do
@@ -274,18 +269,32 @@ defmodule RabbitMQStream.Consumer do
   @doc """
   The callback that is invoked when a chunk is received.
 
-  Each chunk contains a list of potentially many data entries, along with
-  metadata about the chunk itself. The callback is invoked once for each
-  chunk received.
+  The server sends us messages in chunks, which of each contains many messages. But if we are
+  consuming from an offset inside of a chunk, or if we have enabled the `filter_value` parameter,
+  some of those messages might not be passed to `handle_message/1` callback.
+
+  You can use use `handle_chunk/1` to access the whole chunk for some extra logic.
+
+  Implemeting `handle_chunk/1` doesn't prevent `handle_message/1` from being called.
 
   Optionally if you implement `handle_chunk/2`, it also passes the current
   state of the consumer. It can be used to access the `private` field
-  passed to `start_link/1`, and other fields.
+  passed to `start_link/1`, or the `stream_name` itself.
 
-  The return value is ignored.
   """
   @callback handle_chunk(chunk :: RabbitMQStream.OsirisChunk.t()) :: term()
   @callback handle_chunk(chunk :: RabbitMQStream.OsirisChunk.t(), state :: t()) :: term()
+
+  @doc """
+  Callback invoked on each message received from the stream.
+
+  This is the main way of consuming messages, and it applies any filtering and decoding necessary
+  to the message before being invoked.
+  """
+  @callback handle_message(message :: binary() | term()) :: term()
+  @callback handle_message(message :: binary() | term(), state :: t()) :: term()
+  @callback handle_message(message :: binary() | term(), chunk :: RabbitMQStream.OsirisChunk.t(), state :: t()) ::
+              term()
 
   @doc """
   If the consumer has been defined with the 'single-active-consumer' parameter,
@@ -345,13 +354,32 @@ defmodule RabbitMQStream.Consumer do
   """
   @callback store_offset() :: :ok
 
+  @doc """
+  Computes the `filter_value` for a decoded messages, used for filtering incoming messages.
+
+  Must follow the same implementation you define at your `c:RabbitMQStream.Producer.filter_value/1`
+  callback.
+
+  Required when passing either `:filter` or `:match_unfiltered` properties when declaring the consumer.
+
+  Since the server sends the data in chunks, each of which is guaranted to have at least one message
+  that match the consumer filter, but it might have some that don't. We need declare this callback to
+  do additional client side filtering, so that the `handle_message/1` callback only receives those
+  messages it is really interested in.
+  """
+  @callback filter_value(term()) :: binary() | nil
+
   @optional_callbacks handle_chunk: 1,
                       handle_chunk: 2,
+                      handle_message: 1,
+                      handle_message: 2,
+                      handle_message: 3,
                       decode!: 1,
                       handle_update: 2,
                       before_start: 2,
                       get_credits: 0,
                       store_offset: 0,
+                      filter_value: 1,
                       credit: 1
 
   defstruct [
@@ -361,17 +389,17 @@ defmodule RabbitMQStream.Consumer do
     :offset_tracking,
     :flow_control,
     :id,
-    :last_offset,
     # We could have delegated the tracking of the credit to the strategy,
     #  by adding declaring a callback similar to `after_chunk/3`. But it seems
     #  reasonable to have a `credit` function to manually add more credits,
     #  which would them possibly cause the strategy to not work as expected.
     :credits,
     :initial_credit,
-    :initial_offset,
     :private,
-    :properties,
-    :consumer_module
+    :consumer_module,
+    :initial_offset,
+    last_offset: 0,
+    properties: []
   ]
 
   @type t :: %__MODULE__{
@@ -381,7 +409,7 @@ defmodule RabbitMQStream.Consumer do
           id: non_neg_integer() | nil,
           offset_tracking: [{RabbitMQStream.Consumer.OffsetTracking.t(), term()}],
           flow_control: {RabbitMQStream.Consumer.FlowControl.t(), term()},
-          last_offset: non_neg_integer() | nil,
+          last_offset: non_neg_integer(),
           private: any(),
           credits: non_neg_integer(),
           initial_credit: non_neg_integer(),

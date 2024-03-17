@@ -230,6 +230,8 @@ defmodule RabbitMQStream.Producer do
         def filter_value(message) do
           message["key"]
         end
+
+  The default implementation defines `nil` as the `filter_value` for all messages.
   """
   @callback filter_value(message :: term()) :: String.t() | nil
 

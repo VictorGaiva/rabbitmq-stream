@@ -14,7 +14,7 @@ defmodule RabbitMQStream.Consumer.OffsetTracking.CountStrategy do
           offset_tracking: [OffsetTracking.CountStrategy, store_after: 50]
 
         @impl true
-        def handle_chunk(_chunk, _subscriber) do
+        def handle_message(_message) do
           :ok
         end
       end

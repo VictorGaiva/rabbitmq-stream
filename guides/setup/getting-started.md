@@ -61,7 +61,8 @@ defmodule MyApp.MyConsumer do
     initial_offset: :first
 
   @impl true
-  def handle_chunk(%RabbitMQStream.OsirisChunk{} = _chunk, _consumer) do
+  def handle_message(_message) do
+    # ...
     :ok
   end
 end

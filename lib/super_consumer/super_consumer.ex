@@ -1,6 +1,22 @@
 defmodule RabbitMQStream.SuperConsumer do
   @moduledoc """
-  A Superconsumer spawns a Consumer process for each partition of the stream.
+  Declares a SuperConsumer module, that subscribes to all the partitions of a SuperStream, and ensures
+  there is only one active consumer per Partition.
+
+  # Usage
+
+      defmodule MyApp.MySuperConsumer do
+        use RabbitMQStream.SuperConsumer,
+          initial_offset: :next,
+          super_stream: "my_super_stream",
+          partitions: 3
+
+        @impl true
+        def handle_message(_message) do
+          # ...
+          :ok
+        end
+      end
 
   It accepts the same options as a Consumer, plus the following:
 
@@ -8,8 +24,7 @@ defmodule RabbitMQStream.SuperConsumer do
   * `:partitions` - the number of partitions
 
 
-  All the consumers use the same provided connection, and are supervised by a
-  DynamicSupervisor.
+  All the consumers use the same provided connection, and are supervised by a DynamicSupervisor.
 
   """
 
@@ -61,6 +76,13 @@ defmodule RabbitMQStream.SuperConsumer do
         Supervisor.init(children, strategy: :one_for_all)
       end
 
+      def handle_chunk(_chunk), do: nil
+      def handle_chunk(chunk, _state), do: handle_chunk(chunk)
+
+      def handle_message(_message), do: nil
+      def handle_message(message, _state), do: handle_message(message)
+      def handle_message(message, _chunk, state), do: handle_message(message, state)
+
       def before_start(_opts, state), do: state
 
       unquote(
@@ -74,6 +96,8 @@ defmodule RabbitMQStream.SuperConsumer do
           end
         end
       )
+
+      defoverridable RabbitMQStream.Consumer
     end
   end
 

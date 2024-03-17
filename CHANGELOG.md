@@ -10,8 +10,9 @@ Added support for RabbitMQ 3.13, with Route, Partitions and SuperStreams support
 - Serialization options for encoding and decoding messages.
 - TLS Support
 - Functional `single-active-consumer`.
-- Initial support for `filter_value` consumer parameter, and `:createsuperstream`, `:deletesuperstream`, `:route`, `:partitions` commands.
+- Initial support for `:filter_value` consumer parameter, and `:createsuperstream`, `:deletesuperstream`, `:route`, `:partitions` commands.
 - Initial support for SuperStreams, with RabbitMQStream.SuperConsumer and RabbitMQStream.SuperPublisher.
+- Added `handle_message/1` callback for processing messages individually, ignoring messages happened before the minimal `:offset` exepected by the consumer, and the messages that don't match the `:filter_value`, as documented on the [blog post](https://blog.rabbitmq.com/posts/2023/10/stream-filtering/#on-the-consumer-side)
 
 ### 0.4.0 Changes
 
@@ -27,6 +28,7 @@ The 'Message' module tree was refactored to make all the Encoding and Decoding l
 - Renamed `RabbitMQStream.Publisher` to `RabbitMQStream.Producer`
 - Each Deliver action made by the connection is now done with a `{:deliver, %RabbitMQStream.Message.Types.DeliverData{}} tuple
 - Offset Tracking now prefers to use CommitedOffset when available
+- The `handle_chunk/1` callback no longer receives decoded messages. It must be done manually by the user.
 
 ## 0.3.0
 

@@ -17,7 +17,7 @@ defmodule RabbitMQStreamTest.SuperStream do
 
     @impl true
     def handle_update(state, _) do
-      {:ok, state.last_offset || state.initial_offset}
+      {:ok, state.initial_offset}
     end
   end
 
@@ -35,7 +35,7 @@ defmodule RabbitMQStreamTest.SuperStream do
 
     @impl true
     def handle_update(state, _) do
-      {:ok, state.last_offset || state.initial_offset}
+      {:ok, state.initial_offset}
     end
   end
 
@@ -53,7 +53,7 @@ defmodule RabbitMQStreamTest.SuperStream do
 
     @impl true
     def handle_update(state, _) do
-      {:ok, state.last_offset || state.initial_offset}
+      {:ok, state.initial_offset}
     end
   end
 

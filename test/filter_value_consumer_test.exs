@@ -28,10 +28,15 @@ defmodule RabbitMQStreamTest.Consumer.FilterValue do
       serializer: Jason
 
     @impl true
-    def handle_chunk(%{data_entries: [entry]}, %{private: parent}) do
+    def handle_message(entry, %{private: parent}) do
       send(parent, {__MODULE__, entry})
 
       :ok
+    end
+
+    @impl true
+    def filter_value(message) do
+      message["key"]
     end
   end
 
@@ -45,10 +50,15 @@ defmodule RabbitMQStreamTest.Consumer.FilterValue do
       serializer: Jason
 
     @impl true
-    def handle_chunk(%{data_entries: [entry]}, %{private: parent}) do
+    def handle_message(entry, %{private: parent}) do
       send(parent, {__MODULE__, entry})
 
       :ok
+    end
+
+    @impl true
+    def filter_value(message) do
+      message["key"]
     end
   end
 
@@ -62,10 +72,15 @@ defmodule RabbitMQStreamTest.Consumer.FilterValue do
       serializer: Jason
 
     @impl true
-    def handle_chunk(%{data_entries: [entry]}, %{private: parent}) do
+    def handle_message(entry, %{private: parent}) do
       send(parent, {__MODULE__, entry})
 
       :ok
+    end
+
+    @impl true
+    def filter_value(message) do
+      message["key"]
     end
   end
 
@@ -80,17 +95,16 @@ defmodule RabbitMQStreamTest.Consumer.FilterValue do
     {:ok, _} = Subs2.start_link(private: self())
     {:ok, _} = Subs3.start_link(private: self())
 
-    message = %{"key" => "Subs1", "value" => "1"}
-    :ok = Producer.publish(message)
+    message1 = %{"key" => "Subs1", "value" => "1"}
+    message2 = %{"key" => "Subs2", "value" => "2"}
+    message3 = %{"value" => "4"}
 
-    assert_receive {Subs1, ^message}, 500
+    :ok = Producer.publish(message1)
+    :ok = Producer.publish(message2)
+    :ok = Producer.publish(message3)
 
-    message = %{"key" => "Subs2", "value" => "2"}
-    :ok = Producer.publish(message)
-    assert_receive {Subs2, ^message}, 500
-
-    message = %{"key" => "NO-FILTER-APPLIED", "value" => "3"}
-    :ok = Producer.publish(message)
-    assert_receive {Subs3, ^message}, 500
+    assert_receive {Subs1, ^message1}, 500
+    assert_receive {Subs2, ^message2}, 500
+    assert_receive {Subs3, ^message3}, 500
   end
 end

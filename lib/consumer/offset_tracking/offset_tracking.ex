@@ -74,7 +74,7 @@ defmodule RabbitMQStream.Consumer.OffsetTracking do
   end
 
   @doc false
-  def run(%RabbitMQStream.Consumer{last_offset: nil} = state), do: state
+  def run(%RabbitMQStream.Consumer{last_offset: 0} = state), do: state
 
   def run(%RabbitMQStream.Consumer{} = state) do
     {_, offset_tracking} =
@@ -85,9 +85,7 @@ defmodule RabbitMQStream.Consumer.OffsetTracking do
           {strategy, track_state}, {:cont, acc} ->
             case strategy.run(track_state, state) do
               {:store, new_track_state} ->
-                Logger.debug(
-                  "Storing offset for stream: #{state.stream_name} with offset: #{state.last_offset}. Strategy: #{strategy}"
-                )
+                Logger.debug("#{state.consumer_module}: Storing offset #{state.last_offset}. Strategy: #{strategy}")
 
                 RabbitMQStream.Connection.store_offset(
                   state.connection,

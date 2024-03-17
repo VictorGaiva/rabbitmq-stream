@@ -19,7 +19,7 @@ defmodule RabbitMQStream.Consumer.OffsetTracking.IntervalStrategy do
           offset_tracking: [OffsetTracking.IntervalStrategy, interval: 10_000]
 
         @impl true
-        def handle_chunk(_chunk, _subscriber) do
+        def handle_message(_message) do
           :ok
         end
       end

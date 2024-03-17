@@ -28,8 +28,8 @@ defmodule RabbitMQStream.OsirisChunk do
           # <<trailer_length::unsigned-integer-size(32)>>
           trailer_length: non_neg_integer(),
           # <<reserved::unsigned-integer-size(32)>>
-          data_entries: binary() | [ChunkTrackSnapshot.t()],
-          trailer_entries: binary() | nil
+          data_entries: [binary()] | [ChunkTrackSnapshot.t()],
+          trailer_entries: [binary()] | nil
         }
   @enforce_keys [
     :chunk_type,
@@ -200,13 +200,6 @@ defmodule RabbitMQStream.OsirisChunk do
       data_length: data_length,
       trailer_length: trailer_length,
       data_entries: data_entries
-    }
-  end
-
-  def decode_messages!(chunk, consumer_module) do
-    %{
-      chunk
-      | data_entries: Enum.map(chunk.data_entries, &consumer_module.decode!/1)
     }
   end
 end

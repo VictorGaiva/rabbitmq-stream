@@ -41,8 +41,8 @@ defmodule RabbitMQStreamTest.Consumer do
       serializer: Jason
 
     @impl true
-    def handle_chunk(%OsirisChunk{data_entries: entries}, %{private: parent}) do
-      send(parent, {:handle_chunk, entries})
+    def handle_message(entry, %{private: parent}) do
+      send(parent, {:message, entry})
 
       :ok
     end
@@ -121,14 +121,31 @@ defmodule RabbitMQStreamTest.Consumer do
 
     message1 = %{"message" => "Consumer Test: 1"}
     message2 = %{"message" => "Consumer Test: 2"}
+    message3 = %{"message" => "Consumer Test: 3"}
+    message4 = %{"message" => "Consumer Test: 4"}
+    message5 = %{"message" => "Consumer Test: 5"}
+    message6 = %{"message" => "Consumer Test: 6"}
+    message7 = %{"message" => "Consumer Test: 7"}
+    message8 = %{"message" => "Consumer Test: 8"}
+    message9 = %{"message" => "Consumer Test: 9"}
+    message10 = %{"message" => "Consumer Test: 10"}
 
     SupervisorProducer2.publish(message1)
-    assert_receive {:handle_chunk, [^message1]}, 500
+    assert_receive {:message, ^message1}, 500
 
     SupervisorProducer2.publish(message2)
-    assert_receive {:handle_chunk, [^message2]}, 500
+    assert_receive {:message, ^message2}, 500
 
     :ok = GenServer.stop(Consumer, :normal)
+
+    SupervisorProducer2.publish(message3)
+    SupervisorProducer2.publish(message4)
+    SupervisorProducer2.publish(message5)
+    SupervisorProducer2.publish(message6)
+    SupervisorProducer2.publish(message7)
+    SupervisorProducer2.publish(message8)
+    SupervisorProducer2.publish(message9)
+    SupervisorProducer2.publish(message10)
 
     {:ok, _subscriber} =
       Consumer.start_link(
@@ -138,7 +155,16 @@ defmodule RabbitMQStreamTest.Consumer do
         offset_tracking: [count: [store_after: 1]]
       )
 
-    assert_receive {:handle_chunk, [^message2]}, 500
+    refute_receive {:message, ^message1}, 500
+    refute_receive {:message, ^message2}, 500
+    assert_receive {:message, ^message3}, 500
+    assert_receive {:message, ^message4}, 500
+    assert_receive {:message, ^message5}, 500
+    assert_receive {:message, ^message6}, 500
+    assert_receive {:message, ^message7}, 500
+    assert_receive {:message, ^message8}, 500
+    assert_receive {:message, ^message9}, 500
+    assert_receive {:message, ^message10}, 500
 
     SupervisedConnection.delete_stream(@stream)
   end
