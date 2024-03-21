@@ -33,9 +33,35 @@ end
 
 The server will then start sending chunks to the consumer, unless it decides it not to be the active one. If the Server decides to upgrade a consumer to being the active one, it goes through a [Upgrade process](#upgrade-and-downgrade).
 
+## Super Streams
+
+Based on the semantics of `single_active_consumer` property, this library implements `RabbitMQStream.SuperProducer` and `RabbitMQStream.SuperConsumer`, which manages a connection to a [SuperStream](https://www.rabbitmq.com/blog/2022/07/13/rabbitmq-3-11-feature-preview-super-streams). It spawns a process for each Partition of the SuperStreams, and provides an API for Consuming or Producing messages.
+
+You can declare SuperStreams with:
+
+```elixir
+:ok = RabbitMQStream.Connection.create_super_stream(conn, "my_super_stream", "route-A": ["stream-01", "stream-02"], "route-B": ["stream-03"])
+```
+
+And you can consume from it with:
+
+```elixir
+defmodule MyApp.MySuperConsumer do
+  use RabbitMQStream.SuperConsumer,
+    initial_offset: :next,
+    super_stream: "my_super_stream"
+
+  @impl true
+  def handle_message(_message) do
+    # ...
+    :ok
+  end
+end
+```
+
 ### Upgrade and Downgrade
 
-When using `single-active-consumer` parameter, each consumer might go through `:upgrade` or `:downgrade` cycle. This happens when a new Consumer is chosen as the `active` one for a specific stream.
+When using `single-active-consumer` property, each consumer might go through `:upgrade` or `:downgrade` cycle. This happens when a new Consumer is chosen as the `active` one for a specific stream.
 
 To handle upgrade and downgrade requests, a consumer must implement the `RabbitMQStream.Consumer.handle_update/2` callback. It receives the current state of the consumer, with the flag being either `:upgrade` or `:downgrade`.
 
