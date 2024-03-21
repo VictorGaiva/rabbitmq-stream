@@ -8,7 +8,21 @@
 
 Elixir Client for [RabbitMQ Streams Protocol](https://www.rabbitmq.com/streams.html).
 
-## Usage
+## Overview
+
+RabbiMQ 3.9 introduced the [Streams](https://www.youtube.com/watch?v=PnmGoMiaJhE) as an alternative to Queues, but differs mainly by implementing a ["non-destructive consumer semantics"](https://www.rabbitmq.com/docs/streams#overview). A consumer can read the messages starting at any offset, while receiving new messages.
+
+While this feature is avaiable when using the existing Queues, it shines when used with its dedicated protocol, that allows messages to be consumed [extremelly fast](https://youtu.be/PnmGoMiaJhE?si=oHBaa6ml1dGewuvT&t=1125), in comparisson to Queues.
+
+This library aims to be a Client for the [Streams Protocol](https://www.rabbitmq.com/docs/stream), managing connections and providing an idiomatic way of interacting with all the features avaiable for this functionallity.
+
+## Features
+
+- Producing and Consuming from Streams
+- [Offset Tracking](https://www.rabbitmq.com/blog/2021/09/13/rabbitmq-streams-offset-tracking) and [Control Flow](https://www.rabbitmq.com/docs/stream#flow-control)(Credits) helpers
+- [Stream Filtering](https://www.rabbitmq.com/blog/2023/10/16/stream-filtering)
+- [Single Active Consumer](https://www.rabbitmq.com/blog/2022/07/05/rabbitmq-3-11-feature-preview-single-active-consumer-for-streams)
+- [Super Streams](https://www.rabbitmq.com/blog/2022/07/13/rabbitmq-3-11-feature-preview-super-streams)
 
 ## Installation
 
@@ -23,7 +37,9 @@ def deps do
 end
 ```
 
-### Consuming from stream
+## Usage
+
+### Consuming from Stream
 
 First you define a connection
 
@@ -64,9 +80,7 @@ def handle_info({:deliver, %RabbitMQStream.Message.Types.DeliverData{} = deliver
 end
 ```
 
-You can take a look at an example Consumer GenServer at the [Consuming Documentation](guides/tutorial/consuming.md).
-
-### Publishing to stream
+### Publishing to Stream
 
 RabbitMQ Streams protocol needs a static `:reference_name` per producer. This is used to prevent message duplication. For this reason, each stream needs, for now, a static module to publish messages, which keeps track of its own `publishing_id`.
 
@@ -86,7 +100,7 @@ Then you can publish messages to the stream:
 MyApp.MyProducer.publish("Hello World")
 ```
 
-## Configuration
+### Configuration
 
 The configuration for the connection can be set in your `config.exs` file:
 
@@ -107,7 +121,7 @@ config :rabbitmq_stream, :defaults,
 end
 ```
 
-## TLS Support
+### TLS
 
 You can configure the RabbitmqStream to use TLS connections:
 
