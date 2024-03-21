@@ -37,9 +37,27 @@ def deps do
 end
 ```
 
-## Usage
+### Producing
 
-### Consuming from Stream
+RabbitMQ Streams protocol needs a static `:reference_name` per producer. This is used to prevent message duplication. For this reason, each stream needs, for now, a static module to publish messages, which keeps track of its own `publishing_id`.
+
+You can define a `Producer` module like this:
+
+```elixir
+defmodule MyApp.MyProducer do
+  use RabbitMQStream.Producer,
+    stream_name: "stream-01",
+    connection: MyApp.MyConnection
+end
+```
+
+Then you can publish messages to the stream:
+
+```elixir
+MyApp.MyProducer.publish("Hello World")
+```
+
+## Consuming
 
 First you define a connection
 
@@ -78,26 +96,6 @@ def handle_info({:deliver, %RabbitMQStream.Message.Types.DeliverData{} = deliver
   # do something with message
   {:noreply, state}
 end
-```
-
-### Publishing to Stream
-
-RabbitMQ Streams protocol needs a static `:reference_name` per producer. This is used to prevent message duplication. For this reason, each stream needs, for now, a static module to publish messages, which keeps track of its own `publishing_id`.
-
-You can define a `Producer` module like this:
-
-```elixir
-defmodule MyApp.MyProducer do
-  use RabbitMQStream.Producer,
-    stream_name: "stream-01",
-    connection: MyApp.MyConnection
-end
-```
-
-Then you can publish messages to the stream:
-
-```elixir
-MyApp.MyProducer.publish("Hello World")
 ```
 
 ### Configuration

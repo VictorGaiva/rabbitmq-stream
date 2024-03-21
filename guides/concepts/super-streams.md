@@ -15,6 +15,7 @@ You can declare a consumer as being part of a Single Active Consumer group by pa
 defmodule Subs1 do
   use RabbitMQStream.Consumer,
     stream_name: "super-stream-01",
+    connection: MyApp.MyConnection,
     properties: [single_active_consumer: "group-1"]
 
   @impl true
@@ -40,7 +41,7 @@ Based on the semantics of `single_active_consumer` property, this library implem
 You can declare SuperStreams with:
 
 ```elixir
-:ok = RabbitMQStream.Connection.create_super_stream(conn, "my_super_stream", "route-A": ["stream-01", "stream-02"], "route-B": ["stream-03"])
+:ok = MyApp.MyConnection.create_super_stream("my_super_stream", "route-A": ["stream-01", "stream-02"], "route-B": ["stream-03"])
 ```
 
 And you can consume from it with:
@@ -49,6 +50,7 @@ And you can consume from it with:
 defmodule MyApp.MySuperConsumer do
   use RabbitMQStream.SuperConsumer,
     initial_offset: :next,
+    connection: MyApp.MyConnection,
     super_stream: "my_super_stream"
 
   @impl true
