@@ -2,7 +2,7 @@ version: "3"
 services:
   rabbitmq_stream_3_13:
     container_name: rabbitmq_stream
-    image: rabbitmq:3.13-rc-management
+    image: rabbitmq:3.13-management
     restart: always
     hostname: rabbitmq_stream
     volumes:
