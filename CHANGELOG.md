@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.1
+
+Bug fixes
+
+- Split user and internal commands buffers
+
 ## 0.4.0
 
 Added support for RabbitMQ 3.13, with Route, Partitions and SuperStreams support.
