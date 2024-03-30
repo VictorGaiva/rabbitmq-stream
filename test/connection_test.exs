@@ -168,4 +168,12 @@ defmodule RabbitMQStreamTest.Connection do
     assert {:ok, _data} = SupervisedConnection.stream_stats(@stream)
     assert {:error, :stream_does_not_exist} = SupervisedConnection.stream_stats("#{@stream}-NON-EXISTENT")
   end
+
+  # I'm not really sure how to test this.
+  # @stream "consumer-test-stream-11"
+  # test "should buffer user commands before the connection is open" do
+  #   {:ok, _conn} = SupervisedConnection.start_link(host: "localhost", vhost: "/")
+  #   :ok = SupervisedConnection.connect()
+
+  # end
 end

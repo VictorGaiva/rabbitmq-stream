@@ -52,7 +52,8 @@ defmodule RabbitMQStream.Connection.Lifecycle do
 
       conn =
         %{conn | connect_requests: [from | conn.connect_requests]}
-        |> send_request(:peer_properties)
+        |> Helpers.push_internal(:request, :peer_properties)
+        |> flush_buffer(:internal)
 
       {:noreply, conn}
     else
@@ -229,7 +230,8 @@ defmodule RabbitMQStream.Connection.Lifecycle do
     # command to the socket. This also would allow us to better test the 'handler' logic.
     commands
     |> Enum.reduce(conn, &Handler.handle_message(&2, &1))
-    |> flush_commands()
+    |> flush_buffer(:internal)
+    |> flush_buffer(:user)
     |> handle_closing()
   end
 
@@ -252,7 +254,10 @@ defmodule RabbitMQStream.Connection.Lifecycle do
   def handle_info({:heartbeat}, conn) do
     Process.send_after(self(), {:heartbeat}, conn.options[:heartbeat] * 1000)
 
-    conn = send_request(conn, :heartbeat, correlation_sum: 0)
+    conn =
+      conn
+      |> Helpers.push_internal(:request, :heartbeat, correlation_sum: 0)
+      |> flush_buffer(:internal)
 
     {:noreply, conn}
   end
@@ -292,7 +297,8 @@ defmodule RabbitMQStream.Connection.Lifecycle do
 
       conn =
         conn
-        |> send_request(:peer_properties)
+        |> Helpers.push_internal(:request, :peer_properties)
+        |> flush_buffer(:internal)
 
       {:noreply, conn}
     else
@@ -328,19 +334,19 @@ defmodule RabbitMQStream.Connection.Lifecycle do
 
   defp handle_closing(conn), do: {:noreply, conn}
 
-  defp send_request(%Connection{} = conn, command, opts \\ []) do
+  defp send_request(%Connection{} = conn, command, opts) do
     conn
-    |> Helpers.push(:request, command, opts)
-    |> flush_commands()
+    |> Helpers.push_user(:request, command, opts)
+    |> flush_buffer(:user)
   end
 
   defp send_response(%Connection{} = conn, command, opts) do
     conn
-    |> Helpers.push(:response, command, opts)
-    |> flush_commands()
+    |> Helpers.push_user(:response, command, opts)
+    |> flush_buffer(:user)
   end
 
-  defp flush_commands(%Connection{} = conn) do
+  defp flush_buffer(%Connection{} = conn, :internal) do
     conn =
       :queue.fold(
         fn
@@ -348,10 +354,28 @@ defmodule RabbitMQStream.Connection.Lifecycle do
             send_command(conn, command)
         end,
         conn,
-        conn.commands_buffer
+        conn.internal_buffer
       )
 
-    %{conn | commands_buffer: :queue.new()}
+    %{conn | internal_buffer: :queue.new()}
+  end
+
+  defp flush_buffer(%Connection{state: :open} = conn, :user) do
+    conn =
+      :queue.fold(
+        fn
+          command, conn ->
+            send_command(conn, command)
+        end,
+        conn,
+        conn.user_buffer
+      )
+
+    %{conn | user_buffer: :queue.new()}
+  end
+
+  defp flush_buffer(%Connection{} = conn, :user) do
+    conn
   end
 
   defp send_command(%Connection{} = conn, {:request, command, opts}) do
