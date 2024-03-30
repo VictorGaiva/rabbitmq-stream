@@ -37,7 +37,7 @@ def deps do
 end
 ```
 
-### Producing
+## [Producing](https://github.com/VictorGaiva/rabbitmq-stream/blob/main/guides/concepts/producing.md)
 
 RabbitMQ Streams protocol needs a static `:reference_name` per producer. This is used to prevent message duplication. For this reason, each stream needs, for now, a static module to publish messages, which keeps track of its own `publishing_id`.
 
@@ -95,6 +95,32 @@ The caller process will start receiving messages with the format `{:deliver, %Ra
 def handle_info({:deliver, %RabbitMQStream.Message.Types.DeliverData{} = deliver_data}, state) do
   # do something with message
   {:noreply, state}
+end
+```
+
+## [SuperStreams](https://github.com/VictorGaiva/rabbitmq-stream/blob/main/guides/concepts/super-streams.md)
+
+[A super stream is a logical stream made of individual, regular streams.](https://www.rabbitmq.com/blog/2022/07/13/rabbitmq-3-11-feature-preview-super-streams)
+
+You can declare SuperStreams with:
+
+```elixir
+:ok = MyApp.MyConnection.create_super_stream("my_super_stream", "route-A": ["stream-01", "stream-02"], "route-B": ["stream-03"])
+```
+
+And you can consume from it with:
+
+```elixir
+defmodule MyApp.MySuperConsumer do
+  use RabbitMQStream.SuperConsumer,
+    initial_offset: :next,
+    super_stream: "my_super_stream"
+
+  @impl true
+  def handle_message(_message) do
+    # ...
+    :ok
+  end
 end
 ```
 
