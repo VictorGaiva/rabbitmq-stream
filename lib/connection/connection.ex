@@ -529,7 +529,8 @@ defmodule RabbitMQStream.Connection do
           },
           frames_buffer: RabbitMQStream.Message.Buffer.t(),
           request_buffer: :queue.queue({term(), pid()}),
-          commands_buffer: :queue.queue({atom(), atom(), list({atom(), term()})}),
+          internal_buffer: :queue.queue({atom(), atom(), list({atom(), term()})}),
+          user_buffer: :queue.queue({atom(), atom(), list({atom(), term()})}),
           # this should not be here. Should find a better way to return the close reason from the 'handler' module
           close_reason: String.t() | atom() | nil,
           transport: RabbitMQStream.Connection.Transport.t()
@@ -552,7 +553,8 @@ defmodule RabbitMQStream.Connection do
     commands: %{},
     request_buffer: :queue.new(),
     frames_buffer: RabbitMQStream.Message.Buffer.init(),
-    commands_buffer: :queue.new(),
+    internal_buffer: :queue.new(),
+    user_buffer: :queue.new(),
     close_reason: nil
   ]
 end

@@ -13,10 +13,16 @@ defmodule RabbitMQStream.Connection.Helpers do
     {entry, %{conn | request_tracker: request_tracker}}
   end
 
-  def push(conn, action, command, opts \\ []) do
-    commands_buffer = :queue.in({action, command, opts}, conn.commands_buffer)
+  def push_user(conn, action, command, opts \\ []) do
+    user_buffer = :queue.in({action, command, opts}, conn.user_buffer)
 
-    %{conn | commands_buffer: commands_buffer}
+    %{conn | user_buffer: user_buffer}
+  end
+
+  def push_internal(conn, action, command, opts \\ []) do
+    internal_buffer = :queue.in({action, command, opts}, conn.internal_buffer)
+
+    %{conn | internal_buffer: internal_buffer}
   end
 
   defguard is_offset(offset)

@@ -11,7 +11,7 @@ defmodule RabbitMQStream.Connection.Handler do
     Logger.debug("Connection closed")
 
     %{conn | state: :closing, close_reason: request.data.reason}
-    |> Helpers.push(:response, :close, correlation_id: request.correlation_id, code: :ok)
+    |> Helpers.push_internal(:response, :close, correlation_id: request.correlation_id, code: :ok)
   end
 
   def handle_message(%Connection{} = conn, %Request{command: :tune} = request) do
@@ -22,8 +22,8 @@ defmodule RabbitMQStream.Connection.Handler do
     options = Keyword.merge(conn.options, frame_max: request.data.frame_max, heartbeat: request.data.heartbeat)
 
     %{conn | options: options, state: :opening}
-    |> Helpers.push(:response, :tune, correlation_id: 0)
-    |> Helpers.push(:request, :open)
+    |> Helpers.push_internal(:response, :tune, correlation_id: 0)
+    |> Helpers.push_internal(:request, :open)
   end
 
   def handle_message(%Connection{} = conn, %Request{command: :heartbeat}) do
@@ -32,7 +32,7 @@ defmodule RabbitMQStream.Connection.Handler do
 
   def handle_message(%Connection{} = conn, %Request{command: :metadata_update} = request) do
     conn
-    |> Helpers.push(:request, :query_metadata, streams: [request.data.stream_name])
+    |> Helpers.push_internal(:request, :query_metadata, streams: [request.data.stream_name])
   end
 
   def handle_message(%Connection{} = conn, %Request{command: :deliver} = response) do
@@ -129,14 +129,14 @@ defmodule RabbitMQStream.Connection.Handler do
     peer_properties = Map.put(response.data.peer_properties, "base-version", version)
 
     %{conn | peer_properties: peer_properties}
-    |> Helpers.push(:request, :sasl_handshake)
+    |> Helpers.push_internal(:request, :sasl_handshake)
   end
 
   def handle_message(%Connection{} = conn, %Response{command: :sasl_handshake} = response) do
     Logger.debug("SASL handshake successful. Initiating authentication.")
 
     %{conn | mechanisms: response.data.mechanisms}
-    |> Helpers.push(:request, :sasl_authenticate)
+    |> Helpers.push_internal(:request, :sasl_authenticate)
   end
 
   def handle_message(%Connection{} = conn, %Response{command: :sasl_authenticate, data: %{sasl_opaque_data: ""}}) do
@@ -150,7 +150,7 @@ defmodule RabbitMQStream.Connection.Handler do
     Logger.debug("Opening connection to vhost: \"#{conn.options[:vhost]}\"")
 
     conn
-    |> Helpers.push(:request, :open)
+    |> Helpers.push_internal(:request, :open)
     |> Map.put(:state, :opening)
   end
 
@@ -162,7 +162,7 @@ defmodule RabbitMQStream.Connection.Handler do
 
     %{conn | options: options}
     |> Map.put(:state, :opening)
-    |> Helpers.push(:request, :open)
+    |> Helpers.push_internal(:request, :open)
   end
 
   # If the server has a version lower than 3.13, this is the 'terminating' response.
@@ -192,7 +192,7 @@ defmodule RabbitMQStream.Connection.Handler do
     )
 
     %{conn | connection_properties: response.data.connection_properties}
-    |> Helpers.push(:request, :exchange_command_versions)
+    |> Helpers.push_internal(:request, :exchange_command_versions)
   end
 
   def handle_message(%Connection{} = conn, %Response{command: :query_metadata} = response) do
@@ -310,7 +310,10 @@ defmodule RabbitMQStream.Connection.Handler do
       conn
     else
       conn
-      |> Helpers.push(:response, :consumer_update, correlation_id: request.correlation_id, code: :internal_error)
+      |> Helpers.push_internal(:response, :consumer_update,
+        correlation_id: request.correlation_id,
+        code: :internal_error
+      )
     end
   end
 end
