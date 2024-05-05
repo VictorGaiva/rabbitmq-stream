@@ -23,7 +23,12 @@ defmodule RabbitMQStream.Producer.LifeCycle do
 
   @impl GenServer
   def handle_continue(opts, state) do
-    state = apply(state.producer_module, :before_start, [opts, state])
+    state =
+      if state.producer_module != nil and function_exported?(state.producer_module, :before_start, 2) do
+        apply(state.producer_module, :before_start, [opts, state])
+      else
+        state
+      end
 
     with {:ok, id} <-
            RabbitMQStream.Connection.declare_producer(state.connection, state.stream_name, state.reference_name),

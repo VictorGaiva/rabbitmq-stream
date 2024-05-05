@@ -36,7 +36,7 @@ defmodule RabbitMQStream.SuperConsumer do
 
     quote location: :keep do
       @opts unquote(opts)
-      @behaviour RabbitMQStream.Consumer
+      @behaviour RabbitMQStream.Consumer.Behaviour
 
       use Supervisor
 
@@ -76,15 +76,6 @@ defmodule RabbitMQStream.SuperConsumer do
         Supervisor.init(children, strategy: :one_for_all)
       end
 
-      def handle_chunk(_chunk), do: nil
-      def handle_chunk(chunk, _state), do: handle_chunk(chunk)
-
-      def handle_message(_message), do: nil
-      def handle_message(message, _state), do: handle_message(message)
-      def handle_message(message, _chunk, state), do: handle_message(message, state)
-
-      def before_start(_opts, state), do: state
-
       unquote(
         if serializer != nil do
           quote do
@@ -97,7 +88,7 @@ defmodule RabbitMQStream.SuperConsumer do
         end
       )
 
-      defoverridable RabbitMQStream.Consumer
+      defoverridable RabbitMQStream.Consumer.Behaviour
     end
   end
 

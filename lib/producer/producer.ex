@@ -122,7 +122,7 @@ defmodule RabbitMQStream.Producer do
       @opts unquote(opts)
       require Logger
 
-      @behaviour RabbitMQStream.Producer
+      @behaviour RabbitMQStream.Producer.Behaviour
 
       def start_link(opts \\ []) do
         unless !Keyword.has_key?(opts, :serializer) do
@@ -143,16 +143,22 @@ defmodule RabbitMQStream.Producer do
         %{id: __MODULE__, start: {__MODULE__, :start_link, [opts]}}
       end
 
+      def stop() do
+        GenServer.stop(__MODULE__)
+      end
+
       def publish(message) do
-        value = filter_value(message)
+        filter_value =
+          if function_exported?(__MODULE__, :filter_value, 1) do
+            apply(__MODULE__, :filter_value, [message])
+          else
+            nil
+          end
 
         message = encode!(message)
 
-        GenServer.cast(__MODULE__, {:publish, {message, value}})
+        RabbitMQStream.Producer.publish(__MODULE__, message, filter_value)
       end
-
-      def before_start(_opts, state), do: state
-      def filter_value(_), do: nil
 
       unquote(
         # We need this piece of logic so we can garantee that the 'encode!/1' call is executed
@@ -168,7 +174,7 @@ defmodule RabbitMQStream.Producer do
         end
       )
 
-      defoverridable RabbitMQStream.Producer
+      defoverridable RabbitMQStream.Producer.Behaviour
     end
   end
 
@@ -187,55 +193,19 @@ defmodule RabbitMQStream.Producer do
   end
 
   @doc """
-  Publishes a single message to the stream.
+  Publishes a binary message to the stream.
 
-  The message first passes through the 'encode!/1' callback, before
-  being sent to the RabbitMQStream.Producer process responsible for
-  sending the binary message to the Connection.
+  You can optionally provide a `filter_value` parameter, as of `RabbitMQ 3.13`.
 
-  As of RabbitMQ 3.13.x, the mesagge's 'filter_value' is generated
-  by passing it through the 'filter_value/1' callback.
-
-  The callback always returns ':ok', as the server only send a response
+  The callback always returns `:ok`, as the server only send a response
   for a publish in case of an error, in which case the error code is logged.
   """
-  @callback publish(message :: term()) :: :ok
+  @spec publish(GenServer.server(), message :: binary(), filter_value :: binary() | nil) :: :ok
 
-  @doc """
-  Callback responsible for encoding a message into binary format.
+  def publish(server, message, filter_value \\ nil) do
+    GenServer.cast(server, {:publish, {message, filter_value}})
+  end
 
-  It can be used in many ways, such as to 'Jason.encode!/1' a Map,
-  or to Gzip Compact a message before it is appended to the Stream.
-
-  """
-  @callback encode!(message :: term()) :: binary()
-
-  @doc """
-  Optional callback that is called after the process has started, but before the
-  producer has declared itself and fetched its most recent `publishing_id`.
-
-  This is usefull for setup logic, such as creating the Stream if it doesn't yet exists.
-  """
-  @callback before_start(opts :: options(), state :: t()) :: t()
-
-  @doc """
-  Callback responsible for generating the 'filter_value' for a message. The value
-  is used by the Server for filtering the chunks sent to consumer that have defined
-  a 'filter' parameter.
-
-  The callback is invoked before the message is encoded, by the serializer options.
-
-  Example defintion:
-        @impl true
-        def filter_value(message) do
-          message["key"]
-        end
-
-  The default implementation defines `nil` as the `filter_value` for all messages.
-  """
-  @callback filter_value(message :: term()) :: String.t() | nil
-
-  @optional_callbacks [before_start: 2, filter_value: 1]
   defstruct [
     :publishing_id,
     :reference_name,
@@ -253,7 +223,7 @@ defmodule RabbitMQStream.Producer do
           stream_name: String.t(),
           sequence: non_neg_integer() | nil,
           id: String.t() | nil,
-          producer_module: module()
+          producer_module: module() | nil
         }
 
   @type options :: [option()]

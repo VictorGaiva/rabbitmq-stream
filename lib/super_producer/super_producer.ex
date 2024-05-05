@@ -39,8 +39,8 @@ defmodule RabbitMQStream.SuperProducer do
 
     quote do
       @opts unquote(opts)
-      @behaviour RabbitMQStream.Producer
-      @behaviour RabbitMQStream.SuperProducer
+      @behaviour RabbitMQStream.Producer.Behaviour
+      @behaviour RabbitMQStream.SuperProducer.Behaviour
 
       use Supervisor
 
@@ -51,10 +51,6 @@ defmodule RabbitMQStream.SuperProducer do
           |> Keyword.merge(opts)
 
         Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
-      end
-
-      def child_spec(opts) do
-        %{id: __MODULE__, start: {__MODULE__, :start_link, [opts]}}
       end
 
       @impl true
@@ -81,26 +77,32 @@ defmodule RabbitMQStream.SuperProducer do
         Supervisor.init(children, strategy: :one_for_all)
       end
 
-      def publish(message) do
-        filter = filter_value(message)
-
-        message = encode!(message)
-
-        routing_key = routing_key(message, @opts[:partitions])
-
-        GenServer.cast(__MODULE__.Manager, {:publish, message, filter, routing_key})
+      def child_spec(opts) do
+        %{id: __MODULE__, start: {__MODULE__, :start_link, [opts]}}
       end
 
       def stop() do
         GenServer.stop(__MODULE__)
       end
 
+      def publish(message) do
+        filter =
+          if function_exported?(__MODULE__, :filter_value, 1) do
+            apply(__MODULE__, :filter_value, [message])
+          else
+            nil
+          end
+
+        message = encode!(message)
+
+        routing_key = routing_key(message, @opts[:partitions])
+
+        RabbitMQStream.SuperProducer.publish(__MODULE__.Manager, message, routing_key, filter)
+      end
+
       def routing_key(message, partitions) do
         :erlang.phash2(message, partitions)
       end
-
-      def before_start(_opts, state), do: state
-      def filter_value(_), do: nil
 
       unquote(
         # We need this piece of logic so we can garantee that the 'encode!/1' call is executed
@@ -116,18 +118,15 @@ defmodule RabbitMQStream.SuperProducer do
         end
       )
 
-      defoverridable RabbitMQStream.Producer
+      defoverridable RabbitMQStream.Producer.Behaviour
       defoverridable routing_key: 2
     end
   end
 
-  @doc """
-  Callback responsible for generating the routing key for a given message and
-  partitions size, which is then used to forward the publish request to the
-  RabbitMQStream.Producer process responsible for the partition.
-
-  """
-  @callback routing_key(message :: binary(), partitions :: non_neg_integer()) :: non_neg_integer() | binary()
+  @spec publish(GenServer.server(), binary(), binary(), binary() | nil) :: :ok
+  def publish(server, message, routing_key, filter_value \\ nil) do
+    GenServer.cast(server, {:publish, message, filter_value, routing_key})
+  end
 
   defstruct [
     :super_stream,

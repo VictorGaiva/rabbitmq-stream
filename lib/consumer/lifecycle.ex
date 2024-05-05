@@ -49,7 +49,12 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
 
   @impl true
   def handle_continue({:init, opts}, state) do
-    state = apply(state.consumer_module, :before_start, [opts, state])
+    state =
+      if function_exported?(state.consumer_module, :before_start, 2) do
+        apply(state.consumer_module, :before_start, [opts, state])
+      else
+        state
+      end
 
     last_offset =
       case RabbitMQStream.Connection.query_offset(state.connection, state.stream_name, state.offset_reference) do
@@ -118,13 +123,31 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
 
   @impl true
   def handle_info({:deliver, %DeliverData{osiris_chunk: %RabbitMQStream.OsirisChunk{} = chunk}}, state) do
-    # We could wrap the application with a `try do` clause, but it would break the "let it crash" filosophy
-    apply(state.consumer_module, :handle_chunk, [chunk, state])
+    if function_exported?(state.consumer_module, :handle_chunk, 2) do
+      apply(state.consumer_module, :handle_chunk, [chunk, state])
+    end
 
-    for message <- Enum.slice(chunk.data_entries, (state.last_offset - chunk.chunk_id)..chunk.num_entries),
-        decoded = apply(state.consumer_module, :decode!, [message]),
-        filtered?(decoded, state) do
-      apply(state.consumer_module, :handle_message, [decoded, chunk, state])
+    for message <- Enum.slice(chunk.data_entries, (state.last_offset - chunk.chunk_id)..chunk.num_entries) do
+      message =
+        if function_exported?(state.consumer_module, :decode!, 1) do
+          apply(state.consumer_module, :decode!, [message])
+        else
+          message
+        end
+
+      if filtered?(message, state) do
+        if function_exported?(state.consumer_module, :handle_message, 3) do
+          apply(state.consumer_module, :handle_message, [message, chunk, state])
+        end
+
+        if function_exported?(state.consumer_module, :handle_message, 2) do
+          apply(state.consumer_module, :handle_message, [message, state])
+        end
+
+        if function_exported?(state.consumer_module, :handle_message, 1) do
+          apply(state.consumer_module, :handle_message, [message])
+        end
+      end
     end
 
     # Based on the [Python implementation](https://github.com/qweeze/rstream/blob/a81176a5c7cf4accaee25ca7725bd7bd94bf0ce8/rstream/consumer.py#L327),
@@ -213,7 +236,12 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
     match_unfiltered = state.properties[:match_unfiltered]
 
     if filter != nil or match_unfiltered != nil do
-      filter_value = apply(state.consumer_module, :filter_value, [decoded])
+      filter_value =
+        if function_exported?(state.consumer_module, :filter_value, 1) do
+          apply(state.consumer_module, :filter_value, [decoded])
+        else
+          nil
+        end
 
       case {filter_value, filter, match_unfiltered} do
         {nil, _, true} ->
