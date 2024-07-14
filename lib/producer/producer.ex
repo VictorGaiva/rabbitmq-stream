@@ -34,7 +34,7 @@ defmodule RabbitMQStream.Producer do
   The RabbitMQStream.Producer accepts the following options:
 
   * `:stream_name` - The name of the stream to publish to. Required.
-  * `:reference_name` - The string which is used by the server to prevent [Duplicate Message](https://blog.rabbitmq.com/posts/2021/07/rabbitmq-streams-message-deduplication/). Defaults to `__MODULE__.Producer`.
+  * `:reference_name` - The string which is used by the server to prevent [Duplicate Message](https://blog.rabbitmq.com/posts/2021/07/rabbitmq-streams-message-deduplication/). Defaults to `__MODULE__.Producer`. (If clustering in production, check notes and the end.)
   * `:connection` - The identifier for a `RabbitMQStream.Connection`.
   * `:serializer` - The module to use to decode the message. Defaults to `nil`, which means no encoding is done.
 
@@ -110,6 +110,17 @@ defmodule RabbitMQStream.Producer do
 
   The default value for the `:serializer` is the module itself, unless a default is defined at a higher level of the
   configuration. If there is a `encode!/1` callback defined, it is always used
+
+  # Notes on Clustering
+
+  Be aware that the sequence tracking for each `:reference_name` is global. Meaning the if you are running
+  your Elixir as a cluster of multiple nodes, and each having a process of a Producer with the same
+  `:reference_name`, you may encounter issues with message de-duplication, where messages are being
+  dropped because the sequence on each producer's state might not be up to date after another process
+  with the same `:reference_name` produced a message.
+
+  There might be cases where you would want this behaviour. If not, be sure to declare a unique
+  `:reference_name` for each process.
 
   """
 

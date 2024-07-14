@@ -10,6 +10,10 @@ defmodule RabbitMQStreamTest.Consumer do
     use RabbitMQStream.Connection
   end
 
+  defmodule SupervisedConnection2 do
+    use RabbitMQStream.Connection
+  end
+
   defmodule SupervisorProducer do
     use RabbitMQStream.Producer,
       connection: SupervisedConnection
@@ -51,6 +55,9 @@ defmodule RabbitMQStreamTest.Consumer do
   setup do
     {:ok, _conn} = SupervisedConnection.start_link(host: "localhost", vhost: "/")
     :ok = SupervisedConnection.connect()
+
+    {:ok, _conn} = SupervisedConnection2.start_link(host: "localhost", vhost: "/")
+    :ok = SupervisedConnection2.connect()
 
     :ok
   end
@@ -167,5 +174,42 @@ defmodule RabbitMQStreamTest.Consumer do
     assert_receive {:message, ^message10}, 500
 
     SupervisedConnection.delete_stream(@stream)
+  end
+
+  @stream "consumer-test-stream-04"
+  @reference_name "reference-04"
+  test "should not duplicate messages when the reference_name is used twice" do
+    SupervisedConnection.create_stream(@stream)
+
+    {:ok, _subscriber} =
+      Consumer.start_link(
+        initial_offset: :next,
+        stream_name: @stream,
+        private: self(),
+        offset_tracking: [count: [store_after: 1]]
+      )
+
+    {:ok, first} =
+      RabbitMQStream.Producer.start_link(
+        connection: SupervisedConnection,
+        stream_name: @stream,
+        reference_name: "#{@reference_name}"
+      )
+
+    {:ok, second} =
+      RabbitMQStream.Producer.start_link(
+        connection: SupervisedConnection2,
+        stream_name: @stream,
+        reference_name: "#{@reference_name}"
+      )
+
+    Process.sleep(1000)
+
+    :ok = RabbitMQStream.Producer.publish(first, Jason.encode!(%{message: "first"}))
+    Process.sleep(500)
+    :ok = RabbitMQStream.Producer.publish(second, Jason.encode!(%{message: "second"}))
+
+    assert_receive {:message, %{"message" => "first"}}, 500
+    refute_receive {:message, %{"message" => "second"}}, 500
   end
 end
