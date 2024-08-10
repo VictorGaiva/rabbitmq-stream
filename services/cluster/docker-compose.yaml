@@ -1,0 +1,56 @@
+# Based on https://github.com/serkodev/rabbitmq-cluster-docker
+# Same as 'services/proxied-cluster/docker-compose.yaml' but without the load balancer.
+services:
+  rabbitmq1:
+    image: rabbitmq:3.13-management
+    hostname: rabbitmq1
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+      - RABBITMQ_DEFAULT_VHOST=/
+      - RABBITMQ_ERLANG_COOKIE=12345678
+    volumes:
+      - ./cluster-entrypoint.sh:/usr/local/bin/cluster-entrypoint.sh
+      - ../enabled_plugins:/etc/rabbitmq/enabled_plugins
+      - ../rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+      - ../cert:/etc/rabbitmq/cert
+    entrypoint: /usr/local/bin/cluster-entrypoint.sh
+    networks:
+      - rabbitmq
+
+  rabbitmq2:
+    image: rabbitmq:3.13-management
+    hostname: rabbitmq2
+    depends_on:
+      - rabbitmq1
+    environment:
+      - JOIN_CLUSTER_HOST=rabbitmq1
+      - RABBITMQ_ERLANG_COOKIE=12345678
+    volumes:
+      - ./cluster-entrypoint.sh:/usr/local/bin/cluster-entrypoint.sh
+      - ../enabled_plugins:/etc/rabbitmq/enabled_plugins
+      - ../rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+      - ../cert:/etc/rabbitmq/cert
+    entrypoint: /usr/local/bin/cluster-entrypoint.sh
+    networks:
+      - rabbitmq
+
+  rabbitmq3:
+    image: rabbitmq:3.13-management
+    hostname: rabbitmq3
+    depends_on:
+      - rabbitmq1
+    environment:
+      - JOIN_CLUSTER_HOST=rabbitmq1
+      - RABBITMQ_ERLANG_COOKIE=12345678
+    volumes:
+      - ./cluster-entrypoint.sh:/usr/local/bin/cluster-entrypoint.sh
+      - ../enabled_plugins:/etc/rabbitmq/enabled_plugins
+      - ../rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+      - ../cert:/etc/rabbitmq/cert
+    entrypoint: /usr/local/bin/cluster-entrypoint.sh
+    networks:
+      - rabbitmq
+
+networks:
+  rabbitmq:
