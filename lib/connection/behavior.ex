@@ -85,4 +85,6 @@ defmodule RabbitMQStream.Connection.Behavior do
 
   @callback supports?(GenServer.server(), command :: atom()) :: boolean()
   @callback supports?(GenServer.server(), command :: atom(), version :: String.t()) :: boolean()
+
+  @callback monitor(GenServer.server(), pid :: pid()) :: :ok | {:error, reason :: atom()}
 end

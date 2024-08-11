@@ -172,6 +172,16 @@ defmodule RabbitMQStream.Connection.Lifecycle do
   end
 
   @impl GenServer
+  # Internal events
+  def handle_cast({:monitor, ref}, %Connection{} = conn) do
+    {:noreply, %{conn | monitors: [ref | conn.monitors]}}
+  end
+
+  def handle_cast({:demonitor, ref}, %Connection{} = conn) do
+    {:noreply, %{conn | monitors: Enum.reject(conn.monitors, &(&1 == ref))}}
+  end
+
+  # User facing events should be handled only when the connection is open.
   def handle_cast(action, %Connection{state: state} = conn) when state != :open do
     {:noreply, %{conn | request_buffer: :queue.in({:cast, action}, conn.request_buffer)}}
   end
@@ -310,7 +320,12 @@ defmodule RabbitMQStream.Connection.Lifecycle do
 
   defp connect(%Connection{} = conn) do
     with {:ok, socket} <- conn.transport.connect(conn.options) do
-      {:ok, %{conn | socket: socket, state: :connecting}}
+      conn =
+        conn
+        |> Map.put(:socket, socket)
+        |> RabbitMQStream.Connection.Handler.transition(:connecting)
+
+      {:ok, conn}
     end
   end
 
@@ -327,7 +342,9 @@ defmodule RabbitMQStream.Connection.Lifecycle do
       GenServer.reply(client, {:error, {:closed, conn.close_reason}})
     end
 
-    conn = %{conn | request_tracker: %{}, connect_requests: [], socket: nil, state: :closed, close_reason: nil}
+    conn =
+      %{conn | request_tracker: %{}, connect_requests: [], socket: nil, close_reason: nil}
+      |> RabbitMQStream.Connection.Handler.transition(:closed)
 
     {:noreply, conn, :hibernate}
   end

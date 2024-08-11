@@ -500,6 +500,13 @@ defmodule RabbitMQStream.Connection do
     GenServer.call(server, {:supports?, command, version})
   end
 
+  @doc """
+  Subscribes to lifecycle events of the connection.
+  """
+  def monitor(server, pid) do
+    GenServer.cast(server, {:monitor, pid})
+  end
+
   @type offset :: :first | :last | :next | {:offset, non_neg_integer()} | {:timestamp, integer()}
   @type connection_options :: [connection_option]
   @type connection_option ::
@@ -533,7 +540,8 @@ defmodule RabbitMQStream.Connection do
           user_buffer: :queue.queue({atom(), atom(), list({atom(), term()})}),
           # this should not be here. Should find a better way to return the close reason from the 'handler' module
           close_reason: String.t() | atom() | nil,
-          transport: RabbitMQStream.Connection.Transport.t()
+          transport: RabbitMQStream.Connection.Transport.t(),
+          monitors: [pid()]
         }
   @enforce_keys [:transport, :options]
   defstruct [
@@ -549,6 +557,7 @@ defmodule RabbitMQStream.Connection do
     connection_properties: [],
     mechanisms: [],
     connect_requests: [],
+    monitors: [],
     request_tracker: %{},
     commands: %{},
     request_buffer: :queue.new(),
