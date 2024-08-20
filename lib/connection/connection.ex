@@ -504,7 +504,11 @@ defmodule RabbitMQStream.Connection do
   Subscribes to lifecycle events of the connection.
   """
   def monitor(server, pid) do
-    GenServer.cast(server, {:monitor, pid})
+    GenServer.call(server, {:monitor, pid})
+  end
+
+  def demonitor(server, ref) do
+    GenServer.call(server, {:demonitor, ref})
   end
 
   @type offset :: :first | :last | :next | {:offset, non_neg_integer()} | {:timestamp, integer()}
@@ -526,7 +530,7 @@ defmodule RabbitMQStream.Connection do
           producer_sequence: non_neg_integer(),
           subscriber_sequence: non_neg_integer(),
           peer_properties: %{String.t() => term()},
-          connection_properties: Keyword.t(),
+          connection_properties: %{String.t() => String.t()},
           mechanisms: [String.t()],
           connect_requests: [pid()],
           request_tracker: %{{atom(), integer()} => {pid(), any()}},
@@ -541,7 +545,7 @@ defmodule RabbitMQStream.Connection do
           # this should not be here. Should find a better way to return the close reason from the 'handler' module
           close_reason: String.t() | atom() | nil,
           transport: RabbitMQStream.Connection.Transport.t(),
-          monitors: [pid()]
+          monitors: %{reference() => pid()}
         }
   @enforce_keys [:transport, :options]
   defstruct [
@@ -553,11 +557,11 @@ defmodule RabbitMQStream.Connection do
     subscriber_sequence: 1,
     subscriptions: %{},
     state: :closed,
-    peer_properties: [],
+    peer_properties: %{},
     connection_properties: [],
     mechanisms: [],
     connect_requests: [],
-    monitors: [],
+    monitors: %{},
     request_tracker: %{},
     commands: %{},
     request_buffer: :queue.new(),

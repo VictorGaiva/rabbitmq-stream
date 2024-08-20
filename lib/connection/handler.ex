@@ -336,8 +336,13 @@ defmodule RabbitMQStream.Connection.Handler do
   """
 
   def transition(%Connection{} = conn, to) when is_atom(to) do
-    for pid <- conn.monitors do
-      send(pid, {:rabbitmq_stream, :connection, :transition, {conn.state, to}, self()})
+    for {ref, pid} <- conn.monitors do
+      # Attempting to follow the same semantics of 'Process.monitor/1'
+      send(
+        pid,
+        {:rabbitmq_stream, ref, :connection, {:transition, conn.state, to}, self(),
+         Map.take(conn, [:peer_properties, :connection_properties])}
+      )
     end
 
     %{conn | state: to}
