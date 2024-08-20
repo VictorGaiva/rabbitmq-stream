@@ -8,7 +8,7 @@ defmodule RabbitMQStreamTest.Monitor do
   test "should monitor state transitions" do
     {:ok, conn1} = RabbitMQStream.Connection.start_link(lazy: true, host: "rabbitmq1")
 
-    {:ok, ref} = RabbitMQStream.Connection.monitor(conn1, self())
+    {:ok, ref} = RabbitMQStream.Connection.monitor(conn1)
 
     :ok = RabbitMQStream.Connection.connect(conn1)
 

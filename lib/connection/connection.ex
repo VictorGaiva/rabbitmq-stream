@@ -503,8 +503,8 @@ defmodule RabbitMQStream.Connection do
   @doc """
   Subscribes to lifecycle events of the connection.
   """
-  def monitor(server, pid) do
-    GenServer.call(server, {:monitor, pid})
+  def monitor(server) do
+    GenServer.call(server, {:monitor, self()})
   end
 
   def demonitor(server, ref) do
