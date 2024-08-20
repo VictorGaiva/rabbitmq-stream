@@ -396,7 +396,6 @@ defmodule RabbitMQStream.Connection do
              is_integer(credit) and
              is_offset(offset) and
              is_list(properties) and
-             is_pid(pid) and
              credit >= 0 do
     GenServer.call(
       server,

@@ -179,7 +179,7 @@ defmodule RabbitMQStream.Message.Data do
         {buffer, [{key, value} | acc]}
       end)
 
-    %Types.OpenResponseData{connection_properties: connection_properties}
+    %Types.OpenResponseData{connection_properties: Map.new(connection_properties)}
   end
 
   def decode(%Response{command: :route}, buffer) do
