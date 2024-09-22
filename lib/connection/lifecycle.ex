@@ -44,12 +44,6 @@ defmodule RabbitMQStream.Connection.Lifecycle do
   end
 
   @impl GenServer
-  def handle_call({:monitor, from}, _from, %Connection{} = conn) do
-    ref = make_ref()
-
-    {:reply, {:ok, ref}, %{conn | monitors: Map.put(conn.monitors, ref, from)}}
-  end
-
   def handle_call({:connect}, from, %Connection{state: :closed} = conn) do
     Logger.debug("Connecting to server: #{conn.options[:host]}:#{conn.options[:port]}")
 
@@ -178,10 +172,6 @@ defmodule RabbitMQStream.Connection.Lifecycle do
   end
 
   @impl GenServer
-  # Internal events
-  def handle_cast({:demonitor, ref}, %Connection{} = conn) do
-    {:noreply, %{conn | monitors: Map.delete(conn.monitors, ref)}}
-  end
 
   # User facing events should be handled only when the connection is open.
   def handle_cast(action, %Connection{state: state} = conn) when state != :open do

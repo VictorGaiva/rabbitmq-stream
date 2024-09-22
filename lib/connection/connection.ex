@@ -80,8 +80,8 @@ defmodule RabbitMQStream.Connection do
   """
 
   defmacro __using__(opts) do
-    quote bind_quoted: [opts: opts], location: :keep do
-      @opts opts
+    quote location: :keep do
+      @opts unquote(opts)
 
       def start_link(opts \\ []) when is_list(opts) do
         opts =
@@ -499,17 +499,6 @@ defmodule RabbitMQStream.Connection do
     GenServer.call(server, {:supports?, command, version})
   end
 
-  @doc """
-  Subscribes to lifecycle events of the connection.
-  """
-  def monitor(server) do
-    GenServer.call(server, {:monitor, self()})
-  end
-
-  def demonitor(server, ref) do
-    GenServer.call(server, {:demonitor, ref})
-  end
-
   @type offset :: :first | :last | :next | {:offset, non_neg_integer()} | {:timestamp, integer()}
   @type connection_options :: [connection_option]
   @type connection_option ::
@@ -543,8 +532,7 @@ defmodule RabbitMQStream.Connection do
           user_buffer: :queue.queue({atom(), atom(), list({atom(), term()})}),
           # this should not be here. Should find a better way to return the close reason from the 'handler' module
           close_reason: String.t() | atom() | nil,
-          transport: RabbitMQStream.Connection.Transport.t(),
-          monitors: %{reference() => pid()}
+          transport: RabbitMQStream.Connection.Transport.t()
         }
   @enforce_keys [:transport, :options]
   defstruct [
@@ -560,7 +548,6 @@ defmodule RabbitMQStream.Connection do
     connection_properties: [],
     mechanisms: [],
     connect_requests: [],
-    monitors: %{},
     request_tracker: %{},
     commands: %{},
     request_buffer: :queue.new(),

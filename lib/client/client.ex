@@ -5,7 +5,47 @@ defmodule RabbitMQStream.Client do
   This module provides the API for setting up and managing a connection to multiple RabbitMQ Stream
   nodes in a cluster. It implements RabbitMQStream.Connection.Behavior, but with added functionality
   related to managing multiple connections.
+
+  The client attempts to implement the same interface as a connection, and its usage should be
+  interchangeable.
   """
+
+  defmacro __using__(opts) do
+    quote location: :keep do
+      @opts unquote(opts)
+
+      use Supervisor
+
+      def start_link(opts \\ []) when is_list(opts) do
+        Supervisor.start_link(__MODULE__, opts)
+      end
+
+      def child_spec(opts) do
+        %{id: __MODULE__, start: {__MODULE__, :start_link, [opts]}}
+      end
+
+      def stop(reason \\ :normal, timeout \\ :infinity) do
+        GenServer.stop(__MODULE__, reason, timeout)
+      end
+
+      @impl true
+      def init(opts) do
+        opts =
+          Application.get_env(:rabbitmq_stream, __MODULE__, [])
+          |> Keyword.merge(@opts)
+          |> Keyword.merge(opts)
+          |> Keyword.put(:name, __MODULE__)
+          |> Keyword.put(:scope, __MODULE__)
+
+        children = [
+          %{id: :pg, start: {:pg, :start_link, [__MODULE__]}},
+          {RabbitMQStream.Client, Keyword.put(opts, :name, __MODULE__.Lifecycle)}
+        ]
+
+        Supervisor.init(children, strategy: :one_for_all, name: __MODULE__)
+      end
+    end
+  end
 
   def start_link(opts \\ []) when is_list(opts) do
     opts =
@@ -22,43 +62,22 @@ defmodule RabbitMQStream.Client do
 
   defdelegate subscribe(server, stream_name, pid, offset, credit, properties \\ []), to: RabbitMQStream.Connection
 
-  defmodule ConnectionState do
-    @moduledoc false
-    defstruct [:pid, state: :initial, streams: []]
-
-    @type t :: %__MODULE__{
-            state: :initial | :opening | :open | :closed,
-            pid: pid(),
-            streams: [binary()]
-          }
-  end
-
-  defmodule BrokerState do
-    @moduledoc false
-    defstruct [:data, connections: []]
-
-    @type t :: %__MODULE__{
-            data: RabbitMQStream.Message.Types.QueryMetadataResponseData.BrokerData.t(),
-            # First let's assume there is up to one connection per broker
-            connections: %{reference() => ConnectionState.t()}
-          }
-  end
-
   @type client_option ::
           {:auto_discovery, boolean()}
-          | {:connection_opts, RabbitMQStream.Connection.connection_options()}
+          | {:scope, atom()}
+          | {:max_retries, non_neg_integer()}
+          | {:proxied?, boolean()}
 
-  defstruct status: :setup, opts: [], control: nil, brokers: %{}, streams: %{}, connections: %{}
+  defstruct [:scope, :max_retries, status: :setup, opts: [], control: nil, proxied?: false, subscriptions: %{}]
 
   @type t :: %__MODULE__{
           control: pid() | nil,
+          scope: module(),
           status: :open | :setup | :closed,
-          # Maps each broker reference to its state
-          brokers: %{non_neg_integer() => __MODULE__.BrokerState.t()},
-          # Maps a stream to the broker reference
-          streams: %{binary() => non_neg_integer()},
-          # Maps each connection ref to the related broker reference
-          connections: %{reference() => non_neg_integer()},
+          proxied?: boolean(),
+          # Maps each subscriber to the connection's PID, so that we can garbage collect it when the subscriber dies
+          subscriptions: %{reference() => pid()},
+          max_retries: non_neg_integer() | nil,
           opts: [RabbitMQStream.Connection.connection_options() | client_option()]
         }
 end

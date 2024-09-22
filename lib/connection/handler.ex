@@ -334,17 +334,8 @@ defmodule RabbitMQStream.Connection.Handler do
 
   Always call this function after all the state manipulation of the transition is done.
   """
-
   def transition(%Connection{} = conn, to) when is_atom(to) do
-    for {ref, pid} <- conn.monitors do
-      # Attempting to follow the same semantics of 'Process.monitor/1'
-      send(
-        pid,
-        {:rabbitmq_stream, ref, :connection, {:transition, conn.state, to}, self(),
-         Map.take(conn, [:peer_properties, :connection_properties])}
-      )
-    end
-
+    # TODO: Telemetry events
     %{conn | state: to}
   end
 end

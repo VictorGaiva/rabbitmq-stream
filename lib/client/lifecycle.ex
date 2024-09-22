@@ -2,14 +2,36 @@ defmodule RabbitMQStream.Client.Lifecycle do
   use GenServer
   alias RabbitMQStream.Client
 
+  @moduledoc """
+  This module defines the lifecycle of the RabbitMQStream.Client.
+
+  It is responsible for setting up the connections and routing requests to one or more RabbitMQ
+  servers within a cluster. It uses the protocol's nodes disovery mechanisms, mainly `query_metadata`
+  to resolve the leader of each stream.
+
+  ### Subscription
+
+  A subscribe request is handled by creating a new `RabbitMQStream.Connection` process, being
+  responsible for only that subscriber. If the subscriber dies, the connection is also killed.
+
+  - What should happen if the connection itself dies?
+
+  """
+
   @impl true
   def init(opts) do
-    {client_opts, connection_opts} = Keyword.split(opts, [:auto_discovery])
+    {client_opts, connection_opts} = Keyword.split(opts, [:auto_discovery, :name, :max_retries, :proxied?, :scope])
 
     # We specifically want to ignore the 'lazy' option when setting up a child connection
     connection_opts = Keyword.drop(connection_opts, [:lazy])
 
-    conn = %RabbitMQStream.Client{opts: Keyword.put(client_opts, :connection_opts, connection_opts)}
+    client_opts = Keyword.put(client_opts, :connection_opts, connection_opts)
+
+    conn =
+      struct(
+        RabbitMQStream.Client,
+        Keyword.put(client_opts, :opts, client_opts)
+      )
 
     {:ok, conn, {:continue, :setup}}
   end
@@ -34,84 +56,63 @@ defmodule RabbitMQStream.Client.Lifecycle do
   @impl true
   def handle_call({:subscribe, opts} = args, _from, %Client{} = conn) do
     stream = Keyword.fetch!(opts, :stream_name)
-    reference = Map.get(conn.streams, stream)
+    subscriber_pid = Keyword.fetch!(opts, :pid)
 
-    if reference == nil do
-      # Query metadata to identify brokers
-      case RabbitMQStream.Connection.query_metadata(conn.control, [stream]) do
-        {:ok, %{streams: [%{code: :ok, name: ^stream, leader: leader}]} = metadata} ->
-          case Map.get(conn.brokers, leader) do
-            nil ->
-              broker = Enum.find(metadata.brokers, &(&1.reference == leader))
-              # If the leader is present in the 'streams', it should be present on 'brokers' as well
-              # If not, raise
-              unless broker do
-                raise "Leader not found in the list of brokers"
-              end
+    # We start a new conneciton on every 'subscribe' request.
+    case new_leader_connection(conn, stream) do
+      {:ok, broker_conn} ->
+        # Listens to the subscriber's lifecycle
+        ref = Process.monitor(subscriber_pid)
 
-              # Start a new connection to the leader
-              {:ok, broker_conn} =
-                RabbitMQStream.Connection.start_link(
-                  Keyword.merge(
-                    conn.opts,
-                    host: broker.host,
-                    port: broker.port
-                  )
-                )
+        # Adds it to the subscriptions list
+        subscriptions = Map.put(conn.subscriptions, ref, broker_conn)
 
-              # Wait for the connection to be established
-              :ok = RabbitMQStream.Connection.connect(broker_conn)
+        # Forward the request to the new connection
+        {:reply, GenServer.call(broker_conn, args), %{conn | subscriptions: subscriptions}}
 
-              # Fill up the broker state with the new connection
-              {:ok, ref} = RabbitMQStream.Connection.monitor(broker_conn)
-
-              brokers =
-                Map.update(
-                  conn.brokers,
-                  leader,
-                  %Client.BrokerState{data: broker, connections: %{ref => broker_conn}},
-                  &%{&1 | connections: Map.put(&1.connections, ref, broker_conn)}
-                )
-
-              streams = Map.put(conn.streams, stream, leader)
-              connections = Map.put(conn.connections, ref, leader)
-
-              conn = %{conn | brokers: brokers, streams: streams, connections: connections}
-
-              # Forward the request to the new connection
-              {:reply, GenServer.call(broker_conn, args), conn}
-
-            # TODO: Get the broker with the highest priority
-            %Client.BrokerState{connections: connections} ->
-              # Get any connection
-              {_ref, broker_conn} = Enum.random(connections)
-
-              # Forward the request to the existing connection
-              {:reply, GenServer.call(broker_conn, args), conn}
-          end
-
-        _ ->
-          {:reply, {:error, :no_broker_available}, conn}
-      end
-    else
-      {:ok, %Client.BrokerState{connections: connections}} = Map.fetch(conn.brokers, reference)
-
-      {_ref, broker_conn} = Enum.random(connections)
-
-      # Forward the request to the existing connection
-      {:reply, GenServer.call(broker_conn, args), conn}
+      reply ->
+        {:reply, reply, conn}
     end
   end
 
   @impl true
-  # O que fazer com o 'ref' do monitor?
-  def handle_info({:DOWN, _ref, :process, pid, reason}, conn) do
-    dbg({pid, reason})
-    {:noreply, conn}
+  def handle_info({:DOWN, ref, :process, _pid, _reason}, %Client{} = conn) do
+    dbg(conn)
+    # Tells the connection to stop
+    brooken_conn = Map.get(conn.subscriptions, ref)
+
+    :ok = GenServer.stop(brooken_conn, :normal, 1000)
+
+    # Remove the subscription from the list
+    subscriptions = Map.delete(conn.subscriptions, ref)
+
+    {:noreply, %{conn | subscriptions: subscriptions}}
   end
 
-  def handle_info({:rabbitmq_stream, ref, :connection, {:transition, from, to}, _pid, _state}, conn) do
-    dbg({ref, from, to})
-    {:noreply, conn}
+  # Creates a new connection to the leader of the stream
+  defp new_leader_connection(%Client{} = conn, stream, _attempts \\ nil) do
+    # Query metadata to identify brokers
+    case RabbitMQStream.Connection.query_metadata(conn.control, [stream]) do
+      {:ok, %{streams: [%{code: :ok, name: ^stream, leader: leader}]} = metadata} ->
+        %{host: host, port: port} = Enum.find(metadata.brokers, &(&1.reference == leader))
+
+        # Start a new connection to the leader
+        {:ok, broker_conn} =
+          RabbitMQStream.Connection.start_link(
+            Keyword.merge(
+              conn.opts,
+              host: host,
+              port: port
+            )
+          )
+
+        # Ensure the connection is up
+        :ok = RabbitMQStream.Connection.connect(broker_conn)
+
+        {:ok, broker_conn}
+
+      _ ->
+        {:error, :no_broker_available}
+    end
   end
 end

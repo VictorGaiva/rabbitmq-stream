@@ -5,7 +5,11 @@ defmodule RabbitMQStreamTest.Clustered do
   # test "should auto discover and connect to all node when behind a loadbalancer" do
   # end
 
-  @tag :v3_13_cluster
+  defmodule TheClient do
+    use RabbitMQStream.Client, host: "rabbitmq1"
+  end
+
+  # @tag :v3_13_cluster
   test "should connect to all the replicated nodes" do
     {:ok, conn1} = RabbitMQStream.Connection.start_link(host: "rabbitmq1")
     {:ok, conn2} = RabbitMQStream.Connection.start_link(host: "rabbitmq2")
@@ -28,7 +32,8 @@ defmodule RabbitMQStreamTest.Clustered do
     {:ok, conn2} = RabbitMQStream.Connection.start_link(host: "rabbitmq2")
     {:ok, conn3} = RabbitMQStream.Connection.start_link(host: "rabbitmq3")
 
-    {:ok, client} = RabbitMQStream.Client.start_link(host: "rabbitmq1")
+    {:ok, _pg} = :pg.start_link(TheClient)
+    {:ok, client} = RabbitMQStream.Client.start_link(host: "rabbitmq1", scope: TheClient)
 
     RabbitMQStream.Connection.create_stream(conn1, "stream1")
     RabbitMQStream.Connection.create_stream(conn2, "stream2")

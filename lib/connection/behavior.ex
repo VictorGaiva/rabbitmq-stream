@@ -30,7 +30,7 @@ defmodule RabbitMQStream.Connection.Behavior do
   @callback delete_producer(GenServer.server(), producer_id :: integer()) ::
               :ok | {:error, reason :: atom()}
 
-  @callback query_producer_sequence(GenServer.server(), String.t(), String.t()) ::
+  @callback query_producer_sequence(GenServer.server(), stream_name :: String.t(), producer_reference :: String.t()) ::
               {:ok, sequence :: integer()} | {:error, reason :: atom()}
 
   @callback query_metadata(GenServer.server(), streams :: [String.t()]) ::
@@ -85,6 +85,4 @@ defmodule RabbitMQStream.Connection.Behavior do
 
   @callback supports?(GenServer.server(), command :: atom()) :: boolean()
   @callback supports?(GenServer.server(), command :: atom(), version :: String.t()) :: boolean()
-
-  @callback monitor(GenServer.server()) :: {:ok, reference()} | {:error, reason :: atom()}
 end
