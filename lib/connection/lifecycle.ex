@@ -14,8 +14,6 @@ defmodule RabbitMQStream.Connection.Lifecycle do
 
   @impl GenServer
   def init(opts) do
-    {transport, opts} = Keyword.pop(opts, :transport, :tcp)
-
     opts =
       opts
       |> Keyword.put_new(:host, "localhost")
@@ -26,6 +24,8 @@ defmodule RabbitMQStream.Connection.Lifecycle do
       |> Keyword.put_new(:frame_max, 1_048_576)
       |> Keyword.put_new(:heartbeat, 60)
       |> Keyword.put_new(:transport, :tcp)
+
+    {transport, opts} = Keyword.pop(opts, :transport, :tcp)
 
     transport =
       case transport do
@@ -172,6 +172,8 @@ defmodule RabbitMQStream.Connection.Lifecycle do
   end
 
   @impl GenServer
+
+  # User facing events should be handled only when the connection is open.
   def handle_cast(action, %Connection{state: state} = conn) when state != :open do
     {:noreply, %{conn | request_buffer: :queue.in({:cast, action}, conn.request_buffer)}}
   end
@@ -310,7 +312,12 @@ defmodule RabbitMQStream.Connection.Lifecycle do
 
   defp connect(%Connection{} = conn) do
     with {:ok, socket} <- conn.transport.connect(conn.options) do
-      {:ok, %{conn | socket: socket, state: :connecting}}
+      conn =
+        conn
+        |> Map.put(:socket, socket)
+        |> RabbitMQStream.Connection.Handler.transition(:connecting)
+
+      {:ok, conn}
     end
   end
 
@@ -327,7 +334,9 @@ defmodule RabbitMQStream.Connection.Lifecycle do
       GenServer.reply(client, {:error, {:closed, conn.close_reason}})
     end
 
-    conn = %{conn | request_tracker: %{}, connect_requests: [], socket: nil, state: :closed, close_reason: nil}
+    conn =
+      %{conn | request_tracker: %{}, connect_requests: [], socket: nil, close_reason: nil}
+      |> RabbitMQStream.Connection.Handler.transition(:closed)
 
     {:noreply, conn, :hibernate}
   end

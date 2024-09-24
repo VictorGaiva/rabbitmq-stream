@@ -30,7 +30,7 @@ defmodule RabbitMQStream.Connection.Behavior do
   @callback delete_producer(GenServer.server(), producer_id :: integer()) ::
               :ok | {:error, reason :: atom()}
 
-  @callback query_producer_sequence(GenServer.server(), String.t(), String.t()) ::
+  @callback query_producer_sequence(GenServer.server(), stream_name :: String.t(), producer_reference :: String.t()) ::
               {:ok, sequence :: integer()} | {:error, reason :: atom()}
 
   @callback query_metadata(GenServer.server(), streams :: [String.t()]) ::

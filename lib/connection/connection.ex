@@ -80,8 +80,8 @@ defmodule RabbitMQStream.Connection do
   """
 
   defmacro __using__(opts) do
-    quote bind_quoted: [opts: opts], location: :keep do
-      @opts opts
+    quote location: :keep do
+      @opts unquote(opts)
 
       def start_link(opts \\ []) when is_list(opts) do
         opts =
@@ -396,7 +396,6 @@ defmodule RabbitMQStream.Connection do
              is_integer(credit) and
              is_offset(offset) and
              is_list(properties) and
-             is_pid(pid) and
              credit >= 0 do
     GenServer.call(
       server,
@@ -519,7 +518,7 @@ defmodule RabbitMQStream.Connection do
           producer_sequence: non_neg_integer(),
           subscriber_sequence: non_neg_integer(),
           peer_properties: %{String.t() => term()},
-          connection_properties: Keyword.t(),
+          connection_properties: %{String.t() => String.t()},
           mechanisms: [String.t()],
           connect_requests: [pid()],
           request_tracker: %{{atom(), integer()} => {pid(), any()}},
@@ -545,7 +544,7 @@ defmodule RabbitMQStream.Connection do
     subscriber_sequence: 1,
     subscriptions: %{},
     state: :closed,
-    peer_properties: [],
+    peer_properties: %{},
     connection_properties: [],
     mechanisms: [],
     connect_requests: [],
