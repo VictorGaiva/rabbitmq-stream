@@ -6,8 +6,13 @@ defmodule RabbitMQStream.Client do
   nodes in a cluster. It implements RabbitMQStream.Connection.Behavior, but with added functionality
   related to managing multiple connections.
 
-  The client attempts to implement the same interface as a connection, and its usage should be
-  interchangeable.
+
+  ## Lifecycle
+
+  At startup, the client creates a`RabbitMQStream.Connection` to the provided host. It is used to
+  discover other nodes, mainly using the `query_metadata` command.
+
+
   """
 
   defmacro __using__(opts) do
@@ -76,7 +81,11 @@ defmodule RabbitMQStream.Client do
           status: :open | :setup | :closed,
           proxied?: boolean(),
           # Maps each subscriber to the connection's PID, so that we can garbage collect it when the subscriber dies
-          subscriptions: %{reference() => pid()},
+          subscriptions: %{
+            reference() =>
+              {type :: :brooker | :subscriber, other :: reference(),
+               {subscriber :: pid(), connection :: pid(), args :: term()}}
+          },
           max_retries: non_neg_integer() | nil,
           opts: [RabbitMQStream.Connection.connection_options() | client_option()]
         }
