@@ -19,33 +19,22 @@ defmodule RabbitMQStream.Client do
     quote location: :keep do
       @opts unquote(opts)
 
-      use Supervisor
-
-      def start_link(opts \\ []) when is_list(opts) do
-        Supervisor.start_link(__MODULE__, opts)
-      end
-
       def child_spec(opts) do
         %{id: __MODULE__, start: {__MODULE__, :start_link, [opts]}}
       end
 
-      def stop(reason \\ :normal, timeout \\ :infinity) do
-        GenServer.stop(__MODULE__, reason, timeout)
-      end
-
-      @impl true
-      def init(opts) do
+      def start_link(opts \\ []) when is_list(opts) do
         opts =
           Application.get_env(:rabbitmq_stream, __MODULE__, [])
           |> Keyword.merge(@opts)
           |> Keyword.merge(opts)
           |> Keyword.put(:name, __MODULE__)
 
-        children = [
-          {RabbitMQStream.Client, Keyword.put(opts, :name, __MODULE__.Lifecycle)}
-        ]
+        RabbitMQStream.Client.start_link(opts)
+      end
 
-        Supervisor.init(children, strategy: :one_for_all, name: __MODULE__)
+      def stop(reason \\ :normal, timeout \\ :infinity) do
+        GenServer.stop(__MODULE__, reason, timeout)
       end
     end
   end
