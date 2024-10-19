@@ -227,7 +227,10 @@ defmodule RabbitMQStream.Connection.Lifecycle do
     {:noreply, conn}
   end
 
-  def handle_cast({:respond, %Request{} = request, opts}, %Connection{} = conn) do
+  def handle_cast({:respond, opts}, %Connection{} = conn) do
+    %Request{} = request = Keyword.fetch!(opts, :request)
+    opts = Keyword.fetch!(opts, :opts)
+
     conn =
       conn
       |> send_response(request.command, [correlation_id: request.correlation_id] ++ opts)

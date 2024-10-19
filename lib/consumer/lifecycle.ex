@@ -242,7 +242,10 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
     {:noreply, FlowControl.run(state)}
   end
 
-  def handle_info({:command, %Request{command: :consumer_update, data: data} = request}, state) do
+  def handle_info(
+        {:command, %Request{command: :consumer_update, data: data} = request},
+        %RabbitMQStream.Consumer{} = state
+      ) do
     if function_exported?(state.consumer_module, :handle_update, 2) do
       action = if data.active, do: :upgrade, else: :downgrade
 
@@ -254,15 +257,15 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
       case apply(state.consumer_module, :handle_update, [state, action]) do
         {:ok, offset} ->
           Logger.debug("Consumer upgraded to active consumer")
-          RabbitMQStream.Connection.respond(state.connection, request, offset: offset, code: :ok)
+          RabbitMQStream.Connection.respond(state.connection, state.id, request, offset: offset, code: :ok)
 
         {:error, reason} ->
           Logger.error("Error updating consumer: #{inspect(reason)}")
-          RabbitMQStream.Connection.respond(state.connection, request, code: :internal_error)
+          RabbitMQStream.Connection.respond(state.connection, state.id, request, code: :internal_error)
       end
     else
       Logger.error("handle_update/2 must be implemented when using single-active-consumer property")
-      RabbitMQStream.Connection.respond(state.connection, request, code: :internal_error)
+      RabbitMQStream.Connection.respond(state.connection, state.id, request, code: :internal_error)
     end
 
     {:noreply, state}

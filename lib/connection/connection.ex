@@ -203,8 +203,8 @@ defmodule RabbitMQStream.Connection do
         RabbitMQStream.Connection.delete_super_stream(__MODULE__, name)
       end
 
-      def respond(request, opts) do
-        RabbitMQStream.Connection.respond(__MODULE__, request, opts)
+      def respond(subscription_id, request, opts) do
+        RabbitMQStream.Connection.respond(__MODULE__, subscription_id, request, opts)
       end
     end
   end
@@ -497,8 +497,8 @@ defmodule RabbitMQStream.Connection do
   offset. So the connection sends the request to the subscription handler, which then calls
   this function to send the response back to the server.
   """
-  def respond(server, request, opts) when is_list(opts) do
-    GenServer.cast(server, {:respond, request, opts})
+  def respond(server, subscription_id, request, opts) when is_list(opts) do
+    GenServer.cast(server, {:respond, subscription_id: subscription_id, request: request, opts: opts})
   end
 
   @doc """
