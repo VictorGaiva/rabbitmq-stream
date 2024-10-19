@@ -120,7 +120,10 @@ defmodule RabbitMQStream.Connection.Lifecycle do
     {:noreply, conn}
   end
 
-  def handle_call({:supports?, command, version}, _from, %Connection{} = conn) do
+  def handle_call({:supports?, opts}, _from, %Connection{} = conn) do
+    command = Keyword.get(opts, :command)
+    version = Keyword.get(opts, :version)
+
     flag =
       case conn.commands do
         %{^command => %{max: max}} when max <= version ->

@@ -133,6 +133,15 @@ defmodule RabbitMQStream.Connection do
         )
       end
 
+      def declare_producer(stream_name, producer_reference, producer_id) do
+        RabbitMQStream.Connection.declare_producer(
+          __MODULE__,
+          stream_name,
+          producer_reference,
+          producer_id
+        )
+      end
+
       def delete_producer(producer_id) do
         RabbitMQStream.Connection.delete_producer(__MODULE__, producer_id)
       end
@@ -505,7 +514,7 @@ defmodule RabbitMQStream.Connection do
   Checks if the connected server supports the given command.
   """
   def supports?(server, command, version \\ 1) do
-    GenServer.call(server, {:supports?, command, version})
+    GenServer.call(server, {:supports?, command: command, version: version})
   end
 
   @type offset :: :first | :last | :next | {:offset, non_neg_integer()} | {:timestamp, integer()}

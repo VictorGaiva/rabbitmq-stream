@@ -19,24 +19,24 @@ defmodule RabbitMQStream.Client.Lifecycle do
   How each command is handled by the Client
   - `:connect`: NOOP
   - `:close`: NOOP
-  - `:create_stream`: (Issue: Creates the stream on node)
-  - `:delete_stream`:
-  - `:query_offset`: Forward to 'control' connection
-  - `:delete_producer`:
-  - `:query_metadata`: Forward to 'control' connection
-  - `:unsubscribe`:
+  - `:create_stream`: Forwarded to control (Issue: The stream's leader end's up being in the control's node)
+  - `:delete_stream`: Forwarded to control
+  - `:query_offset`: Forwarded to control
+  - `:delete_producer`: Forwarded to broker
+  - `:query_metadata`: Forwarded to control
+  - `:unsubscribe`: Forwarded to broker
   - `:subscribe`: Spawns a new connection
-  - `:credit`:
-  - `:stream_stats`: Forward to 'control' connection
-  - `:partitions`:
-  - `:route`:
-  - `:delete_super_stream`:
-  - `:respond`:
-  - `:supports?`:
-  - `:query_producer_sequence`: Forward to 'control' connection
-  - `:create_super_stream`:
+  - `:credit`: Forwarded to broker
+  - `:stream_stats`: Forwarded to control
+  - `:partitions`: Forwarded to control
+  - `:route`: Forwarded to control
+  - `:delete_super_stream`: Forwarded to control
+  - `:respond`: Forwarded to broker
+  - `:supports?`: Forwarded to control
+  - `:query_producer_sequence`: Forwarded to control
+  - `:create_super_stream`: Forwarded to control
   - `:declare_producer`: Spawns a new connection
-  - `:publish`: Forwards it to the correct broker
+  - `:publish`: Forwarded to broker
 
   """
 
@@ -131,8 +131,40 @@ defmodule RabbitMQStream.Client.Lifecycle do
   end
 
   def handle_call({type, opts}, _from, %Client{} = conn)
-      when type in [:query_offset, :store_offset, :query_metadata, :query_producer_sequence, :stream_stats] do
+      when type in [
+             :query_offset,
+             :store_offset,
+             :query_metadata,
+             :query_producer_sequence,
+             :stream_stats,
+             :partitions,
+             :route,
+             :delete_super_stream,
+             :create_stream,
+             :delete_stream,
+             :create_super_stream
+           ] do
     {:reply, GenServer.call(conn.control, {type, opts}), conn}
+  end
+
+  def handle_call({:unsubscribe, opts}, _from, %Client{} = conn) do
+    broker_pid =
+      conn.clients
+      |> Map.get(opts[:subscription_id])
+      |> then(&elem(&1, 1))
+
+    # TODO: Cleanup
+    {:reply, GenServer.call(broker_pid, {:unsubscribe, opts}), conn}
+  end
+
+  def handle_call({:delete_producer, opts}, _from, %Client{} = conn) do
+    broker_pid =
+      conn.clients
+      |> Map.get(opts[:producer_id])
+      |> then(&elem(&1, 1))
+
+    # TODO: Cleanup
+    {:reply, GenServer.call(broker_pid, {:delete_producer, opts}), conn}
   end
 
   # Noop
@@ -143,9 +175,37 @@ defmodule RabbitMQStream.Client.Lifecycle do
   end
 
   @impl true
+  def handle_cast({:credit, opts}, %Client{} = conn) do
+    broker_pid =
+      conn.clients
+      |> Map.get(opts[:subscription_id])
+      |> then(&elem(&1, 1))
+
+    GenServer.cast(broker_pid, {:credit, opts})
+    {:noreply, conn}
+  end
+
+  # An issue with only forwarding the messages to the broker is that it adds an extra message pass.
+  # To workaround this issue we could buffer messages so that it offsets the possible performance hit.
+  # Or we could attempt to use ':ets' in some way to prevent work around this, but there doesn't
+  # seem to be a way to do this while keeping the exact same interface as a Connection.
   def handle_cast({:publish, opts}, %Client{} = conn) do
-    {_client_pid, broker_pid, _args} = Map.get(conn.clients, opts[:producer_id])
+    broker_pid =
+      conn.clients
+      |> Map.get(opts[:producer_id])
+      |> then(&elem(&1, 1))
+
     GenServer.cast(broker_pid, {:publish, opts})
+    {:noreply, conn}
+  end
+
+  def handle_cast({:respond, opts}, %Client{} = conn) do
+    broker_pid =
+      conn.clients
+      |> Map.get(opts[:subscription_id])
+      |> then(&elem(&1, 1))
+
+    GenServer.cast(broker_pid, {:respond, opts})
     {:noreply, conn}
   end
 
