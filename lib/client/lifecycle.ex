@@ -15,13 +15,34 @@ defmodule RabbitMQStream.Client.Lifecycle do
   A subscribe request is handled by creating a new `RabbitMQStream.Connection` process, being
   responsible for only that subscriber. If the subscriber dies, the connection is also killed.
 
-  - What should happen if the connection itself dies?
+
+  How each command is handled by the Client
+  - `:connect`: NOOP
+  - `:close`: NOOP
+  - `:create_stream`:
+  - `:delete_stream`:
+  - `:query_offset`: Forward to 'control' connection
+  - `:delete_producer`:
+  - `:query_metadata`: Forward to 'control' connection
+  - `:unsubscribe`:
+  - `:subscribe`: Spawns a new connection
+  - `:credit`:
+  - `:stream_stats`: Forward to 'control' connection
+  - `:partitions`:
+  - `:route`:
+  - `:delete_super_stream`:
+  - `:respond`:
+  - `:supports?`:
+  - `:query_producer_sequence`: Forward to 'control' connection
+  - `:create_super_stream`:
+  - `:declare_producer`: Spawns a new connection
+  - `:publish`:
 
   """
 
   @impl true
   def init(opts) do
-    {client_opts, connection_opts} = Keyword.split(opts, [:auto_discovery, :name, :max_retries, :proxied?, :scope])
+    {client_opts, connection_opts} = Keyword.split(opts, [:auto_discovery, :name, :max_retries, :proxied?])
 
     # We specifically want to ignore the 'lazy' option when setting up a child connection
     connection_opts = Keyword.drop(connection_opts, [:lazy])
@@ -54,71 +75,110 @@ defmodule RabbitMQStream.Client.Lifecycle do
     {:noreply, conn}
   end
 
-  # 1. Should consumer's commands other than 'subscribe' be sent to control or its own connection?
+  # 1. Should client's commands other than 'subscribe' be sent to control or its own connection?
   #
 
   @impl true
-  def handle_call({:subscribe, opts} = args, _from, %Client{} = conn) do
+  def handle_call({type, opts} = args, _from, %Client{} = conn) when type in [:subscribe, :declare_producer] do
     stream = Keyword.fetch!(opts, :stream_name)
-    consumer_pid = Keyword.fetch!(opts, :pid)
+    client_pid = Keyword.fetch!(opts, :pid)
 
     # We start a new conneciton on every 'subscribe' request.
-    case new_leader_connection(conn, stream) do
-      {:ok, broker_pid} ->
-        # Listen to each process's lifecycle
-        consumer_ref = Process.monitor(consumer_pid)
-        brooker_ref = Process.monitor(broker_pid)
+    if Keyword.has_key?(opts, :subscription_id) || Keyword.has_key?(opts, :producer_id) do
+      Logger.error("Manually passing `producer_id` or `subscription_id` to a Client is not allowed")
+      {:reply, {:ok, :not_allowed}, conn}
+    else
+      case new_leader_connection(conn, stream) do
+        {:ok, broker_pid} ->
+          {id, conn} = Map.get_and_update!(conn, :client_sequence, &{&1, &1 + 1})
+          # Listen to each process's lifecycle
+          client_ref = Process.monitor(client_pid)
+          brooker_ref = Process.monitor(broker_pid)
 
-        # Adds it to the subscriptions list
-        subscriptions =
-          conn.subscriptions
-          # And we add both so we can get each other
-          |> Map.put(consumer_ref, {:consumer, brooker_ref, {consumer_pid, broker_pid, args}})
-          |> Map.put(brooker_ref, {:brooker, consumer_ref, {consumer_pid, broker_pid, args}})
+          opts =
+            case type do
+              :subscribe ->
+                Keyword.put(opts, :subscription_id, id)
 
-        # Forward the request to the new connection
-        {:reply, GenServer.call(broker_pid, args), %{conn | subscriptions: subscriptions}}
+              :declare_producer ->
+                Keyword.put(opts, :producer_id, id)
+            end
 
-      reply ->
-        {:reply, reply, conn}
+          # Forward the request to the new connection
+          case GenServer.call(broker_pid, {type, opts}) do
+            {:ok, ^id} ->
+              # Adds it to the subscriptions list
+              monitors =
+                conn.monitors
+                # And we add both so we can get each other
+                |> Map.put(client_ref, {:client, brooker_ref, id})
+                |> Map.put(brooker_ref, {:brooker, client_ref, id})
+
+              clients =
+                conn.clients
+                |> Map.put(id, {client_pid, broker_pid, args})
+
+              {:reply, {:ok, id}, %{conn | monitors: monitors, clients: clients}}
+
+            {:error, error} ->
+              {:reply, error, conn}
+          end
+
+        reply ->
+          {:reply, reply, conn}
+      end
     end
+  end
+
+  def handle_call({type, opts}, _from, %Client{} = conn)
+      when type in [:query_offset, :store_offset, :query_metadata, :query_producer_sequence, :stream_stats] do
+    {:reply, GenServer.call(conn.control, {type, opts}), conn}
+  end
+
+  # Noop
+  def handle_call({type, _opts}, _from, %Client{} = conn)
+      when type in [:connect, :close] do
+    Logger.warning("Calling \"#{type}\" on a Client has no effect.")
+    {:reply, :ok, conn}
   end
 
   @impl true
   def handle_info({:DOWN, ref, :process, _pid, _reason}, %Client{} = conn) do
-    case Map.get(conn.subscriptions, ref) do
-      {type, other_ref, {client_pid, broker_pid, args}} ->
+    case Map.get(conn.clients, ref) do
+      {type, other_ref, id} ->
+        {client_pid, broker_pid, args} = Map.fetch!(conn.clients, id)
+
         case type do
-          # If the process that has shut down is Consumer process
-          :consumer ->
+          # If the process that has shut down is Client process
+          :client ->
             # We should shut down the connection as it is not needed anymore
             :ok = GenServer.stop(broker_pid, :normal, 1000)
 
           # If it was the broker that shutdown
           :brooker ->
             # We tell the client process that the connection has exited, so it can handle
-            # it the way it sees fit. Meaning that a Consumer might re-run the offset-fetching +
-            # subscribing flow, while a publisher has to (TODO!...)
+            # it the way it sees fit. Meaning that a Client might re-run the offset-fetching +
+            # subscribing flow, while a producer has to redeclare itself
             case args do
               {:subscribe, opts} ->
                 # We forward the 'opts' so that the user's process can use it if needed.
                 send(client_pid, {:resubscribe, opts})
 
-              _ ->
-                Logger.info("TODO")
+              {:declare_producer, opts} ->
+                # We forward the 'opts' so that the user's process can use it if needed.
+                send(client_pid, {:redeclare_producer, opts})
             end
-
-            :ok
         end
 
         # We always do this cleanup as the 'user' process is responsible for any 'init' or 're-init'
-        # flow.
-        subscriptions = Map.drop(conn.subscriptions, [ref, other_ref])
+        # flow. It also applies to the 'clients' tracker
+        monitors = Map.drop(conn.monitors, [ref, other_ref])
+        clients = Map.drop(conn.clients, [id])
 
-        {:noreply, %{conn | subscriptions: subscriptions}}
+        {:noreply, %{conn | monitors: monitors, clients: clients}}
 
       nil ->
-        Logger.warning("Received :DOWN for #{ref}, but it was not found in 'subscriptions'")
+        Logger.warning("Received :DOWN for #{ref}, but it was not found in 'clients'")
         {:noreply, conn}
     end
   end
@@ -134,7 +194,7 @@ defmodule RabbitMQStream.Client.Lifecycle do
         {:ok, broker_conn} =
           RabbitMQStream.Connection.start_link(
             Keyword.merge(
-              conn.opts,
+              conn.opts[:connection_opts],
               host: host,
               port: port
             )

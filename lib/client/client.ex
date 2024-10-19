@@ -40,10 +40,8 @@ defmodule RabbitMQStream.Client do
           |> Keyword.merge(@opts)
           |> Keyword.merge(opts)
           |> Keyword.put(:name, __MODULE__)
-          |> Keyword.put(:scope, __MODULE__)
 
         children = [
-          %{id: :pg, start: {:pg, :start_link, [__MODULE__]}},
           {RabbitMQStream.Client, Keyword.put(opts, :name, __MODULE__.Lifecycle)}
         ]
 
@@ -69,22 +67,31 @@ defmodule RabbitMQStream.Client do
 
   @type client_option ::
           {:auto_discovery, boolean()}
-          | {:scope, atom()}
           | {:max_retries, non_neg_integer()}
           | {:proxied?, boolean()}
 
-  defstruct [:scope, :max_retries, status: :setup, opts: [], control: nil, proxied?: false, subscriptions: %{}]
+  defstruct [
+    :max_retries,
+    status: :setup,
+    opts: [],
+    control: nil,
+    proxied?: false,
+    monitors: %{},
+    clients: %{},
+    client_sequence: 0
+  ]
 
   @type t :: %__MODULE__{
           control: pid() | nil,
-          scope: module(),
           status: :open | :setup | :closed,
+          client_sequence: non_neg_integer(),
           proxied?: boolean(),
           # Maps each subscriber to the connection's PID, so that we can garbage collect it when the subscriber dies
-          subscriptions: %{
-            reference() =>
-              {type :: :brooker | :subscriber, other :: reference(),
-               {subscriber :: pid(), connection :: pid(), args :: term()}}
+          monitors: %{
+            reference() => {type :: :brooker | :subscriber | :producer, other :: reference(), id :: non_neg_integer()}
+          },
+          clients: %{
+            reference() => {type :: :subscriber | :producer, subscriber :: pid(), connection :: pid(), args :: term()}
           },
           max_retries: non_neg_integer() | nil,
           opts: [RabbitMQStream.Connection.connection_options() | client_option()]

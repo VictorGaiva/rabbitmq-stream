@@ -92,12 +92,21 @@ defmodule RabbitMQStream.Connection.Lifecycle do
   end
 
   def handle_call({:subscribe, opts}, from, %Connection{} = conn) do
-    {id, conn} = Map.get_and_update!(conn, :subscriber_sequence, &{&1, &1 + 1})
+    {opts, conn} =
+      if Keyword.has_key?(opts, :subscription_id) do
+        {opts, conn}
+      else
+        {id, conn} = Map.get_and_update!(conn, :subscriber_sequence, &{&1, &1 + 1})
+
+        opts = Keyword.put(opts, :subscription_id, id)
+
+        {opts, conn}
+      end
 
     conn =
       conn
-      |> Helpers.push_tracker(:subscribe, from, {id, opts[:pid]})
-      |> send_request(:subscribe, opts ++ [subscription_id: id])
+      |> Helpers.push_tracker(:subscribe, from, {opts[:subscription_id], opts[:pid]})
+      |> send_request(:subscribe, opts)
 
     {:noreply, conn}
   end
@@ -161,18 +170,26 @@ defmodule RabbitMQStream.Connection.Lifecycle do
   end
 
   def handle_call({:declare_producer, opts}, from, %Connection{} = conn) do
-    {id, conn} = Map.get_and_update!(conn, :producer_sequence, &{&1, &1 + 1})
+    {opts, conn} =
+      if Keyword.has_key?(opts, :producer_id) do
+        {opts, conn}
+      else
+        {id, conn} = Map.get_and_update!(conn, :producer_sequence, &{&1, &1 + 1})
+
+        opts = Keyword.put(opts, :producer_id, id)
+
+        {opts, conn}
+      end
 
     conn =
       conn
-      |> Helpers.push_tracker(:declare_producer, from, id)
-      |> send_request(:declare_producer, opts ++ [id: id])
+      |> Helpers.push_tracker(:declare_producer, from, opts[:producer_id])
+      |> send_request(:declare_producer, opts)
 
     {:noreply, conn}
   end
 
   @impl GenServer
-
   # User facing events should be handled only when the connection is open.
   def handle_cast(action, %Connection{state: state} = conn) when state != :open do
     {:noreply, %{conn | request_buffer: :queue.in({:cast, action}, conn.request_buffer)}}

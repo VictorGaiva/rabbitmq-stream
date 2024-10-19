@@ -32,8 +32,7 @@ defmodule RabbitMQStreamTest.Clustered do
     {:ok, conn2} = RabbitMQStream.Connection.start_link(host: "rabbitmq2")
     {:ok, conn3} = RabbitMQStream.Connection.start_link(host: "rabbitmq3")
 
-    {:ok, _pg} = :pg.start_link(TheClient)
-    {:ok, client} = RabbitMQStream.Client.start_link(host: "rabbitmq1", scope: TheClient)
+    {:ok, client} = RabbitMQStream.Client.start_link(host: "rabbitmq1")
 
     RabbitMQStream.Connection.create_stream(conn1, "stream1")
     RabbitMQStream.Connection.create_stream(conn2, "stream2")

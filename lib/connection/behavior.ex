@@ -27,6 +27,14 @@ defmodule RabbitMQStream.Connection.Behavior do
   @callback declare_producer(GenServer.server(), stream_name :: String.t(), producer_reference :: String.t()) ::
               {:ok, producer_id :: integer()} | {:error, reason :: atom()}
 
+  @callback declare_producer(
+              GenServer.server(),
+              stream_name :: String.t(),
+              producer_reference :: String.t(),
+              producer_id :: integer()
+            ) ::
+              {:ok, producer_id :: integer()} | {:error, reason :: atom()}
+
   @callback delete_producer(GenServer.server(), producer_id :: integer()) ::
               :ok | {:error, reason :: atom()}
 

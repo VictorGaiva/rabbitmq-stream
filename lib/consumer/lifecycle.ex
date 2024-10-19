@@ -163,6 +163,7 @@ defmodule RabbitMQStream.Consumer.LifeCycle do
               0
           end
 
+        # A consumer should always update its own id
         {:noreply, %{state | id: id, last_offset: last_offset}}
 
       err ->

@@ -222,15 +222,15 @@ defmodule RabbitMQStream.Message.Types do
 
   defmodule DeclareProducerRequestData do
     @moduledoc false
-    @enforce_keys [:id, :producer_reference, :stream_name]
+    @enforce_keys [:producer_id, :producer_reference, :stream_name]
     @type t :: %__MODULE__{
-            id: non_neg_integer(),
+            producer_id: non_neg_integer(),
             producer_reference: String.t(),
             stream_name: String.t()
           }
 
     defstruct [
-      :id,
+      :producer_id,
       :producer_reference,
       :stream_name
     ]

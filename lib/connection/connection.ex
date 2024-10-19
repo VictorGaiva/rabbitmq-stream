@@ -307,6 +307,15 @@ defmodule RabbitMQStream.Connection do
     )
   end
 
+  def declare_producer(server, stream_name, producer_reference, producer_id)
+      when is_binary(producer_reference) and
+             is_binary(stream_name) and is_integer(producer_id) do
+    GenServer.call(
+      server,
+      {:declare_producer, stream_name: stream_name, producer_reference: producer_reference, producer_id: producer_id}
+    )
+  end
+
   @doc """
   Unregisters the producer, under the provided id, from the server.
   """
