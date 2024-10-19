@@ -19,7 +19,7 @@ defmodule RabbitMQStream.Client.Lifecycle do
   How each command is handled by the Client
   - `:connect`: NOOP
   - `:close`: NOOP
-  - `:create_stream`:
+  - `:create_stream`: (Issue: Creates the stream on node)
   - `:delete_stream`:
   - `:query_offset`: Forward to 'control' connection
   - `:delete_producer`:
@@ -36,7 +36,7 @@ defmodule RabbitMQStream.Client.Lifecycle do
   - `:query_producer_sequence`: Forward to 'control' connection
   - `:create_super_stream`:
   - `:declare_producer`: Spawns a new connection
-  - `:publish`:
+  - `:publish`: Forwards it to the correct broker
 
   """
 
@@ -140,6 +140,13 @@ defmodule RabbitMQStream.Client.Lifecycle do
       when type in [:connect, :close] do
     Logger.warning("Calling \"#{type}\" on a Client has no effect.")
     {:reply, :ok, conn}
+  end
+
+  @impl true
+  def handle_cast({:publish, opts}, %Client{} = conn) do
+    {_client_pid, broker_pid, _args} = Map.get(conn.clients, opts[:producer_id])
+    GenServer.cast(broker_pid, {:publish, opts})
+    {:noreply, conn}
   end
 
   @impl true

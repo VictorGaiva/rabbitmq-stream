@@ -20,11 +20,8 @@ defmodule RabbitMQStreamTest.ClientTest do
     assert :ok = RabbitMQStream.Connection.connect(conn)
 
     {:ok, client} = RabbitMQStream.Client.start_link(host: "localhost")
-    dbg(client)
 
     RabbitMQStream.Connection.create_stream(conn, "stream1")
-    RabbitMQStream.Connection.create_stream(conn, "stream2")
-    RabbitMQStream.Connection.create_stream(conn, "stream3")
 
     {:ok, _subscription_id} = RabbitMQStream.Connection.subscribe(client, "stream1", self(), :next, 999)
 
@@ -34,5 +31,11 @@ defmodule RabbitMQStreamTest.ClientTest do
         reference_name: "client-producer",
         stream_name: "stream1"
       )
+
+    message = Jason.encode!(%{message: "Hello, world2!"})
+
+    ClientProducer.publish(message)
+
+    assert_receive {:deliver, %{osiris_chunk: %{data_entries: [^message]}}}, 500
   end
 end

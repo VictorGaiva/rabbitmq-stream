@@ -303,7 +303,7 @@ defmodule RabbitMQStream.Connection do
              is_binary(stream_name) do
     GenServer.call(
       server,
-      {:declare_producer, stream_name: stream_name, producer_reference: producer_reference}
+      {:declare_producer, stream_name: stream_name, producer_reference: producer_reference, pid: self()}
     )
   end
 
