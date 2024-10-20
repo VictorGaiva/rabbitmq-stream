@@ -2,6 +2,7 @@ defmodule RabbitMQStream.Client.Lifecycle do
   use GenServer
   require Logger
   alias RabbitMQStream.Client
+  alias RabbitMQStream.Message
 
   @moduledoc """
   This module defines the lifecycle of the RabbitMQStream.Client.
@@ -185,6 +186,22 @@ defmodule RabbitMQStream.Client.Lifecycle do
     {:noreply, conn}
   end
 
+  def handle_cast({:respond, opts}, %Client{} = conn) do
+    # We only accept one type of 'respond' command
+    %Message.Request{
+      command: :consumer_update,
+      data: %Message.Types.ConsumerUpdateRequestData{subscription_id: subscription_id}
+    } = Keyword.fetch!(opts, :request)
+
+    broker_pid =
+      conn.clients
+      |> Map.get(subscription_id)
+      |> then(&elem(&1, 1))
+
+    GenServer.cast(broker_pid, {:respond, opts})
+    {:noreply, conn}
+  end
+
   # An issue with only forwarding the messages to the broker is that it adds an extra message pass.
   # To workaround this issue we could buffer messages so that it offsets the possible performance hit.
   # Or we could attempt to use ':ets' in some way to prevent work around this, but there doesn't
@@ -196,16 +213,6 @@ defmodule RabbitMQStream.Client.Lifecycle do
       |> then(&elem(&1, 1))
 
     GenServer.cast(broker_pid, {:publish, opts})
-    {:noreply, conn}
-  end
-
-  def handle_cast({:respond, opts}, %Client{} = conn) do
-    broker_pid =
-      conn.clients
-      |> Map.get(opts[:subscription_id])
-      |> then(&elem(&1, 1))
-
-    GenServer.cast(broker_pid, {:respond, opts})
     {:noreply, conn}
   end
 
