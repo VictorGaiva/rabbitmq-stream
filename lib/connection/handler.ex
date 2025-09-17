@@ -122,9 +122,11 @@ defmodule RabbitMQStream.Connection.Handler do
     # We need to extract the base version from the version string so we can compare
     # make decisions based on the version of the server.
     version =
-      ~r/(\d+)\.(\d+)\.(\d+)/
-      |> Regex.run(response.data.peer_properties["version"], capture: :all_but_first)
-      |> Enum.map(&String.to_integer/1)
+      case Regex.run(~r/(\d+)\.(\d+)\.(\d+)/, response.data.peer_properties["version"], capture: :all_but_first) do
+        # fallback for commit-hashes
+        nil -> [3, 13, 0]
+        matches -> Enum.map(matches, &String.to_integer/1)
+      end
 
     peer_properties = Map.put(response.data.peer_properties, "base-version", version)
 
