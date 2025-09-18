@@ -121,7 +121,7 @@ defmodule RabbitMQStream.Connection.Handler do
 
     # We need to extract the base version from the version string so we can compare
     # make decisions based on the version of the server.
-    base_version = Version.parse(response.data.peer_properties["version"])
+    base_version = Version.parse!(response.data.peer_properties["version"])
 
     peer_properties = Map.put(response.data.peer_properties, "base-version", base_version)
 
