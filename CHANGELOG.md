@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.2
+
+Bug fixes
+
+- Better handle the server's semver parsing #20
+
 ## 0.4.1
 
 Bug fixes
