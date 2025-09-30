@@ -121,12 +121,9 @@ defmodule RabbitMQStream.Connection.Handler do
 
     # We need to extract the base version from the version string so we can compare
     # make decisions based on the version of the server.
-    version =
-      ~r/(\d+)\.(\d+)\.(\d+)/
-      |> Regex.run(response.data.peer_properties["version"], capture: :all_but_first)
-      |> Enum.map(&String.to_integer/1)
+    base_version = Version.parse!(response.data.peer_properties["version"])
 
-    peer_properties = Map.put(response.data.peer_properties, "base-version", version)
+    peer_properties = Map.put(response.data.peer_properties, "base-version", base_version)
 
     %{conn | peer_properties: peer_properties}
     |> Helpers.push_internal(:request, :sasl_handshake)
@@ -170,7 +167,7 @@ defmodule RabbitMQStream.Connection.Handler do
         %Connection{peer_properties: %{"base-version" => version}} = conn,
         %Response{command: :open} = response
       )
-      when version < [3, 13] do
+      when [version.major, version.minor] < [3, 13] do
     Logger.debug("Successfully opened connection with vhost: \"#{conn.options[:vhost]}\"")
 
     for request <- conn.connect_requests do
@@ -186,7 +183,7 @@ defmodule RabbitMQStream.Connection.Handler do
         %Connection{peer_properties: %{"base-version" => version}} = conn,
         %Response{command: :open} = response
       )
-      when version >= [3, 13] do
+      when [version.major, version.minor] >= [3, 13] do
     Logger.debug(
       "Successfully opened connection with vhost: \"#{conn.options[:vhost]}\". Initiating command version exchange."
     )
